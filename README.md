@@ -41,9 +41,3 @@ By default, the engine favors production assets.
 * `/res`: JSON configuration files for scripts, variables, assets, and entities.
 * `/assets`: Media files (sprites, music, sound effects, backgrounds).
 * `/build`: Target directory for executables, symlinks, and `data.bin`.
-
-## 📜 Future Roadmap
-* Branching dialogue localization (i18n).
-* Full UI tokenization and styling overhauls.
-* Granular save-file metadata integration.
-* Advanced scripting event hooks (camera pans, particle emitters).
