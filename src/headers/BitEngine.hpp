@@ -2,13 +2,31 @@
 #define BITENGINE_HPP
 
 #include "json.hpp"
-#include "RichText.hpp"
 #include <string>
 #include <vector>
 #include <map>
 #include <optional>
 
-// --- Logic Structures ---
+// Hardware-agnostic color representation
+struct BitColor {
+    unsigned char r, g, b, a;
+    static BitColor Blank() { return {0, 0, 0, 0}; }
+};
+
+struct RichChar {
+    std::string ch;
+    BitColor color = BitColor::Blank(); // Blank means follow style default
+    float waitBefore = 0.0f;
+    float speedMod = 1.0f;
+    bool shake = false;
+    bool wave = false;
+};
+
+class RichTextParser {
+public:
+    static std::vector<RichChar> Parse(const std::string& rawText);
+    static BitColor StringToColor(const std::string& str);
+};
 
 struct Condition { std::string op, var; int value; };
 struct Event { std::string op, var; int value; };

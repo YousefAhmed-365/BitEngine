@@ -19,11 +19,10 @@ find_package(raylib REQUIRED)
 # Common Core Sources
 set(CORE_SOURCES
     src/BitEngine.cpp
-    src/RichText.cpp
 )
 
 # --- BitEngine (The Game) ---
-add_executable(BitEngine src/main.cpp src/BitApp.cpp src/BitRenderer.cpp src/UIStyle.cpp ${CORE_SOURCES})
+add_executable(BitEngine src/main.cpp src/BitApp.cpp src/BitRenderer.cpp ${CORE_SOURCES})
 target_include_directories(BitEngine PRIVATE src src/headers)
 target_link_libraries(BitEngine PRIVATE raylib)
 
