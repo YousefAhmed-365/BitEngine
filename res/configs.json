@@ -2,7 +2,7 @@
     "configs": {
         "start_node": "scene_alley_start",
         "reveal_speed": 45.0,
-        "debug": true,
+        "debug_mode": "debug_all",
         "auto_save": true,
         "encrypt_save": false,
         "enable_floating": true,
@@ -17,6 +17,9 @@
     ],
     "variables": [
         "res/variables.json"
+    ],
+    "assets": [
+        "res/assets.json"
     ],
     "dialogs": [
         "res/dialog_intro.json",

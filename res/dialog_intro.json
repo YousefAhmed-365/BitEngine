@@ -2,10 +2,11 @@
     "scene_alley_start": {
         "entity": "akira",
         "metadata": {
-            "bg": "assets/alley_bg.png",
-            "bgm": "assets/neon_noir.mp3",
-            "sfx": "assets/glitch.wav",
-            "expression": "neutral"
+            "bg": "alley_bg",
+            "bgm": "neon_noir",
+            "sfx": "glitch",
+            "expression": "neutral",
+            "pos": "right"
         },
         "content": "Still walking these shadows? You're either brave or very lost. Current Credits: {credits}",
         "next_id": null,
@@ -33,7 +34,8 @@
         "entity": "akira",
         "metadata": {
             "expression": "idle",
-            "sfx": "assets/confirm.wav"
+            "sfx": "confirm",
+            "pos": "left"
         },
         "content": "Work is a polite word for what I do. But you look like you can handle a blade. Go see Kael at the market. Tell him I sent you.",
         "next_id": "alley_to_market",
@@ -47,7 +49,8 @@
         "entity": "akira",
         "metadata": {
             "expression": "serious",
-            "shake_custom": "yes"
+            "pos": "center",
+            "pos_y": "0.4"
         },
         "content": "Is that so? Well, keep moving. Characters like you don't last long in the rain.",
         "next_id": "alley_to_market",
@@ -59,8 +62,8 @@
     "alley_to_market": {
         "entity": "system",
         "metadata": {
-            "bg": "assets/market_bg.png",
-            "bgm": "assets/market_theme.mp3"
+            "bg": "market_bg",
+            "bgm": "market_theme"
         },
         "content": "You leave the damp alley and head towards the glow of the Neon Market.",
         "next_id": "scene_market_start",

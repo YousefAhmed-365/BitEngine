@@ -20,7 +20,7 @@ DialogProject DialogParser::ParseConfig(const std::string& path) {
             auto& c = j["configs"];
             p.configs.start_node = c.value("start_node", "dialog_start");
             p.configs.reveal_speed = c.value("reveal_speed", 30.0f);
-            p.configs.debug = c.value("debug", false);
+            p.configs.debug_mode = c.value("debug_mode", "none");
             p.configs.auto_save = c.value("auto_save", false);
             p.configs.encrypt_save = c.value("encrypt_save", false);
             p.configs.enable_floating = c.value("enable_floating", true);
@@ -37,7 +37,10 @@ DialogProject DialogParser::ParseConfig(const std::string& path) {
             else if (j["entities"].is_object()) {
                 // Legacy inline support
                 for (auto& [id, ent] : j["entities"].items()) {
-                    Entity entity = { id, ent.value("name", id), ent.value("type", "char") };
+                    Entity entity;
+                    entity.id = id;
+                    entity.name = ent.value("name", id);
+                    entity.type = ent.value("type", "char");
                     if (ent.contains("sprites")) {
                         for (auto& [expr, s] : ent["sprites"].items()) 
                             entity.sprites[expr] = { s.value("path", ""), s.value("frames", 1), s.value("speed", 5.0f), s.value("scale", 1.0f) };
@@ -52,7 +55,9 @@ DialogProject DialogParser::ParseConfig(const std::string& path) {
             else if (j["variables"].is_object()) {
                 // Legacy inline support
                 for (auto& [id, v] : j["variables"].items()) {
-                    VariableDef def = { id, v.value("initial", 0) };
+                    VariableDef def;
+                    def.id = id;
+                    def.initial_value = v.value("initial", 0);
                     if (v.contains("min")) def.min = v["min"].get<int>();
                     if (v.contains("max")) def.max = v["max"].get<int>();
                     p.variables[id] = def;
@@ -62,6 +67,9 @@ DialogProject DialogParser::ParseConfig(const std::string& path) {
         
         if (j.contains("dialogs") && j["dialogs"].is_array())
             for (auto& d : j["dialogs"]) p.configs.dialog_files.push_back(d.get<std::string>());
+            
+        if (j.contains("assets") && j["assets"].is_array())
+            for (auto& a : j["assets"]) p.configs.asset_files.push_back(a.get<std::string>());
             
     } catch (...) {}
     return p;
@@ -73,7 +81,17 @@ bool DialogParser::LoadEntitiesFile(const std::string& path, DialogProject& p) {
         json j; f >> j;
         auto& root = j.contains("entities") ? j["entities"] : j;
         for (auto& [id, ent] : root.items()) {
-            Entity entity = { id, ent.value("name", id), ent.value("type", "char") };
+            Entity entity;
+            entity.id = id;
+            entity.name = ent.value("name", id);
+            entity.type = ent.value("type", "char");
+            
+            std::string dpos = ent.value("default_pos", "center");
+            if (dpos == "left") entity.default_pos_x = 0.2f;
+            else if (dpos == "right") entity.default_pos_x = 0.8f;
+            else if (dpos == "center") entity.default_pos_x = 0.5f;
+            else try { entity.default_pos_x = std::stof(dpos); } catch(...) {}
+
             if (ent.contains("sprites")) {
                 for (auto& [expr, s] : ent["sprites"].items()) 
                     entity.sprites[expr] = { s.value("path", ""), s.value("frames", 1), s.value("speed", 5.0f), s.value("scale", 1.0f) };
@@ -90,7 +108,9 @@ bool DialogParser::LoadVariablesFile(const std::string& path, DialogProject& p) 
         json j; f >> j;
         auto& root = j.contains("variables") ? j["variables"] : j;
         for (auto& [id, v] : root.items()) {
-            VariableDef def = { id, v.value("initial", 0) };
+            VariableDef def;
+            def.id = id;
+            def.initial_value = v.value("initial", 0);
             if (v.contains("min")) def.min = v["min"].get<int>();
             if (v.contains("max")) def.max = v["max"].get<int>();
             p.variables[id] = def;
@@ -104,12 +124,16 @@ bool DialogParser::LoadDialogFile(const std::string& path, DialogProject& p) {
     try {
         json j; f >> j;
         for (auto& [id, n] : j.items()) {
-            DialogNode node = { n.value("entity", "unk"), n.value("content", "") };
+            DialogNode node;
+            node.entity = n.value("entity", "unk");
+            node.content = n.value("content", "");
             if (n.contains("next_id") && !n["next_id"].is_null()) node.next_id = n["next_id"].get<std::string>();
             if (n.contains("metadata")) for (auto& [k, v] : n["metadata"].items()) node.metadata[k] = v.get<std::string>();
             if (n.contains("options")) {
                 for (auto& o : n["options"]) {
-                    DialogOption opt = { o.value("content", ""), "", o.value("style", "normal") };
+                    DialogOption opt;
+                    opt.content = o.value("content", "");
+                    opt.style = o.value("style", "normal");
                     if (o.contains("next_id") && !o["next_id"].is_null()) opt.next_id = o["next_id"].get<std::string>();
                     if (o.contains("conditions")) {
                         auto& conds = o["conditions"];
@@ -127,15 +151,34 @@ bool DialogParser::LoadDialogFile(const std::string& path, DialogProject& p) {
     return true;
 }
 
+bool DialogParser::LoadAssetsFile(const std::string& path, DialogProject& p) {
+    std::ifstream f(path); if (!f) return false;
+    try {
+        json j; f >> j;
+        if (j.contains("backgrounds")) {
+            for (auto& [id, file] : j["backgrounds"].items()) p.backgrounds[id] = file.get<std::string>();
+        }
+        if (j.contains("music")) {
+            for (auto& [id, file] : j["music"].items()) p.music[id] = file.get<std::string>();
+        }
+        if (j.contains("sfx")) {
+            for (auto& [id, file] : j["sfx"].items()) p.sfx[id] = file.get<std::string>();
+        }
+    } catch (...) { return false; }
+    return true;
+}
+
 // --- DialogEngine ---
 DialogEngine::DialogEngine() {}
 
-bool DialogEngine::LoadProject(const std::string& path) {
-    m_project = DialogParser::ParseConfig(path);
+bool DialogEngine::LoadProject(const std::string& configFilePath) {
+    Log("Loading project from: " + configFilePath);
+    m_project = DialogParser::ParseConfig(configFilePath);
     
     // Load external registries
     for (const auto& f : m_project.configs.entity_files) DialogParser::LoadEntitiesFile(f, m_project);
     for (const auto& f : m_project.configs.variable_files) DialogParser::LoadVariablesFile(f, m_project);
+    for (const auto& f : m_project.configs.asset_files) DialogParser::LoadAssetsFile(f, m_project);
     for (const auto& f : m_project.configs.dialog_files) DialogParser::LoadDialogFile(f, m_project);
     
     if (m_project.nodes.empty()) return false;
@@ -143,7 +186,168 @@ bool DialogEngine::LoadProject(const std::string& path) {
     return true;
 }
 
+void DialogEngine::CompileProject(const std::string& outputPath) {
+    Log("Compiling project to: " + outputPath);
+    json j;
+    
+    // Serialize Configs
+    j["configs"] = {
+        {"start_node", m_project.configs.start_node},
+        {"reveal_speed", m_project.configs.reveal_speed},
+        {"debug_mode", m_project.configs.debug_mode},
+        {"auto_save", m_project.configs.auto_save},
+        {"encrypt_save", m_project.configs.encrypt_save},
+        {"enable_floating", m_project.configs.enable_floating},
+        {"enable_shadows", m_project.configs.enable_shadows},
+        {"enable_vignette", m_project.configs.enable_vignette},
+        {"save_prefix", m_project.configs.save_prefix},
+        {"max_slots", m_project.configs.max_slots},
+        {"mode", m_project.configs.mode}
+    };
+
+    // Serialize Entities
+    for (auto const& [id, e] : m_project.entities) {
+        json ej = { {"name", e.name}, {"type", e.type}, {"default_pos_x", e.default_pos_x} };
+        for (auto const& [sid, s] : e.sprites) {
+            ej["sprites"][sid] = { {"path", s.path}, {"frames", s.frames}, {"speed", s.speed}, {"scale", s.scale} };
+        }
+        j["entities"][id] = ej;
+    }
+
+    // Serialize Variables
+    for (auto const& [id, v] : m_project.variables) {
+        j["variables"][id] = { {"initial", v.initial_value}, {"min", v.min}, {"max", v.max} };
+    }
+
+    // Serialize Nodes
+    for (auto const& [id, n] : m_project.nodes) {
+        json nj = { {"entity", n.entity}, {"content", n.content}, {"next_id", n.next_id}, {"metadata", n.metadata} };
+        for (auto const& o : n.options) {
+            json oj = { {"content", o.content}, {"next_id", o.next_id}, {"style", o.style} };
+            for (auto const& c : o.conditions) oj["conditions"].push_back({ {"op", c.op}, {"var", c.var}, {"value", c.value} });
+            for (auto const& e : o.events) oj["events"].push_back({ {"op", e.op}, {"var", e.var}, {"value", e.value} });
+            nj["options"].push_back(oj);
+        }
+        for (auto const& e : n.events) nj["events"].push_back({ {"op", e.op}, {"var", e.var}, {"value", e.value} });
+        j["nodes"][id] = nj;
+    }
+    
+    // Serialize Assets
+    for (auto const& [id, p] : m_project.backgrounds) j["backgrounds"][id] = p;
+    for (auto const& [id, p] : m_project.music) j["music"][id] = p;
+    for (auto const& [id, p] : m_project.sfx) j["sfx"][id] = p;
+
+    std::string data = j.dump();
+    data = XORBuffer(data);
+    std::ofstream f(outputPath, std::ios::binary);
+    f.write(data.data(), data.size());
+}
+
+bool DialogEngine::LoadCompiledProject(const std::string& binPath) {
+    Log("Loading compiled project from: " + binPath);
+    std::ifstream f(binPath, std::ios::binary | std::ios::ate);
+    if (!f) return false;
+
+    size_t size = f.tellg();
+    std::string data(size, '\0');
+    f.seekg(0); f.read(&data[0], size);
+    data = XORBuffer(data);
+
+    try {
+        json j = json::parse(data);
+        m_project.entities.clear();
+        m_project.variables.clear();
+        m_project.nodes.clear();
+
+        if (j.contains("configs")) {
+            auto& c = j["configs"];
+            m_project.configs.start_node = c.value("start_node", "dialog_start");
+            m_project.configs.reveal_speed = c.value("reveal_speed", 30.0f);
+            m_project.configs.debug_mode = c.value("debug_mode", "none");
+            m_project.configs.auto_save = c.value("auto_save", false);
+            m_project.configs.encrypt_save = c.value("encrypt_save", false);
+            m_project.configs.enable_floating = c.value("enable_floating", true);
+            m_project.configs.enable_shadows = c.value("enable_shadows", true);
+            m_project.configs.enable_vignette = c.value("enable_vignette", true);
+            m_project.configs.save_prefix = c.value("save_prefix", "save_slot_");
+            m_project.configs.max_slots = c.value("max_slots", 5);
+            m_project.configs.mode = c.value("mode", "typewriter");
+        }
+
+        if (j.contains("entities")) {
+            for (auto& [id, ent] : j["entities"].items()) {
+                Entity entity;
+                entity.id = id;
+                entity.name = ent.value("name", id);
+                entity.type = ent.value("type", "char");
+                entity.default_pos_x = ent.value("default_pos_x", 0.5f);
+                if (ent.contains("sprites")) {
+                    for (auto& [expr, s] : ent["sprites"].items()) 
+                        entity.sprites[expr] = { s.value("path", ""), s.value("frames", 1), s.value("speed", 5.0f), s.value("scale", 1.0f) };
+                }
+                m_project.entities[id] = entity;
+            }
+        }
+
+        if (j.contains("variables")) {
+            for (auto& [id, v] : j["variables"].items()) {
+                VariableDef def;
+                def.id = id;
+                def.initial_value = v.value("initial", 0);
+                m_project.variables[id] = def;
+            }
+        }
+
+        if (j.contains("nodes")) {
+            for (auto& [id, node] : j["nodes"].items()) {
+                DialogNode n;
+                n.entity = node.value("entity", "");
+                n.content = node.value("content", "");
+                if (node.contains("next_id") && !node["next_id"].is_null()) 
+                    n.next_id = node.value("next_id", "");
+                
+                if (node.contains("metadata")) n.metadata = node["metadata"].get<std::map<std::string, std::string>>();
+                if (node.contains("events")) {
+                    for (auto& e : node["events"]) n.events.push_back({ e.value("op", "set"), e.value("var", ""), e.value("value", 0) });
+                }
+                if (node.contains("options")) {
+                    for (auto& opt : node["options"]) {
+                        DialogOption o;
+                        o.content = opt.value("content", "");
+                        o.next_id = opt.value("next_id", "");
+                        o.style = opt.value("style", "normal");
+                        
+                        if (opt.contains("conditions")) {
+                            for (auto& c : opt["conditions"]) o.conditions.push_back({ c.value("op", "=="), c.value("var", ""), c.value("value", 0) });
+                        }
+                        if (opt.contains("events")) {
+                            for (auto& e : opt["events"]) o.events.push_back({ e.value("op", "set"), e.value("var", ""), e.value("value", 0) });
+                        }
+                        n.options.push_back(o);
+                    }
+                }
+                m_project.nodes[id] = n;
+            }
+        }
+        
+        if (j.contains("backgrounds")) {
+            for (auto& [id, p] : j["backgrounds"].items()) m_project.backgrounds[id] = p.get<std::string>();
+        }
+        if (j.contains("music")) {
+            for (auto& [id, p] : j["music"].items()) m_project.music[id] = p.get<std::string>();
+        }
+        if (j.contains("sfx")) {
+            for (auto& [id, p] : j["sfx"].items()) m_project.sfx[id] = p.get<std::string>();
+        }
+        
+        for (auto const& [name, def] : m_project.variables) m_variables[name] = def.initial_value;
+
+    } catch (...) { return false; }
+    return true;
+}
+
 void DialogEngine::SaveGame(int slot) {
+    Log("Saving game to slot " + std::to_string(slot));
     if (!m_currentNode) return;
     try {
         SaveData sd;
@@ -202,6 +406,7 @@ std::optional<SaveMetadata> DialogEngine::GetSaveMetadata(int slot) const {
 
 void DialogEngine::StartDialog(const std::string& startId) {
     std::string id = startId.empty() ? m_project.configs.start_node : startId;
+    Log("Starting dialog sequence: " + id);
     if (!m_project.nodes.count(id)) return;
     m_currentNode = &m_project.nodes[id]; m_isActive = true;
     m_cachedInterpolatedContent = InterpolateVariables(m_currentNode->content);
@@ -286,6 +491,23 @@ void DialogEngine::ProcessEvents(const std::vector<Event>& events) {
     }
 }
 
+void DialogEngine::Log(const std::string& msg) {
+    std::string mode = m_project.configs.debug_mode;
+    if (mode == "none") return;
+
+    if (mode == "debug_overlay" || mode == "debug_all") {
+        std::cout << "[BitEngine] " << msg << std::endl;
+    }
+
+    if (mode == "debug_file" || mode == "debug_all") {
+        std::ofstream logFile("debug.log", std::ios_base::app);
+        if (logFile.is_open()) {
+            auto t = std::time(nullptr);
+            logFile << std::put_time(std::localtime(&t), "%Y-%m-%d %H:%M:%S") << " | " << msg << std::endl;
+        }
+    }
+}
+
 void DialogEngine::RefreshVisibleOptions() {
     m_visibleOptions.clear();
     for (auto& o : m_currentNode->options) {
@@ -306,7 +528,7 @@ void DialogEngine::RefreshVisibleOptions() {
 
 const Entity* DialogEngine::GetCurrentEntity() const {
     if (!m_currentNode) return nullptr;
-    auto it = m_project.entities.find(m_currentNode->entity_id);
+    auto it = m_project.entities.find(m_currentNode->entity);
     return (it != m_project.entities.end()) ? &it->second : nullptr;
 }
 

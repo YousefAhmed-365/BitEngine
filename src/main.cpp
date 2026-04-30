@@ -11,12 +11,18 @@ int main() {
     SetTargetFPS(60);
 
     {
-        // 2. Setup Engine and Bridge
         DialogEngine dialogSystem;
         BitDialog uiBridge(dialogSystem);
 
-        // 3. Load Project
-        if (dialogSystem.LoadProject("res/configs.json")) {
+        // --- Loading Hierarchy ---
+        bool loaded = false;
+        if (FileExists("data.bin")) {
+            loaded = dialogSystem.LoadCompiledProject("data.bin");
+        } else {
+            loaded = dialogSystem.LoadProject("res/configs.json");
+        }
+
+        if (loaded) {
             dialogSystem.StartDialog();
         } else {
             std::cerr << "CRITICAL ERROR: Failed to load res/configs.json" << std::endl;

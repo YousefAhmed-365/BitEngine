@@ -25,18 +25,19 @@ struct SpriteDef {
 };
 
 struct Entity { 
-    std::string id, name, type; 
-    std::map<std::string, SpriteDef> sprites; 
+    std::string id = "", name = "Unknown", type = "char"; 
+    float default_pos_x = 0.5f;
+    std::map<std::string, SpriteDef> sprites = {}; 
 };
 
-struct VariableDef { std::string id; int initial_value; std::optional<int> min, max; };
+struct VariableDef { std::string id = ""; int initial_value = 0; std::optional<int> min = std::nullopt, max = std::nullopt; };
 
 struct DialogNode {
-    std::string entity_id, content;
-    std::optional<std::string> next_id;
-    std::vector<DialogOption> options;
-    std::vector<Event> events;         
-    std::map<std::string, std::string> metadata; 
+    std::string entity = "", content = "";
+    std::optional<std::string> next_id = std::nullopt;
+    std::vector<DialogOption> options = {};
+    std::vector<Event> events = {};         
+    std::map<std::string, std::string> metadata = {}; 
 };
 
 struct SaveMetadata {
@@ -55,13 +56,15 @@ struct SaveData {
 
 struct DialogConfigs {
     std::string start_node = "dialog_start", save_prefix = "save_slot_", mode = "typewriter";
+    std::string debug_mode = "none";
     float reveal_speed = 45.0f;
-    bool debug = false, auto_save = false, encrypt_save = false; 
+    bool auto_save = false, encrypt_save = false; 
     bool enable_floating = true, enable_shadows = true, enable_vignette = true;
     int max_slots = 5;
     std::vector<std::string> dialog_files;
     std::vector<std::string> entity_files;
     std::vector<std::string> variable_files;
+    std::vector<std::string> asset_files;
 };
 
 struct DialogProject {
@@ -69,12 +72,19 @@ struct DialogProject {
     std::map<std::string, Entity> entities;
     std::map<std::string, VariableDef> variables;
     std::map<std::string, DialogNode> nodes;
+    
+    // Asset Registries
+    std::map<std::string, std::string> backgrounds;
+    std::map<std::string, std::string> music;
+    std::map<std::string, std::string> sfx;
 };
 
 class DialogEngine {
 public:
     DialogEngine();
     bool LoadProject(const std::string& configFilePath);
+    bool LoadCompiledProject(const std::string& binPath);
+    void CompileProject(const std::string& outputPath);
     
     void SaveGame(int slot = 0); 
     bool LoadGame(int slot = 0);
@@ -99,7 +109,13 @@ public:
     const Entity* GetCurrentEntity() const;
     const std::vector<DialogOption>& GetVisibleOptions() const { return m_visibleOptions; }
     const DialogConfigs& GetConfigs() const { return m_project.configs; }
-    bool IsDebug() const { return m_project.configs.debug; }
+    std::string GetDebugMode() const { return m_project.configs.debug_mode; }
+    void Log(const std::string& msg);
+
+    // Global Asset Retrieval
+    std::string GetBackground(const std::string& id) const { return m_project.backgrounds.count(id) ? m_project.backgrounds.at(id) : ""; }
+    std::string GetMusic(const std::string& id) const { return m_project.music.count(id) ? m_project.music.at(id) : ""; }
+    std::string GetSFX(const std::string& id) const { return m_project.sfx.count(id) ? m_project.sfx.at(id) : ""; }
 
     // Narrative Effects State
     float GetEffectShake() const { return m_shakeIntensity; }
@@ -132,6 +148,7 @@ public:
     static bool LoadDialogFile(const std::string& path, DialogProject& p);
     static bool LoadEntitiesFile(const std::string& path, DialogProject& p);
     static bool LoadVariablesFile(const std::string& path, DialogProject& p);
+    static bool LoadAssetsFile(const std::string& path, DialogProject& p);
 };
 
 #endif

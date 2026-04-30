@@ -3,6 +3,7 @@
         "akira": {
             "name": "Akira",
             "type": "Fixer",
+            "default_pos": "right",
             "sprites": {
                 "idle": { "path": "assets/akira_idle.png", "frames": 2, "speed": 4.0, "scale": 3.0 },
                 "serious": { "path": "assets/akira_serious.png", "frames": 1, "speed": 1.0, "scale": 3.0 },
@@ -12,13 +13,15 @@
         "kael": {
             "name": "Kael",
             "type": "Merchant",
+            "default_pos": "left",
             "sprites": {
                 "idle": { "path": "assets/kael_idle.png", "frames": 1, "speed": 1.0, "scale": 3.0 }
             }
         },
         "system": {
             "name": "Log",
-            "type": "System"
+            "type": "System",
+            "default_pos": "center"
         }
     }
 }

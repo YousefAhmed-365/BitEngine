@@ -39,7 +39,8 @@ void BitDialog::Draw() {
     EndMode2D();
 
     DrawVFX();
-    if (m_engine.IsDebug()) DrawDebugOverlay();
+    std::string dmode = m_engine.GetDebugMode();
+    if (dmode == "debug_overlay" || dmode == "debug_all") DrawDebugOverlay();
     
     if (saveToastTimer > 0.0f) {
         DrawRectangle(GetScreenWidth() - 220, 20, 200, 40, m_style.bg);
@@ -54,7 +55,10 @@ void BitDialog::HandleAudio() {
     if (!node) return;
 
     if (node->metadata.count("bgm")) {
-        std::string path = node->metadata.at("bgm");
+        std::string req = node->metadata.at("bgm");
+        std::string path = m_engine.GetMusic(req);
+        if (path.empty()) path = req; // Fallback for raw paths
+
         if (m_currentMusicPath != path) {
             if (m_isMusicPlaying) UnloadMusicStream(m_currentMusic);
             m_currentMusic = LoadMusicStream(path.c_str());
@@ -69,7 +73,10 @@ void BitDialog::HandleAudio() {
 
     if (node->metadata.count("sfx")) {
         static std::string lastSFX = "";
-        std::string path = node->metadata.at("sfx");
+        std::string req = node->metadata.at("sfx");
+        std::string path = m_engine.GetSFX(req);
+        if (path.empty()) path = req;
+
         if (lastSFX != path) { PlaySFX(path); lastSFX = path; }
     }
 }
@@ -94,7 +101,11 @@ void BitDialog::HandleInput() {
 void BitDialog::DrawBackground() {
     const auto* node = m_engine.GetCurrentNode();
     if (node && node->metadata.count("bg")) {
-        Texture2D bg = GetTexture(node->metadata.at("bg"));
+        std::string req = node->metadata.at("bg");
+        std::string path = m_engine.GetBackground(req);
+        if (path.empty()) path = req;
+
+        Texture2D bg = GetTexture(path);
         DrawTexturePro(bg, {0,0,(float)bg.width, (float)bg.height}, {0,0,(float)GetScreenWidth(), (float)GetScreenHeight()}, {0,0}, 0, WHITE);
     }
 }
@@ -120,10 +131,32 @@ void BitDialog::DrawEntitySprite() {
     m_animTimer += GetFrameTime();
     if (m_animTimer >= 1.0f / (speed > 0 ? speed : 1.0f)) { m_animTimer = 0.0f; m_animFrame = (m_animFrame + 1) % finalFrames; }
     
-    m_floatOffset = m_engine.GetConfigs().enable_floating ? sin(GetTime() * 2.0f) * 10.0f : 0.0f;
+    // Hierarchical Position Resolution
+    float normX = entity->default_pos_x;
+    if (node->metadata.count("pos")) {
+        std::string p = node->metadata.at("pos");
+        if (p == "left") normX = 0.2f;
+        else if (p == "right") normX = 0.8f;
+        else if (p == "center") normX = 0.5f;
+    }
+    if (node->metadata.count("pos_x")) normX = std::stof(node->metadata.at("pos_x"));
+    
+    float normY = node->metadata.count("pos_y") ? std::stof(node->metadata.at("pos_y")) : 0.45f; 
+
     int fw = tex.width / finalFrames;
     Rectangle src = { (float)(m_animFrame * fw), 0, (float)fw, (float)tex.height };
-    Vector2 pos = { (float)GetScreenWidth()/2.0f - (fw * scale)/2.0f, (float)GetScreenHeight() - 240 - (tex.height * scale) - 20 + m_floatOffset };
+    
+    int sw = GetScreenWidth();
+    int sh = GetScreenHeight();
+    
+    // Calculate float offset if enabled
+    m_floatOffset = m_engine.GetConfigs().enable_floating ? (float)sin(GetTime() * 2.0f) * 10.0f : 0.0f;
+
+    // Calculate position: (ScreenSize * normalized) - (SpriteSize / 2)
+    Vector2 pos = { 
+        (sw * normX) - (fw * scale) / 2.0f, 
+        (sh * normY) - (tex.height * scale) / 2.0f + m_floatOffset 
+    };
     
     if (m_engine.GetConfigs().enable_shadows)
         DrawEllipse((int)pos.x + (fw*scale)/2, (int)pos.y + (tex.height*scale), (fw*scale)/3, 10, Fade(BLACK, 0.4f));

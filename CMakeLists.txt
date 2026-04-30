@@ -16,38 +16,31 @@ endif()
 # Find Raylib
 find_package(raylib REQUIRED)
 
-# Source files
-set(SOURCES
-    src/main.cpp
+# Common Core Sources
+set(CORE_SOURCES
     src/BitEngine.cpp
-    src/BitDialog.cpp
 )
 
-# Add executable
-add_executable(${PROJECT_NAME} ${SOURCES})
+# --- BitEngine (The Game) ---
+add_executable(BitEngine src/main.cpp src/BitDialog.cpp ${CORE_SOURCES})
+target_include_directories(BitEngine PRIVATE src src/headers)
+target_link_libraries(BitEngine PRIVATE raylib)
 
-# Include directories
-target_include_directories(${PROJECT_NAME} PRIVATE 
-    ${PROJECT_SOURCE_DIR}/src 
-    ${PROJECT_SOURCE_DIR}/src/headers
-)
-
-# Link Raylib
-target_link_libraries(${PROJECT_NAME} PRIVATE raylib)
+# --- BitTool (The Compiler) ---
+add_executable(BitTool src/BitTool.cpp ${CORE_SOURCES})
+target_include_directories(BitTool PRIVATE src src/headers)
+target_link_libraries(BitTool PRIVATE raylib) # Still needs Raylib for FileExists etc.
 
 # Compiler flags
-if(MSVC)
-    target_compile_options(${PROJECT_NAME} PRIVATE /W4 /WX)
-else()
-    target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic)
-endif()
+set(WARN_FLAGS -Wall -Wextra -Wpedantic)
+target_compile_options(BitEngine PRIVATE ${WARN_FLAGS})
+target_compile_options(BitTool PRIVATE ${WARN_FLAGS})
 
 # Linux extra libs
 if(UNIX AND NOT APPLE)
-    target_link_libraries(${PROJECT_NAME} PRIVATE m pthread dl)
+    target_link_libraries(BitEngine PRIVATE m pthread dl)
+    target_link_libraries(BitTool PRIVATE m pthread dl)
 endif()
 
 # Set output directory for convenience
-set_target_properties(${PROJECT_NAME} PROPERTIES 
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
-)
+set_target_properties(BitEngine BitTool PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
