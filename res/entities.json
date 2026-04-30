@@ -2,11 +2,19 @@
     "entities": {
         "akira": {
             "name": "Akira",
-            "type": "Fixer"
+            "type": "Fixer",
+            "sprites": {
+                "idle": { "path": "assets/akira_idle.png", "frames": 2, "speed": 4.0, "scale": 3.0 },
+                "serious": { "path": "assets/akira_serious.png", "frames": 1, "speed": 1.0, "scale": 3.0 },
+                "neutral": { "path": "assets/akira_neutral.png", "frames": 1, "speed": 1.0, "scale": 3.0 }
+            }
         },
         "kael": {
             "name": "Kael",
-            "type": "Merchant"
+            "type": "Merchant",
+            "sprites": {
+                "idle": { "path": "assets/kael_idle.png", "frames": 1, "speed": 1.0, "scale": 3.0 }
+            }
         },
         "system": {
             "name": "Log",

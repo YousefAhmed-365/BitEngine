@@ -107,12 +107,14 @@ void BitDialog::DrawEntitySprite() {
     std::string expr = node->metadata.count("expression") ? node->metadata.at("expression") : "idle";
     std::string path = ""; int frames = 1; float speed = 1.0f; float scale = 3.0f;
 
+    // Use requested expression if available, otherwise check idle.
     if (entity->sprites.count(expr)) { 
         auto& s = entity->sprites.at(expr); path = s.path; frames = s.frames; speed = s.speed; scale = s.scale; 
     } else if (entity->sprites.count("idle")) {
         auto& s = entity->sprites.at("idle"); path = s.path; frames = s.frames; speed = s.speed; scale = s.scale;
     }
 
+    // GetTexture returns fallback if file is missing (The USER's explicit request)
     Texture2D tex = path.empty() ? m_fallbackTexture : GetTexture(path);
     int finalFrames = frames > 0 ? frames : 1;
     m_animTimer += GetFrameTime();
@@ -197,7 +199,10 @@ void BitDialog::DrawTextWrapped(const std::string& text, int x, int y, int fontS
 Texture2D BitDialog::GetTexture(const std::string& path) {
     if (path.empty()) return m_fallbackTexture;
     if (m_textureCache.count(path)) return m_textureCache[path];
-    if (FileExists(path.c_str())) { Texture2D tex = LoadTexture(path.c_str()); if (tex.id > 0) { m_textureCache[path] = tex; return tex; } }
+    if (FileExists(path.c_str())) {
+        Texture2D tex = LoadTexture(path.c_str());
+        if (tex.id > 0) { m_textureCache[path] = tex; return tex; }
+    }
     return m_fallbackTexture;
 }
 
