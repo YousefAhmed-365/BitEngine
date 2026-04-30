@@ -1,4 +1,4 @@
-#include "headers/BitTool.hpp"
+#include "headers/BitEditor.hpp"
 #include <iostream>
 #include <fstream>
 #include <algorithm>
