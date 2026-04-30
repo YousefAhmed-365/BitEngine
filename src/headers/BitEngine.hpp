@@ -17,7 +17,19 @@ struct DialogOption {
     std::vector<Event> events;         
 };
 
-struct Entity { std::string id, name, type; };
+// Animation and Sprite Definitions
+struct SpriteDef {
+    std::string path;
+    int frames = 1;
+    float speed = 5.0f; // FPS
+    float scale = 1.0f;
+};
+
+struct Entity { 
+    std::string id, name, type; 
+    std::map<std::string, SpriteDef> sprites; // key: expression (idle, smile, etc)
+};
+
 struct VariableDef { std::string id; int initial_value; std::optional<int> min, max; };
 
 struct DialogNode {
@@ -66,7 +78,6 @@ public:
     DialogEngine();
     bool LoadProject(const std::string& configFilePath);
     
-    // Advanced Save System
     void SaveGame(int slot = 0); 
     bool LoadGame(int slot = 0);
     bool HasSave(int slot) const;
@@ -101,7 +112,6 @@ private:
     const DialogNode* m_currentNode = nullptr;
     bool m_isActive = false;
 
-    // Typewriter cache
     float m_revealedCount = 0.0f;
     std::string m_cachedInterpolatedContent;
     size_t m_cachedTotalChars = 0;

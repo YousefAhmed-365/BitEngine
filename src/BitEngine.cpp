@@ -28,8 +28,15 @@ DialogProject DialogParser::ParseConfig(const std::string& path) {
             p.configs.mode = c.value("mode", "typewriter");
         }
         if (j.contains("entities")) {
-            for (auto& [id, ent] : j["entities"].items()) 
-                p.entities[id] = { id, ent.value("name", id), ent.value("type", "char") };
+            for (auto& [id, ent] : j["entities"].items()) {
+                Entity entity = { id, ent.value("name", id), ent.value("type", "char") };
+                if (ent.contains("sprites")) {
+                    for (auto& [expr, s] : ent["sprites"].items()) {
+                        entity.sprites[expr] = { s.value("path", ""), s.value("frames", 1), s.value("speed", 5.0f), s.value("scale", 1.0f) };
+                    }
+                }
+                p.entities[id] = entity;
+            }
         }
         if (j.contains("variables")) {
             for (auto& [id, v] : j["variables"].items()) {
@@ -84,39 +91,26 @@ bool DialogEngine::LoadProject(const std::string& path) {
     return true;
 }
 
-// Advanced Save Implementation
 void DialogEngine::SaveGame(int slot) {
     if (!m_currentNode) return;
     try {
         SaveData sd;
-        sd.current_node_id = ""; // To be found (we need current ID)
-        // Find current node ID
         for (auto const& [id, node] : m_project.nodes) { if (&node == m_currentNode) { sd.current_node_id = id; break; } }
-        
         sd.variables = m_variables;
         sd.meta.timestamp = GetTimestamp();
         sd.meta.node_id = sd.current_node_id;
         const auto* entity = GetCurrentEntity();
         sd.meta.entity_name = entity ? entity->name : "Unknown";
-        
-        // Dynamic summary
         std::string content = m_cachedInterpolatedContent;
         if (content.length() > 40) content = content.substr(0, 37) + "...";
         sd.meta.summary = content;
-
         json j;
-        j["version"] = sd.version;
-        j["node_id"] = sd.current_node_id;
-        j["variables"] = sd.variables;
+        j["version"] = sd.version; j["node_id"] = sd.current_node_id; j["variables"] = sd.variables;
         j["meta"] = { {"time", sd.meta.timestamp}, {"node", sd.meta.node_id}, {"char", sd.meta.entity_name}, {"text", sd.meta.summary} };
-
         std::string data = j.dump(4);
         if (m_project.configs.encrypt_save) data = XORBuffer(data);
-        
         std::ofstream f(GetSlotPath(slot), std::ios::binary);
         if (f) f.write(data.c_str(), data.size());
-        
-        if (m_project.configs.debug) std::cout << "[DialogEngine] Saved Slot " << slot << " at " << sd.meta.timestamp << std::endl;
     } catch (...) {}
 }
 
@@ -130,18 +124,14 @@ bool DialogEngine::LoadGame(int slot) {
             if (m_project.configs.encrypt_save) data = XORBuffer(data);
             json j = json::parse(data);
             m_variables = j["variables"].get<std::map<std::string, int>>();
-            std::string nodeId = j["node_id"].get<std::string>();
-            StartDialog(nodeId);
-            if (m_project.configs.debug) std::cout << "[DialogEngine] Loaded Slot " << slot << std::endl;
+            StartDialog(j["node_id"].get<std::string>());
             return true;
         } catch (...) {}
     }
     return false;
 }
 
-bool DialogEngine::HasSave(int slot) const {
-    struct stat buffer; return (stat(GetSlotPath(slot).c_str(), &buffer) == 0);
-}
+bool DialogEngine::HasSave(int slot) const { struct stat buffer; return (stat(GetSlotPath(slot).c_str(), &buffer) == 0); }
 
 std::optional<SaveMetadata> DialogEngine::GetSaveMetadata(int slot) const {
     std::ifstream f(GetSlotPath(slot), std::ios::binary | std::ios::ate);
@@ -152,8 +142,7 @@ std::optional<SaveMetadata> DialogEngine::GetSaveMetadata(int slot) const {
         try {
             if (m_project.configs.encrypt_save) data = XORBuffer(data);
             json j = json::parse(data);
-            auto m = j["meta"];
-            return SaveMetadata{ m["time"], m["node"], m["char"], m["text"] };
+            auto m = j["meta"]; return SaveMetadata{ m["time"], m["node"], m["char"], m["text"] };
         } catch (...) {}
     }
     return std::nullopt;
@@ -168,9 +157,7 @@ void DialogEngine::StartDialog(const std::string& startId) {
     m_revealedCount = (m_project.configs.mode == "instant") ? (float)m_cachedTotalChars : 0.0f;
     ProcessEvents(m_currentNode->events);
     RefreshVisibleOptions();
-    
-    // Auto-save on specific nodes if enabled
-    if (m_project.configs.auto_save) SaveGame(0); // Slot 0 is auto-save
+    if (m_project.configs.auto_save) SaveGame(0);
 }
 
 void DialogEngine::SelectOption(int index) {
@@ -192,7 +179,7 @@ void DialogEngine::Next() {
 
 void DialogEngine::Update(float dt) {
     if (!m_isActive || !m_currentNode || m_project.configs.mode == "instant") return;
-    if (IsTextRevealing()) { m_revealedCount = std::min((float)m_cachedTotalChars, m_revealedCount + m_project.configs.reveal_speed * dt); }
+    if (IsTextRevealing()) m_revealedCount = std::min((float)m_cachedTotalChars, m_revealedCount + m_project.configs.reveal_speed * dt);
 }
 
 void DialogEngine::SkipReveal() { if (m_currentNode) m_revealedCount = (float)m_cachedTotalChars; }
@@ -212,8 +199,7 @@ std::string DialogEngine::GetVisibleContent() const {
 size_t DialogEngine::GetUTF8Length(const std::string& s) const {
     size_t count = 0;
     for (size_t i = 0; i < s.length(); ) {
-        unsigned char c = s[i];
-        i += (c <= 127) ? 1 : ((c & 0xE0) == 0xC0) ? 2 : ((c & 0xF0) == 0xE0) ? 3 : 4;
+        unsigned char c = s[i]; i += (c <= 127) ? 1 : ((c & 0xE0) == 0xC0) ? 2 : ((c & 0xF0) == 0xE0) ? 3 : 4;
         count++;
     }
     return count;
@@ -225,15 +211,12 @@ std::string DialogEngine::InterpolateVariables(const std::string& text) const {
     return res;
 }
 
-int DialogEngine::GetVariable(const std::string& name) const {
-    auto it = m_variables.find(name); return (it != m_variables.end()) ? it->second : 0;
-}
+int DialogEngine::GetVariable(const std::string& name) const { auto it = m_variables.find(name); return (it != m_variables.end()) ? it->second : 0; }
 
 void DialogEngine::SetVariable(const std::string& name, int value) {
     if (!m_project.variables.count(name)) return;
     const auto& d = m_project.variables[name];
-    int v = value;
-    if (d.min) v = std::max(v, *d.min); if (d.max) v = std::min(v, *d.max);
+    int v = value; if (d.min) v = std::max(v, *d.min); if (d.max) v = std::min(v, *d.max);
     m_variables[name] = v;
 }
 
@@ -271,14 +254,9 @@ const Entity* DialogEngine::GetCurrentEntity() const {
     return (it != m_project.entities.end()) ? &it->second : nullptr;
 }
 
-std::string DialogEngine::XORBuffer(const std::string& d) const {
-    std::string o = d; for (size_t i = 0; i < d.size(); ++i) o[i] ^= KEY[i % KEY.size()]; return o;
-}
-
-std::string DialogEngine::GetSlotPath(int slot) const { return "save/" + m_project.configs.save_prefix + std::to_string(slot) + ".bin"; }
-
+std::string DialogEngine::XORBuffer(const std::string& d) const { std::string o = d; for (size_t i = 0; i < d.size(); ++i) o[i] ^= KEY[i % KEY.size()]; return o; }
+std::string DialogEngine::GetSlotPath(int s) const { return "save/" + m_project.configs.save_prefix + std::to_string(s) + ".bin"; }
 std::string DialogEngine::GetTimestamp() const {
-    std::time_t t = std::time(nullptr);
-    std::tm tm = *std::localtime(&t);
+    std::time_t t = std::time(nullptr); std::tm tm = *std::localtime(&t);
     std::stringstream ss; ss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S"); return ss.str();
 }
