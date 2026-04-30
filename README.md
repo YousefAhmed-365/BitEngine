@@ -1,6 +1,6 @@
 # BitEngine (Work in Progress)
 
-**BitEngine** is a high-performance, data-driven cinematic narrative engine built with C++17 and [Raylib](https://www.raylib.com/). It is designed to cleanly separate story creation from engine compilation, providing a highly modular architecture for visual novels and interactive dialogue experiences.
+**BitEngine** is a high-performance, data-driven cinematic narrative/visual novel engine built with C++17 and [Raylib](https://www.raylib.com/). It is designed to cleanly separate story creation from engine compilation, providing a highly modular architecture for visual novels and interactive dialogue experiences.
 
 > [!WARNING]
 > **Heavily In Development:** BitEngine is actively being built. Many features are experimental, and the API/configuration formats are subject to change.
@@ -9,8 +9,8 @@
 
 * **Data-Driven Architecture**: The entire world state, dialogues, entities, and assets are defined in modular JSON files (`configs.json`, `entities.json`, `dialog_intro.json`, etc.).
 * **Dual-Binary Deployment**:
-  * **BitEngine**: The immersive, hardware-accelerated Raylib game client.
-  * **BitTool**: A dedicated asset orchestration CLI that "bakes" your distributed JSON scripts into a single, high-performance binary.
+  * **BitEngine**: The client.
+  * **BitTool**: A dedicated tool to compile the project data into a single binary file
 * **Asset Security & Bundling**: BitTool compiles the entire project into an XOR-encrypted `data.bin` file, protecting your un-shipped story files and assets from casual prying.
 * **Procedural VFX & Audio**: Supports screen shaking, dynamic vignette drop shadows, positional sprite rendering (left, center, right), and integrated BGM/SFX audio channels.
 * **Semantic Asset Registries**: Never hardcode file paths into a scene again. Map `market_bg` to `assets/market_bg.png` once in `assets.json` and cleanly reference it anywhere.
