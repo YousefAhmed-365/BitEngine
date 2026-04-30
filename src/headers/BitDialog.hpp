@@ -4,41 +4,91 @@
 #include "raylib.h"
 #include "BitEngine.hpp"
 #include <map>
+#include <vector>
 #include <string>
 
-// Modular Styling System
+// ============================================================
+// Full UI Style — all values are data-driven from style.json
+// ============================================================
 struct BitDialogStyle {
-    Color bg        = { 15, 15, 25, 240 }; 
-    Color border    = { 0, 210, 255, 255 }; 
-    Color label     = { 255, 215, 0, 255 }; 
-    Color text      = { 245, 245, 255, 255 }; 
-    Color option    = { 0, 180, 255, 255 }; 
-    Color premium   = { 255, 0, 255, 255 }; 
-    Color hover     = { 255, 255, 255, 255 }; 
-    
-    int fontMain = 24;
-    int fontName = 28;
-    int fontOpt  = 20;
-    int padding  = 40;
-    
-    float boxRoundness = 0.05f;
-    float borderThickness = 3.0f;
+
+    // --- Dialog Box ---
+    float boxNormX         = 0.5f;
+    float boxNormY         = 1.0f;
+    float boxWidthNorm     = 0.93f;
+    float boxHeight        = 190.0f;
+    float boxMarginBottom  = 20.0f;
+    float boxRoundness     = 0.05f;
+    float boxBorderThick   = 3.0f;
+    int   boxPadding       = 40;
+    Color boxBg            = { 15,  15,  25,  240 };
+    Color boxBorder        = {  0, 210, 255, 255 };
+
+    // --- Dialog Text ---
+    Color textColor        = { 245, 245, 255, 255 };
+    int   textFontSize     = 24;
+
+    // --- Name Label ---
+    float labelOffsetX     = 30.0f;
+    float labelOffsetY     = -20.0f;
+    int   labelPadding     = 20;
+    int   labelHeight      = 40;
+    Color labelBg          = { 15,  15,  25,  240 };
+    Color labelBorder      = {  0, 210, 255, 255 };
+    Color labelTextColor   = { 255, 215,   0, 255 };
+    int   labelFontSize    = 28;
+
+    // --- Choice Box ---
+    float choiceNormX      = 0.5f;
+    float choiceNormY      = 0.5f;
+    float choiceOffsetY    = -100.0f;
+    float choiceWidth      = 440.0f;
+    float choiceRoundness  = 0.1f;
+    float choiceBorderThick= 2.0f;
+    Color choiceBg         = { 15,  15,  25,  242 };
+    Color choiceBorder     = {  0, 210, 255, 255 };
+    Color optionColor      = {  0, 180, 255, 255 };
+    Color optionHover      = { 255, 255, 255, 255 };
+    Color optionPremium    = { 255,   0, 255, 255 };
+    int   optionFontSize   = 20;
+    int   optionHeight     = 35;
+    int   optionGap        = 10;
+
+    // --- Toast Notification ---
+    float toastNormX       = 1.0f;
+    float toastNormY       = 0.0f;
+    float toastMarginX     = 20.0f;
+    float toastMarginY     = 20.0f;
+    float toastWidth       = 200.0f;
+    float toastHeight      = 40.0f;
+    Color toastBg          = { 15,  15,  25,  240 };
+    Color toastBorder      = {  0, 210, 255, 255 };
+    Color toastTextColor   = { 245, 245, 255, 255 };
+    int   toastFontSize    = 16;
+
+    // --- Vignette ---
+    float vignetteOpacity  = 0.4f;
 };
 
 class BitDialog {
 public:
     BitDialog(DialogEngine& engine);
     virtual ~BitDialog();
-    
+
     void Draw();
     void HandleInput();
-    
-    // Customization API
-    void SetStyle(const BitDialogStyle& style) { m_style = style; }
+
+    // --- Style API ---
+    void LoadStyle(const std::string& path);             // Load all named styles from file; enables hot-reload
+    void SetStyle(const std::string& name);              // Switch to a named style block
+    void NextStyle();                                    // Cycle forward through loaded styles
+    void PrevStyle();                                    // Cycle backward through loaded styles
+    std::string GetCurrentStyleName() const { return m_currentStyleName; }
+    std::vector<std::string> GetStyleNames() const;
+
     BitDialogStyle& GetStyle() { return m_style; }
 
 protected:
-    // Modular drawing components (can be overridden)
     virtual void DrawBackground();
     virtual void DrawMainBox();
     virtual void DrawChoiceBox();
@@ -47,7 +97,6 @@ protected:
     virtual void DrawDebugOverlay();
     virtual void HandleAudio();
 
-    // Internal utilities
     void DrawTextWrapped(const std::string& text, int x, int y, int fontSize, int maxWidth, Color color);
     Texture2D GetTexture(const std::string& path);
     void PlaySFX(const std::string& path);
@@ -57,9 +106,16 @@ protected:
     DialogEngine& m_engine;
     BitDialogStyle m_style;
 
-    // Resource Cache
+    // Style library
+    std::map<std::string, BitDialogStyle> m_styleLibrary;
+    std::vector<std::string>              m_styleOrder;  // Preserves insertion order for cycling
+    std::string                           m_currentStyleName;
+    std::string                           m_stylePath;
+    long                                  m_styleLastModTime = 0;
+    float                                 m_hotReloadTimer   = 0.0f;
+
     std::map<std::string, Texture2D> m_textureCache;
-    std::map<std::string, Sound> m_sfxCache;
+    std::map<std::string, Sound>     m_sfxCache;
     std::string m_currentMusicPath = "";
     Music m_currentMusic;
     bool m_isMusicPlaying = false;
@@ -67,9 +123,8 @@ protected:
     Texture2D m_fallbackTexture;
     Texture2D m_vignette;
 
-    // Animation state
-    float m_animTimer = 0.0f;
-    int m_animFrame = 0;
+    float m_animTimer   = 0.0f;
+    int   m_animFrame   = 0;
     std::string m_lastSpritePath = "";
     float m_floatOffset = 0.0f;
 };

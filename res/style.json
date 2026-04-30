@@ -1,0 +1,148 @@
+{
+    "styles": {
+
+        "neon_noir": {
+            "dialog_box": {
+                "pos_x": 0.5, "pos_y": 1.0, "width_norm": 0.93, "height": 190.0,
+                "margin_bottom": 20.0, "roundness": 0.05, "border_thick": 3.0, "padding": 40,
+                "bg_color":     [10,  10,  22, 240],
+                "border_color": [ 0, 210, 255, 255]
+            },
+            "dialog_text": { "color": [240, 245, 255, 255], "font_size": 24 },
+            "name_label": {
+                "offset_x": 30.0, "offset_y": -20.0, "padding": 20, "height": 40,
+                "bg_color":     [10,  10,  22, 240],
+                "border_color": [ 0, 210, 255, 255],
+                "text_color":   [255, 215,   0, 255],
+                "font_size": 28
+            },
+            "choice_box": {
+                "pos_x": 0.5, "pos_y": 0.5, "offset_y": -100.0, "width": 440.0,
+                "roundness": 0.1, "border_thick": 2.0,
+                "bg_color":       [10,  10,  22, 242],
+                "border_color":   [ 0, 210, 255, 255],
+                "option_color":   [ 0, 180, 255, 255],
+                "option_hover":   [255, 255, 255, 255],
+                "option_premium": [255,   0, 255, 255],
+                "option_font_size": 20, "option_height": 35, "option_gap": 10
+            },
+            "toast": {
+                "pos_x": 1.0, "pos_y": 0.0, "margin_x": 20.0, "margin_y": 20.0,
+                "width": 200.0, "height": 40.0,
+                "bg_color":     [10,  10,  22, 240],
+                "border_color": [ 0, 210, 255, 255],
+                "text_color":   [240, 245, 255, 255],
+                "font_size": 16
+            },
+            "vignette_opacity": 0.45
+        },
+
+        "golden_age": {
+            "dialog_box": {
+                "pos_x": 0.5, "pos_y": 1.0, "width_norm": 0.90, "height": 200.0,
+                "margin_bottom": 24.0, "roundness": 0.08, "border_thick": 4.0, "padding": 44,
+                "bg_color":     [28, 18,  8, 235],
+                "border_color": [255, 185, 30, 255]
+            },
+            "dialog_text": { "color": [255, 240, 195, 255], "font_size": 24 },
+            "name_label": {
+                "offset_x": 28.0, "offset_y": -22.0, "padding": 22, "height": 42,
+                "bg_color":     [28, 18,  8, 235],
+                "border_color": [255, 185, 30, 255],
+                "text_color":   [255, 140,   0, 255],
+                "font_size": 28
+            },
+            "choice_box": {
+                "pos_x": 0.5, "pos_y": 0.5, "offset_y": -110.0, "width": 460.0,
+                "roundness": 0.12, "border_thick": 2.5,
+                "bg_color":       [28, 18,  8, 245],
+                "border_color":   [255, 185, 30, 255],
+                "option_color":   [255, 185, 30, 255],
+                "option_hover":   [255, 240, 180, 255],
+                "option_premium": [255,  80,   0, 255],
+                "option_font_size": 20, "option_height": 36, "option_gap": 12
+            },
+            "toast": {
+                "pos_x": 1.0, "pos_y": 0.0, "margin_x": 20.0, "margin_y": 20.0,
+                "width": 210.0, "height": 42.0,
+                "bg_color":     [28, 18,  8, 235],
+                "border_color": [255, 185, 30, 255],
+                "text_color":   [255, 240, 195, 255],
+                "font_size": 16
+            },
+            "vignette_opacity": 0.55
+        },
+
+        "minimal": {
+            "dialog_box": {
+                "pos_x": 0.5, "pos_y": 1.0, "width_norm": 0.88, "height": 180.0,
+                "margin_bottom": 28.0, "roundness": 0.0, "border_thick": 1.5, "padding": 36,
+                "bg_color":     [240, 240, 242, 215],
+                "border_color": [ 80,  80,  90, 200]
+            },
+            "dialog_text": { "color": [18, 18, 24, 255], "font_size": 22 },
+            "name_label": {
+                "offset_x": 26.0, "offset_y": -18.0, "padding": 18, "height": 36,
+                "bg_color":     [240, 240, 242, 215],
+                "border_color": [ 80,  80,  90, 200],
+                "text_color":   [ 50,  50, 180, 255],
+                "font_size": 24
+            },
+            "choice_box": {
+                "pos_x": 0.5, "pos_y": 0.5, "offset_y": -90.0, "width": 420.0,
+                "roundness": 0.0, "border_thick": 1.5,
+                "bg_color":       [235, 235, 240, 220],
+                "border_color":   [ 80,  80,  90, 200],
+                "option_color":   [ 50, 100, 200, 255],
+                "option_hover":   [ 15,  15,  20, 255],
+                "option_premium": [160,   0, 120, 255],
+                "option_font_size": 19, "option_height": 32, "option_gap": 8
+            },
+            "toast": {
+                "pos_x": 1.0, "pos_y": 0.0, "margin_x": 20.0, "margin_y": 20.0,
+                "width": 190.0, "height": 38.0,
+                "bg_color":     [240, 240, 242, 215],
+                "border_color": [ 80,  80,  90, 200],
+                "text_color":   [18, 18, 24, 255],
+                "font_size": 15
+            },
+            "vignette_opacity": 0.08
+        },
+
+        "blood_red": {
+            "dialog_box": {
+                "pos_x": 0.5, "pos_y": 1.0, "width_norm": 0.94, "height": 195.0,
+                "margin_bottom": 18.0, "roundness": 0.02, "border_thick": 2.5, "padding": 42,
+                "bg_color":     [18,  4,  4, 248],
+                "border_color": [200, 30, 30, 255]
+            },
+            "dialog_text": { "color": [255, 220, 220, 255], "font_size": 24 },
+            "name_label": {
+                "offset_x": 32.0, "offset_y": -20.0, "padding": 20, "height": 40,
+                "bg_color":     [18,  4,  4, 248],
+                "border_color": [200, 30, 30, 255],
+                "text_color":   [255, 80,  80, 255],
+                "font_size": 27
+            },
+            "choice_box": {
+                "pos_x": 0.5, "pos_y": 0.5, "offset_y": -105.0, "width": 445.0,
+                "roundness": 0.04, "border_thick": 2.0,
+                "bg_color":       [18,  4,  4, 248],
+                "border_color":   [200, 30, 30, 255],
+                "option_color":   [200, 30, 30, 255],
+                "option_hover":   [255, 180, 180, 255],
+                "option_premium": [255, 120,   0, 255],
+                "option_font_size": 20, "option_height": 35, "option_gap": 10
+            },
+            "toast": {
+                "pos_x": 1.0, "pos_y": 0.0, "margin_x": 20.0, "margin_y": 20.0,
+                "width": 200.0, "height": 40.0,
+                "bg_color":     [18,  4,  4, 248],
+                "border_color": [200, 30, 30, 255],
+                "text_color":   [255, 220, 220, 255],
+                "font_size": 16
+            },
+            "vignette_opacity": 0.6
+        }
+    }
+}

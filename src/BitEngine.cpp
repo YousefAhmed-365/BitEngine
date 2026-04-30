@@ -175,14 +175,25 @@ bool DialogEngine::LoadProject(const std::string& configFilePath) {
     Log("Loading project from: " + configFilePath);
     m_project = DialogParser::ParseConfig(configFilePath);
     
-    // Load external registries
-    for (const auto& f : m_project.configs.entity_files) DialogParser::LoadEntitiesFile(f, m_project);
-    for (const auto& f : m_project.configs.variable_files) DialogParser::LoadVariablesFile(f, m_project);
-    for (const auto& f : m_project.configs.asset_files) DialogParser::LoadAssetsFile(f, m_project);
-    for (const auto& f : m_project.configs.dialog_files) DialogParser::LoadDialogFile(f, m_project);
+    for (const auto& f : m_project.configs.entity_files)
+        if (!DialogParser::LoadEntitiesFile(f, m_project)) RecordError("LoadProject", "Could not load entities file: " + f);
+    for (const auto& f : m_project.configs.variable_files)
+        if (!DialogParser::LoadVariablesFile(f, m_project)) RecordError("LoadProject", "Could not load variables file: " + f);
+    for (const auto& f : m_project.configs.asset_files)
+        if (!DialogParser::LoadAssetsFile(f, m_project)) RecordError("LoadProject", "Could not load assets file: " + f);
+    for (const auto& f : m_project.configs.dialog_files)
+        if (!DialogParser::LoadDialogFile(f, m_project)) RecordError("LoadProject", "Could not load dialog file: " + f);
     
-    if (m_project.nodes.empty()) return false;
+    if (m_project.nodes.empty()) {
+        RecordError("LoadProject", "No dialog nodes loaded. Check your dialog files.");
+        return false;
+    }
     for (auto const& [id, def] : m_project.variables) m_variables[id] = def.initial_value;
+    
+    auto errors = ValidateProject(m_project);
+    for (const auto& e : errors) RecordError(e.file + "/" + e.field, e.message);
+    if (!errors.empty()) Log("Schema validation found " + std::to_string(errors.size()) + " error(s).", "WARN");
+    
     return true;
 }
 
@@ -372,17 +383,33 @@ void DialogEngine::SaveGame(int slot) {
 
 bool DialogEngine::LoadGame(int slot) {
     std::ifstream f(GetSlotPath(slot), std::ios::binary | std::ios::ate);
-    if (!f) return false;
+    if (!f) { RecordError("LoadGame", "Save slot " + std::to_string(slot) + " not found."); return false; }
     std::streamsize sz = f.tellg(); f.seekg(0);
     std::string data(sz, '\0');
     if (f.read(&data[0], sz)) {
         try {
             if (m_project.configs.encrypt_save) data = XORBuffer(data);
             json j = json::parse(data);
-            m_variables = j["variables"].get<std::map<std::string, int>>();
-            StartDialog(j["node_id"].get<std::string>());
+            // Deterministic: start from defaults, then apply saved values
+            for (auto const& [id, def] : m_project.variables) m_variables[id] = def.initial_value;
+            if (j.contains("variables") && j["variables"].is_object()) {
+                for (auto& [id, val] : j["variables"].items()) {
+                    if (m_project.variables.count(id)) m_variables[id] = val.get<int>();
+                    else Log("LoadGame: ignoring unknown saved variable '" + id + "'", "WARN");
+                }
+            }
+            std::string nodeId = j.value("node_id", "");
+            if (nodeId.empty() || !m_project.nodes.count(nodeId)) {
+                RecordError("LoadGame", "Saved node '" + nodeId + "' is invalid — starting from beginning.");
+                StartDialog();
+            } else {
+                StartDialog(nodeId);
+            }
+            Log("Game loaded from slot " + std::to_string(slot));
             return true;
-        } catch (...) {}
+        } catch (const std::exception& ex) {
+            RecordError("LoadGame", "Parse error in slot " + std::to_string(slot) + ": " + ex.what());
+        }
     }
     return false;
 }
@@ -407,8 +434,14 @@ std::optional<SaveMetadata> DialogEngine::GetSaveMetadata(int slot) const {
 void DialogEngine::StartDialog(const std::string& startId) {
     std::string id = startId.empty() ? m_project.configs.start_node : startId;
     Log("Starting dialog sequence: " + id);
-    if (!m_project.nodes.count(id)) return;
-    m_currentNode = &m_project.nodes[id]; m_isActive = true;
+    if (!m_project.nodes.count(id)) {
+        RecordError("StartDialog", "Node '" + id + "' not found. Dialog halted.");
+        m_isActive = false; m_currentNode = nullptr;
+        return;
+    }
+    m_currentNode = &m_project.nodes[id];
+    m_currentNodeId = id;
+    m_isActive = true;
     m_cachedInterpolatedContent = InterpolateVariables(m_currentNode->content);
     m_cachedTotalChars = GetUTF8Length(m_cachedInterpolatedContent);
     m_revealedCount = (m_project.configs.mode == "instant") ? (float)m_cachedTotalChars : 0.0f;
@@ -474,38 +507,90 @@ std::string DialogEngine::InterpolateVariables(const std::string& text) const {
 int DialogEngine::GetVariable(const std::string& name) const { auto it = m_variables.find(name); return (it != m_variables.end()) ? it->second : 0; }
 
 void DialogEngine::SetVariable(const std::string& name, int value) {
-    if (!m_project.variables.count(name)) return;
+    if (!m_project.variables.count(name)) {
+        RecordError("SetVariable", "Variable '" + name + "' is not declared — ignoring.");
+        return;
+    }
     const auto& d = m_project.variables[name];
-    int v = value; if (d.min) v = std::max(v, *d.min); if (d.max) v = std::min(v, *d.max);
+    int v = value;
+    if (d.min) v = std::max(v, *d.min);
+    if (d.max) v = std::min(v, *d.max);
     m_variables[name] = v;
 }
 
 void DialogEngine::ProcessEvents(const std::vector<Event>& events) {
+    static const std::vector<std::string> VALID_OPS = {"set", "add", "sub", "mul", "shake"};
     for (const auto& e : events) {
+        bool validOp = false;
+        for (const auto& op : VALID_OPS) if (e.op == op) { validOp = true; break; }
+        if (!validOp) { RecordError("ProcessEvents", "Unknown op '" + e.op + "' — skipping."); continue; }
+        if (e.op == "shake") { TriggerShake((float)e.value); continue; }
+        if (!e.var.empty() && !m_project.variables.count(e.var)) {
+            RecordError("ProcessEvents", "Event op '" + e.op + "' references undeclared variable '" + e.var + "' — skipping.");
+            continue;
+        }
         int cur = GetVariable(e.var);
-        if (e.op == "set") SetVariable(e.var, e.value);
-        else if (e.op == "add") SetVariable(e.var, cur + e.value);
-        else if (e.op == "sub") SetVariable(e.var, cur - e.value);
-        else if (e.op == "mul") SetVariable(e.var, cur * e.value);
-        else if (e.op == "shake") TriggerShake((float)e.value);
+        int next = cur;
+        if      (e.op == "set") next = e.value;
+        else if (e.op == "add") next = cur + e.value;
+        else if (e.op == "sub") next = cur - e.value;
+        else if (e.op == "mul") next = cur * e.value;
+        SetVariable(e.var, next);
+        m_eventTrace.push_back({ m_currentNodeId, e.op, e.var, cur, GetVariable(e.var) });
+        Log("Event: " + e.op + " '" + e.var + "' " + std::to_string(cur) + " -> " + std::to_string(GetVariable(e.var)));
     }
 }
 
-void DialogEngine::Log(const std::string& msg) {
+void DialogEngine::RecordError(const std::string& context, const std::string& msg) {
+    std::string full = "[" + context + "] " + msg;
+    m_errors.push_back(full);
+    Log(full, "ERROR");
+}
+
+void DialogEngine::Log(const std::string& msg, const std::string& level) {
     std::string mode = m_project.configs.debug_mode;
-    if (mode == "none") return;
+    // Always print ERRORs regardless of mode
+    bool isError = (level == "ERROR");
+    if (mode == "none" && !isError) return;
 
-    if (mode == "debug_overlay" || mode == "debug_all") {
-        std::cout << "[BitEngine] " << msg << std::endl;
+    std::string tag = "[BitEngine:" + level + "] ";
+
+    if (isError || mode == "debug_overlay" || mode == "debug_all") {
+        std::cout << tag << msg << std::endl;
     }
-
-    if (mode == "debug_file" || mode == "debug_all") {
+    if (isError || mode == "debug_file" || mode == "debug_all") {
         std::ofstream logFile("debug.log", std::ios_base::app);
         if (logFile.is_open()) {
             auto t = std::time(nullptr);
-            logFile << std::put_time(std::localtime(&t), "%Y-%m-%d %H:%M:%S") << " | " << msg << std::endl;
+            logFile << std::put_time(std::localtime(&t), "%Y-%m-%d %H:%M:%S") << " | " << tag << msg << std::endl;
         }
     }
+}
+
+ValidationResult DialogEngine::ValidateProject(const DialogProject& p) {
+    ValidationResult errors;
+    if (!p.nodes.count(p.configs.start_node))
+        errors.push_back({"configs", "start_node", "Start node '" + p.configs.start_node + "' does not exist."});
+    for (const auto& [nodeId, node] : p.nodes) {
+        if (!node.entity.empty() && node.entity != "system" && !p.entities.count(node.entity))
+            errors.push_back({nodeId, "entity", "Entity '" + node.entity + "' is not defined."});
+        if (node.next_id && *node.next_id != "dialog_end" && !node.next_id->empty() && !p.nodes.count(*node.next_id))
+            errors.push_back({nodeId, "next_id", "next_id '" + *node.next_id + "' does not exist."});
+        for (const auto& e : node.events)
+            if (e.op != "shake" && !e.var.empty() && !p.variables.count(e.var))
+                errors.push_back({nodeId, "events", "Event references undeclared variable '" + e.var + "'."});
+        for (const auto& opt : node.options) {
+            if (!opt.next_id.empty() && opt.next_id != "dialog_end" && !p.nodes.count(opt.next_id))
+                errors.push_back({nodeId, "options.next_id", "Option next_id '" + opt.next_id + "' does not exist."});
+            for (const auto& c : opt.conditions)
+                if (!p.variables.count(c.var))
+                    errors.push_back({nodeId, "options.conditions", "Condition references undeclared variable '" + c.var + "'."});
+            for (const auto& e : opt.events)
+                if (e.op != "shake" && !e.var.empty() && !p.variables.count(e.var))
+                    errors.push_back({nodeId, "options.events", "Option event references undeclared variable '" + e.var + "'."});
+        }
+    }
+    return errors;
 }
 
 void DialogEngine::RefreshVisibleOptions() {

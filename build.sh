@@ -39,9 +39,6 @@ if [ $? -eq 0 ]; then
     echo "--- Build Successful! ---"
     echo "Executable: build/BitEngine"
     echo "Compiler: build/BitTool"
-    
-    # Run the Engine (It will check for data.bin or res/configs.json)
-    ./BitEngine
 else
     echo "Build FAILED."
     exit 1

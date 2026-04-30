@@ -79,6 +79,23 @@ struct DialogProject {
     std::map<std::string, std::string> sfx;
 };
 
+// --- Validation Result ---
+struct ValidationError {
+    std::string file;
+    std::string field;
+    std::string message;
+};
+using ValidationResult = std::vector<ValidationError>;
+
+// --- Event Trace Entry ---
+struct EventTraceEntry {
+    std::string node_id;
+    std::string op;
+    std::string var;
+    int old_value;
+    int new_value;
+};
+
 class DialogEngine {
 public:
     DialogEngine();
@@ -106,11 +123,12 @@ public:
     
     bool IsActive() const { return m_isActive; }
     const DialogNode* GetCurrentNode() const { return m_currentNode; }
+    std::string GetCurrentNodeId() const { return m_currentNodeId; }
     const Entity* GetCurrentEntity() const;
     const std::vector<DialogOption>& GetVisibleOptions() const { return m_visibleOptions; }
     const DialogConfigs& GetConfigs() const { return m_project.configs; }
     std::string GetDebugMode() const { return m_project.configs.debug_mode; }
-    void Log(const std::string& msg);
+    void Log(const std::string& msg, const std::string& level = "INFO");
 
     // Global Asset Retrieval
     std::string GetBackground(const std::string& id) const { return m_project.backgrounds.count(id) ? m_project.backgrounds.at(id) : ""; }
@@ -121,11 +139,21 @@ public:
     float GetEffectShake() const { return m_shakeIntensity; }
     void TriggerShake(float intensity = 5.0f) { m_shakeIntensity = intensity; }
 
+    // --- Validation ---
+    static ValidationResult ValidateProject(const DialogProject& p);
+
+    // --- Debug Instrumentation ---
+    const std::vector<EventTraceEntry>& GetEventTrace() const { return m_eventTrace; }
+    void ClearEventTrace() { m_eventTrace.clear(); }
+    bool HasErrors() const { return !m_errors.empty(); }
+    const std::vector<std::string>& GetErrors() const { return m_errors; }
+
 private:
     DialogProject m_project;
     std::map<std::string, int> m_variables;
     std::vector<DialogOption> m_visibleOptions;
     const DialogNode* m_currentNode = nullptr;
+    std::string m_currentNodeId;
     bool m_isActive = false;
 
     float m_revealedCount = 0.0f;
@@ -133,6 +161,11 @@ private:
     size_t m_cachedTotalChars = 0;
     float m_shakeIntensity = 0.0f;
 
+    // Debug state
+    std::vector<EventTraceEntry> m_eventTrace;
+    std::vector<std::string> m_errors;
+
+    void RecordError(const std::string& context, const std::string& msg);
     void ProcessEvents(const std::vector<Event>& events);
     void RefreshVisibleOptions();
     size_t GetUTF8Length(const std::string& s) const;
