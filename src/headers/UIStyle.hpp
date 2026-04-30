@@ -1,8 +1,7 @@
-#ifndef BIT_DIALOG_HPP
-#define BIT_DIALOG_HPP
+#ifndef BIT_STYLE_MANAGER_HPP
+#define BIT_STYLE_MANAGER_HPP
 
 #include "raylib.h"
-#include "BitEngine.hpp"
 #include <map>
 #include <vector>
 #include <string>
@@ -10,7 +9,7 @@
 // ============================================================
 // Full UI Style — all values are data-driven from style.json
 // ============================================================
-struct BitDialogStyle {
+struct UIStyle {
 
     // --- Dialog Box ---
     float boxNormX         = 0.5f;
@@ -70,63 +69,30 @@ struct BitDialogStyle {
     float vignetteOpacity  = 0.4f;
 };
 
-class BitDialog {
+class StyleManager {
 public:
-    BitDialog(DialogEngine& engine);
-    virtual ~BitDialog();
+    StyleManager() = default;
 
-    void Draw();
-    void HandleInput();
-
-    // --- Style API ---
     void LoadStyle(const std::string& path);             // Load all named styles from file; enables hot-reload
+    void Update();                                       // Hot-reload check (should be called every frame)
+    
     void SetStyle(const std::string& name);              // Switch to a named style block
     void NextStyle();                                    // Cycle forward through loaded styles
     void PrevStyle();                                    // Cycle backward through loaded styles
+    
     std::string GetCurrentStyleName() const { return m_currentStyleName; }
-    std::vector<std::string> GetStyleNames() const;
+    std::vector<std::string> GetStyleNames() const { return m_styleOrder; }
+    UIStyle& GetStyle() { return m_activeStyle; }
 
-    BitDialogStyle& GetStyle() { return m_style; }
-
-protected:
-    virtual void DrawBackground();
-    virtual void DrawMainBox();
-    virtual void DrawChoiceBox();
-    virtual void DrawEntitySprite();
-    virtual void DrawVFX();
-    virtual void DrawDebugOverlay();
-    virtual void HandleAudio();
-
-    void DrawTextWrapped(const std::string& text, int x, int y, int fontSize, int maxWidth, Color color);
-    Texture2D GetTexture(const std::string& path);
-    void PlaySFX(const std::string& path);
-    void CreateFallbackTexture();
-    void CreateVignetteTexture();
-
-    DialogEngine& m_engine;
-    BitDialogStyle m_style;
-
-    // Style library
-    std::map<std::string, BitDialogStyle> m_styleLibrary;
-    std::vector<std::string>              m_styleOrder;  // Preserves insertion order for cycling
-    std::string                           m_currentStyleName;
-    std::string                           m_stylePath;
-    long                                  m_styleLastModTime = 0;
-    float                                 m_hotReloadTimer   = 0.0f;
-
-    std::map<std::string, Texture2D> m_textureCache;
-    std::map<std::string, Sound>     m_sfxCache;
-    std::string m_currentMusicPath = "";
-    Music m_currentMusic;
-    bool m_isMusicPlaying = false;
-
-    Texture2D m_fallbackTexture;
-    Texture2D m_vignette;
-
-    float m_animTimer   = 0.0f;
-    int   m_animFrame   = 0;
-    std::string m_lastSpritePath = "";
-    float m_floatOffset = 0.0f;
+private:
+    UIStyle m_activeStyle;
+    
+    std::map<std::string, UIStyle> m_styleLibrary;
+    std::vector<std::string>       m_styleOrder;
+    std::string                    m_currentStyleName;
+    std::string                    m_stylePath;
+    long                           m_styleLastModTime = 0;
+    float                          m_hotReloadTimer   = 0.0f;
 };
 
 #endif

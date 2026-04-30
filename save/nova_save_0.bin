@@ -1,16 +1,16 @@
 {
     "meta": {
-        "char": "Akira",
-        "node": "scene_alley_start",
-        "text": "Still walking these shadows? You're e...",
-        "time": "2026-04-30 18:36:02"
+        "char": "Log",
+        "node": "dialog_end_final",
+        "text": "Session Terminated. Stats - Akira: 1,...",
+        "time": "2026-04-30 20:33:04"
     },
-    "node_id": "scene_alley_start",
+    "node_id": "dialog_end_final",
     "variables": {
-        "credits": 50,
-        "knows_about_target": 0,
-        "trust_akira": 0,
-        "trust_kael": 0
+        "credits": 30,
+        "knows_about_target": 1,
+        "trust_akira": 1,
+        "trust_kael": 2
     },
     "version": 1
 }
