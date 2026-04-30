@@ -17,17 +17,16 @@ struct DialogOption {
     std::vector<Event> events;         
 };
 
-// Animation and Sprite Definitions
 struct SpriteDef {
     std::string path;
     int frames = 1;
-    float speed = 5.0f; // FPS
+    float speed = 5.0f; 
     float scale = 1.0f;
 };
 
 struct Entity { 
     std::string id, name, type; 
-    std::map<std::string, SpriteDef> sprites; // key: expression (idle, smile, etc)
+    std::map<std::string, SpriteDef> sprites; 
 };
 
 struct VariableDef { std::string id; int initial_value; std::optional<int> min, max; };
@@ -39,8 +38,6 @@ struct DialogNode {
     std::vector<Event> events;         
     std::map<std::string, std::string> metadata; 
 };
-
-// --- Save System V2 ---
 
 struct SaveMetadata {
     std::string timestamp;
@@ -62,6 +59,8 @@ struct DialogConfigs {
     bool debug = false, auto_save = false, encrypt_save = false; 
     int max_slots = 5;
     std::vector<std::string> dialog_files;
+    std::vector<std::string> entity_files;
+    std::vector<std::string> variable_files;
 };
 
 struct DialogProject {
@@ -70,8 +69,6 @@ struct DialogProject {
     std::map<std::string, VariableDef> variables;
     std::map<std::string, DialogNode> nodes;
 };
-
-// --- Dialog Engine ---
 
 class DialogEngine {
 public:
@@ -92,12 +89,10 @@ public:
     bool IsTextRevealing() const;
     std::string GetVisibleContent() const; 
     
-    // State
     int GetVariable(const std::string& name) const;
     void SetVariable(const std::string& name, int value);
     const std::map<std::string, int>& GetAllVariables() const { return m_variables; }
     
-    // Getters
     bool IsActive() const { return m_isActive; }
     const DialogNode* GetCurrentNode() const { return m_currentNode; }
     const Entity* GetCurrentEntity() const;
@@ -125,11 +120,12 @@ private:
     std::string GetTimestamp() const;
 };
 
-// --- Parser (Internal) ---
 class DialogParser {
 public:
     static DialogProject ParseConfig(const std::string& path);
     static bool LoadDialogFile(const std::string& path, DialogProject& p);
+    static bool LoadEntitiesFile(const std::string& path, DialogProject& p);
+    static bool LoadVariablesFile(const std::string& path, DialogProject& p);
 };
 
 #endif

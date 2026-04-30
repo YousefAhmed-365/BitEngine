@@ -1,0 +1,16 @@
+{
+    "entities": {
+        "akira": {
+            "name": "Akira",
+            "type": "Fixer"
+        },
+        "kael": {
+            "name": "Kael",
+            "type": "Merchant"
+        },
+        "system": {
+            "name": "Log",
+            "type": "System"
+        }
+    }
+}

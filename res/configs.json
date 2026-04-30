@@ -9,42 +9,12 @@
         "max_slots": 10,
         "mode": "typewriter"
     },
-    "entities": {
-        "akira": {
-            "name": "Akira",
-            "type": "Fixer"
-        },
-        "kael": {
-            "name": "Kael",
-            "type": "Merchant"
-        },
-        "system": {
-            "name": "Log",
-            "type": "System"
-        }
-    },
-    "variables": {
-        "trust_akira": {
-            "initial": 0,
-            "min": 0,
-            "max": 10
-        },
-        "trust_kael": {
-            "initial": 0,
-            "min": 0,
-            "max": 10
-        },
-        "credits": {
-            "initial": 50,
-            "min": 0,
-            "max": 999
-        },
-        "knows_about_target": {
-            "initial": 0,
-            "min": 0,
-            "max": 1
-        }
-    },
+    "entities": [
+        "res/entities.json"
+    ],
+    "variables": [
+        "res/variables.json"
+    ],
     "dialogs": [
         "res/dialog_intro.json",
         "res/dialog_market.json"

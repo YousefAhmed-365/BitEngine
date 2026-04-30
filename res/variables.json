@@ -1,0 +1,24 @@
+{
+        "variables": {
+        "trust_akira": {
+            "initial": 0,
+            "min": 0,
+            "max": 10
+        },
+        "trust_kael": {
+            "initial": 0,
+            "min": 0,
+            "max": 10
+        },
+        "credits": {
+            "initial": 50,
+            "min": 0,
+            "max": 999
+        },
+        "knows_about_target": {
+            "initial": 0,
+            "min": 0,
+            "max": 1
+        }
+    }
+}

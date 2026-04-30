@@ -27,29 +27,73 @@ DialogProject DialogParser::ParseConfig(const std::string& path) {
             p.configs.max_slots = c.value("max_slots", 5);
             p.configs.mode = c.value("mode", "typewriter");
         }
+        
+        // Support for modular file paths
         if (j.contains("entities")) {
-            for (auto& [id, ent] : j["entities"].items()) {
-                Entity entity = { id, ent.value("name", id), ent.value("type", "char") };
-                if (ent.contains("sprites")) {
-                    for (auto& [expr, s] : ent["sprites"].items()) {
-                        entity.sprites[expr] = { s.value("path", ""), s.value("frames", 1), s.value("speed", 5.0f), s.value("scale", 1.0f) };
+            if (j["entities"].is_array()) for (auto& f : j["entities"]) p.configs.entity_files.push_back(f.get<std::string>());
+            else if (j["entities"].is_object()) {
+                // Legacy inline support
+                for (auto& [id, ent] : j["entities"].items()) {
+                    Entity entity = { id, ent.value("name", id), ent.value("type", "char") };
+                    if (ent.contains("sprites")) {
+                        for (auto& [expr, s] : ent["sprites"].items()) 
+                            entity.sprites[expr] = { s.value("path", ""), s.value("frames", 1), s.value("speed", 5.0f), s.value("scale", 1.0f) };
                     }
+                    p.entities[id] = entity;
                 }
-                p.entities[id] = entity;
             }
         }
+        
         if (j.contains("variables")) {
-            for (auto& [id, v] : j["variables"].items()) {
-                VariableDef def = { id, v.value("initial", 0) };
-                if (v.contains("min")) def.min = v["min"].get<int>();
-                if (v.contains("max")) def.max = v["max"].get<int>();
-                p.variables[id] = def;
+            if (j["variables"].is_array()) for (auto& f : j["variables"]) p.configs.variable_files.push_back(f.get<std::string>());
+            else if (j["variables"].is_object()) {
+                // Legacy inline support
+                for (auto& [id, v] : j["variables"].items()) {
+                    VariableDef def = { id, v.value("initial", 0) };
+                    if (v.contains("min")) def.min = v["min"].get<int>();
+                    if (v.contains("max")) def.max = v["max"].get<int>();
+                    p.variables[id] = def;
+                }
             }
         }
+        
         if (j.contains("dialogs") && j["dialogs"].is_array())
             for (auto& d : j["dialogs"]) p.configs.dialog_files.push_back(d.get<std::string>());
+            
     } catch (...) {}
     return p;
+}
+
+bool DialogParser::LoadEntitiesFile(const std::string& path, DialogProject& p) {
+    std::ifstream f(path); if (!f) return false;
+    try {
+        json j; f >> j;
+        auto& root = j.contains("entities") ? j["entities"] : j;
+        for (auto& [id, ent] : root.items()) {
+            Entity entity = { id, ent.value("name", id), ent.value("type", "char") };
+            if (ent.contains("sprites")) {
+                for (auto& [expr, s] : ent["sprites"].items()) 
+                    entity.sprites[expr] = { s.value("path", ""), s.value("frames", 1), s.value("speed", 5.0f), s.value("scale", 1.0f) };
+            }
+            p.entities[id] = entity;
+        }
+    } catch (...) { return false; }
+    return true;
+}
+
+bool DialogParser::LoadVariablesFile(const std::string& path, DialogProject& p) {
+    std::ifstream f(path); if (!f) return false;
+    try {
+        json j; f >> j;
+        auto& root = j.contains("variables") ? j["variables"] : j;
+        for (auto& [id, v] : root.items()) {
+            VariableDef def = { id, v.value("initial", 0) };
+            if (v.contains("min")) def.min = v["min"].get<int>();
+            if (v.contains("max")) def.max = v["max"].get<int>();
+            p.variables[id] = def;
+        }
+    } catch (...) { return false; }
+    return true;
 }
 
 bool DialogParser::LoadDialogFile(const std::string& path, DialogProject& p) {
@@ -85,7 +129,12 @@ DialogEngine::DialogEngine() {}
 
 bool DialogEngine::LoadProject(const std::string& path) {
     m_project = DialogParser::ParseConfig(path);
+    
+    // Load external registries
+    for (const auto& f : m_project.configs.entity_files) DialogParser::LoadEntitiesFile(f, m_project);
+    for (const auto& f : m_project.configs.variable_files) DialogParser::LoadVariablesFile(f, m_project);
     for (const auto& f : m_project.configs.dialog_files) DialogParser::LoadDialogFile(f, m_project);
+    
     if (m_project.nodes.empty()) return false;
     for (auto const& [id, def] : m_project.variables) m_variables[id] = def.initial_value;
     return true;
