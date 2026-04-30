@@ -1,0 +1,89 @@
+{
+    "scene_market_start": {
+        "entity": "kael",
+        "content": "Fresh synth-meat! Rare data chips! Ah, a new face. What brings you to the Neon Market? (Akira Trust: {trust_akira})",
+        "next_id": null,
+        "options": [
+            {
+                "content": "Akira sent me.",
+                "next_id": "market_akira_ref",
+                "conditions": {
+                    "op": ">=",
+                    "var": "knows_about_target",
+                    "value": 1
+                }
+            },
+            {
+                "content": "Just browsing.",
+                "next_id": "market_browsing"
+            }
+        ],
+        "events": []
+    },
+    "market_akira_ref": {
+        "entity": "kael",
+        "content": "Akira, eh? She usually doesn't send the 'polite' ones. I've got a lead for you, but it'll cost you 20 credits. You have {credits}.",
+        "next_id": null,
+        "options": [
+            {
+                "content": "Pay for lead (20 Credits).",
+                "next_id": "market_pay_success",
+                "conditions": {
+                    "op": ">=",
+                    "var": "credits",
+                    "value": 20
+                }
+            },
+            {
+                "content": "Too expensive.",
+                "next_id": "market_declined"
+            }
+        ],
+        "events": []
+    },
+    "market_browsing": {
+        "entity": "kael",
+        "content": "Browsing doesn't pay my rent, friend. But look around. Maybe you'll find something you didn't know you needed.",
+        "next_id": "dialog_end_final",
+        "options": [],
+        "events": []
+    },
+    "market_pay_success": {
+        "entity": "kael",
+        "content": "Smart move. Here's the chip. Meet me at the docks at midnight. Don't be late.",
+        "next_id": "dialog_end_final",
+        "options": [],
+        "events": [
+            {
+                "op": "sub",
+                "var": "credits",
+                "value": 20
+            },
+            {
+                "op": "add",
+                "var": "trust_kael",
+                "value": 2
+            }
+        ]
+    },
+    "market_declined": {
+        "entity": "kael",
+        "content": "Your loss. Information doesn't stay fresh forever.",
+        "next_id": "dialog_end_final",
+        "options": [],
+        "events": [
+            {
+                "op": "sub",
+                "var": "trust_kael",
+                "value": 1
+            }
+        ]
+    },
+    "dialog_end_final": {
+        "entity": "system",
+        "content": "Session Terminated. Stats - Akira: {trust_akira}, Kael: {trust_kael}, Credits: {credits}",
+        "next_id": "dialog_end",
+        "options": [],
+        "events": []
+    }
+}

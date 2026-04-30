@@ -8,11 +8,15 @@ BUILD_DIR="build"
 mkdir -p $BUILD_DIR
 cd $BUILD_DIR
 
-# Run CMake to generate build system
-cmake ..
+# Run CMake to generate build system (explicitly Debug)
+cmake -DCMAKE_BUILD_TYPE=Debug ..
 
 # Build the project
 cmake --build .
 
 # Run the executable
-./App
+if [ -f "./BitEngine" ]; then
+    ./BitEngine
+else
+    echo "Build failed: BitEngine executable not found."
+fi

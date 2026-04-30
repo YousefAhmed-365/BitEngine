@@ -1,6 +1,6 @@
 # Build and binary files
-build/*
-!build/res/
+build/BitEngine
+build/
 build/save/
 *.o
 *.obj
