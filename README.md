@@ -1,43 +1,77 @@
-# BitEngine (Work in Progress)
+# BitEngine Studio & Narrative Core
 
-**BitEngine** is a high-performance, data-driven cinematic narrative/visual novel engine built with C++17 and [Raylib](https://www.raylib.com/). It is designed to cleanly separate story creation from engine compilation, providing a highly modular architecture for visual novels and interactive dialogue experiences.
+**BitEngine** is a lightweight, high-performance narrative engine and visual development suite built with C++17. It is designed to bridge the gap between hard-coded narrative logic and professional-grade visual storytelling.
 
-> [!WARNING]
-> **Heavily In Development:** BitEngine is actively being built. Many features are experimental, and the API/configuration formats are subject to change.
+The project is split into two primary components:
+1. **BitEngine Core**: A modular, hardware-agnostic narrative runtime.
+2. **BitEngine Studio (BitTool)**: A complete visual IDE for editing dialog graphs, managing global variables, and defining entity registries.
 
-## 🚀 Key Features
+---
 
-* **Data-Driven Architecture**: The entire world state, dialogues, entities, and assets are defined in modular JSON files (`configs.json`, `entities.json`, `dialog_intro.json`, etc.).
-* **Dual-Binary Deployment**:
-  * **BitEngine**: The client.
-  * **BitTool**: A dedicated tool to compile the project data into a single binary file
-* **Asset Security & Bundling**: BitTool compiles the entire project into an XOR-encrypted `data.bin` file, protecting your un-shipped story files and assets from casual prying.
-* **Procedural VFX & Audio**: Supports screen shaking, dynamic vignette drop shadows, positional sprite rendering (left, center, right), and integrated BGM/SFX audio channels.
-* **Semantic Asset Registries**: Never hardcode file paths into a scene again. Map `market_bg` to `assets/market_bg.png` once in `assets.json` and cleanly reference it anywhere.
-* **Robust Save/Load System**: Built-in state management for player decisions, branching paths, and internal variables. Also outputs XOR-encrypted save slots.
+## 💎 Key Features
 
-## 🛠️ Building the Project
+### 🎬 Visual Studio (BitTool)
+The **BitEngine Studio** is no longer just a compiler; it's a full-featured visual editor:
+- **Infinite Canvas Graph Editor**: Visual node-based workflow for complex branching narratives.
+- **Asset Pipeline**: Integrated editors for **Entities** (sprite-mapping, framing, scaling) and **Variables** (global state with min/max constraints).
+- **Project Hub**: Manage multiple narrative projects from a single tile-based launcher.
+- **Smart Logic**: Real-time validation and automatic persistence to the project's data schema.
 
-Ensure you have `CMake` (3.16+) and `Raylib` installed on your system.
+### 🧠 Decoupled Core Architecture
+The engine's logic layer is entirely independent of the rendering framework:
+- **Core Logic**: Handles state, variable manipulation, branching, and binary serialization without any graphic library dependencies.
+- **Rich Text Parser**: Support for in-line styling tags: `[color=#hex]`, `[shake]`, `[wave]`, `[speed=2.0]`, and `[wait=1.0]`.
+- **Hardware-Agnostic State**: The engine uses a custom `BitColor` system, allowing it to be easily ported to other rendering backends (SDL, SFML, etc.).
 
-### Compiling
-Use the provided universal build script:
+### 🎭 Data-Driven Rendering (BitRenderer)
+A highly flexible rendering layer driven by a modular **Style System**:
+- **Hot-Reloadable Themes**: Define entire UI looks (dialog boxes, choice panels, toast notifications) in `style.json` and watch changes reflect instantly without restarting.
+- **Style Manager**: Switch between themes (e.g., `neon_noir`, `minimal`, `vertical_left`) at runtime.
+- **Dynamic VFX**: Integrated sprite floating, screen-shakes, and vignette systems.
+
+---
+
+## 🛠️ Building & Running
+
+### Prerequisites
+- **Compiler**: C++17 compatible (GCC 9+, Clang 10+, MSVC 2019+)
+- **CMake**: 3.16 or higher
+- **Raylib**: Standard installation for windowing and graphics.
+
+### Quick Build
+Use the provided automation script:
 ```bash
-# For development (fast compile, debugging symbols)
-./build.sh debug
-
-# For production (maximum optimization: -O3, LTO)
-./build.sh release
+./build.sh
 ```
 
-### Running the Engine
-By default, the engine favors production assets.
-1. Engine checks for `build/data.bin` first (Instant binary load).
-2. If missing, it falls back to `build/res/configs.json` for hot-reloadable JSON development.
+### Modes of Execution
+1. **BitEngine**: The game client. It automatically attempts to load XOR-encrypted `data.bin` for production or falls back to raw `/res` files for development.
+2. **BitTool**: The Engine Studio. Use this to create new projects or visually edit your scripts.
 
-## 📦 Project Structure
+---
 
-* `/src`: C++ Source Code (`BitEngine`, `BitDialog`, `BitTool`).
-* `/res`: JSON configuration files for scripts, variables, assets, and entities.
-* `/assets`: Media files (sprites, music, sound effects, backgrounds).
-* `/build`: Target directory for executables, symlinks, and `data.bin`.
+## 📂 Project Structure
+
+- **`/src`**: Modular source code.
+  - `BitEngine`: Core logic and narrative state.
+  - `BitRenderer`: High-level UI and graphics bridge.
+  - `BitEditor`: The logic for the Visual Studio canvas.
+- **`/res`**: Project configuration, global variables, and engine settings.
+- **`/assets`**: Textures, soundtracks, and sound effects.
+
+---
+
+## ⌨️ Studio Controls
+| Action | Hardware |
+| :--- | :--- |
+| **Pan Canvas** | Right-Click + Drag |
+| **Zoom** | Mouse Wheel |
+| **Add Node** | Top bar button or `A` key |
+| **Select Node** | Left Click |
+| **Link Nodes** | Click & Drag from **Circle Pin** to another Node |
+| **Hot-Reload Styles** | Press `TAB` in BitEngine |
+
+---
+
+> [!TIP]
+> To create your first project, launch **BitTool** and use the bottom-bar creation wizard. It will automatically scaffold the necessary directory structures for you.
