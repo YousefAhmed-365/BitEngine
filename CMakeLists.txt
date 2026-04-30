@@ -20,7 +20,7 @@ find_package(raylib REQUIRED)
 set(SOURCES
     src/main.cpp
     src/BitEngine.cpp
-    src/RayDialog.cpp
+    src/BitDialog.cpp
 )
 
 # Add executable

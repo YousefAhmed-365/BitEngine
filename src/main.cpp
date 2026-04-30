@@ -1,6 +1,6 @@
 #include "raylib.h"
-#include "BitEngine.hpp"
-#include "RayDialog.hpp"
+#include "headers/BitEngine.hpp"
+#include "headers/BitDialog.hpp"
 #include <iostream>
 
 int main() {
@@ -13,7 +13,7 @@ int main() {
     {
         // 2. Setup Engine and Bridge
         DialogEngine dialogSystem;
-        RayDialog uiBridge(dialogSystem);
+        BitDialog uiBridge(dialogSystem);
 
         // 3. Load Project
         if (dialogSystem.LoadProject("res/configs.json")) {

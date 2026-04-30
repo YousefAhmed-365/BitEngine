@@ -55,8 +55,9 @@ struct SaveData {
 
 struct DialogConfigs {
     std::string start_node = "dialog_start", save_prefix = "save_slot_", mode = "typewriter";
-    float reveal_speed = 30.0f;
+    float reveal_speed = 45.0f;
     bool debug = false, auto_save = false, encrypt_save = false; 
+    bool enable_floating = true, enable_shadows = true, enable_vignette = true;
     int max_slots = 5;
     std::vector<std::string> dialog_files;
     std::vector<std::string> entity_files;
@@ -100,6 +101,10 @@ public:
     const DialogConfigs& GetConfigs() const { return m_project.configs; }
     bool IsDebug() const { return m_project.configs.debug; }
 
+    // Narrative Effects State
+    float GetEffectShake() const { return m_shakeIntensity; }
+    void TriggerShake(float intensity = 5.0f) { m_shakeIntensity = intensity; }
+
 private:
     DialogProject m_project;
     std::map<std::string, int> m_variables;
@@ -110,6 +115,7 @@ private:
     float m_revealedCount = 0.0f;
     std::string m_cachedInterpolatedContent;
     size_t m_cachedTotalChars = 0;
+    float m_shakeIntensity = 0.0f;
 
     void ProcessEvents(const std::vector<Event>& events);
     void RefreshVisibleOptions();

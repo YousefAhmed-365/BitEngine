@@ -23,6 +23,9 @@ DialogProject DialogParser::ParseConfig(const std::string& path) {
             p.configs.debug = c.value("debug", false);
             p.configs.auto_save = c.value("auto_save", false);
             p.configs.encrypt_save = c.value("encrypt_save", false);
+            p.configs.enable_floating = c.value("enable_floating", true);
+            p.configs.enable_shadows = c.value("enable_shadows", true);
+            p.configs.enable_vignette = c.value("enable_vignette", true);
             p.configs.save_prefix = c.value("save_prefix", "save_slot_");
             p.configs.max_slots = c.value("max_slots", 5);
             p.configs.mode = c.value("mode", "typewriter");
@@ -229,6 +232,9 @@ void DialogEngine::Next() {
 void DialogEngine::Update(float dt) {
     if (!m_isActive || !m_currentNode || m_project.configs.mode == "instant") return;
     if (IsTextRevealing()) m_revealedCount = std::min((float)m_cachedTotalChars, m_revealedCount + m_project.configs.reveal_speed * dt);
+    
+    // Decay shake effect
+    if (m_shakeIntensity > 0) m_shakeIntensity = std::max(0.0f, m_shakeIntensity - dt * 20.0f);
 }
 
 void DialogEngine::SkipReveal() { if (m_currentNode) m_revealedCount = (float)m_cachedTotalChars; }
@@ -276,6 +282,7 @@ void DialogEngine::ProcessEvents(const std::vector<Event>& events) {
         else if (e.op == "add") SetVariable(e.var, cur + e.value);
         else if (e.op == "sub") SetVariable(e.var, cur - e.value);
         else if (e.op == "mul") SetVariable(e.var, cur * e.value);
+        else if (e.op == "shake") TriggerShake((float)e.value);
     }
 }
 

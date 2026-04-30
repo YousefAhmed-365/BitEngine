@@ -5,6 +5,9 @@
         "debug": true,
         "auto_save": true,
         "encrypt_save": false,
+        "enable_floating": true,
+        "enable_shadows": true,
+        "enable_vignette": true,
         "save_prefix": "nova_save_",
         "max_slots": 10,
         "mode": "typewriter"
