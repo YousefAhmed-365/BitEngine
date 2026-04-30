@@ -1,0 +1,52 @@
+{
+    "configs": {
+        "start_node": "scene_alley_start",
+        "reveal_speed": 45.0,
+        "debug": true,
+        "auto_save": true,
+        "encrypt_save": false,
+        "save_prefix": "nova_save_",
+        "max_slots": 10,
+        "mode": "typewriter"
+    },
+    "entities": {
+        "akira": {
+            "name": "Akira",
+            "type": "Fixer"
+        },
+        "kael": {
+            "name": "Kael",
+            "type": "Merchant"
+        },
+        "system": {
+            "name": "Log",
+            "type": "System"
+        }
+    },
+    "variables": {
+        "trust_akira": {
+            "initial": 0,
+            "min": 0,
+            "max": 10
+        },
+        "trust_kael": {
+            "initial": 0,
+            "min": 0,
+            "max": 10
+        },
+        "credits": {
+            "initial": 50,
+            "min": 0,
+            "max": 999
+        },
+        "knows_about_target": {
+            "initial": 0,
+            "min": 0,
+            "max": 1
+        }
+    },
+    "dialogs": [
+        "res/dialog_intro.json",
+        "res/dialog_market.json"
+    ]
+}

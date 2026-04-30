@@ -1,0 +1,36 @@
+# Build and binary files
+build/*
+!build/res/
+build/save/
+*.o
+*.obj
+*.gch
+*.pch
+
+# IDE and System files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Any other potential executables or temporary files
+*.exe
+*.out
+*.app
+bin/
+obj/
+
+# CMake temporary files
+CMakeLists.txt.user
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+Testing/
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps/

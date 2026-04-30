@@ -1,0 +1,76 @@
+{
+    "scene_alley_start": {
+        "entity": "akira",
+        "metadata": {
+            "sfx": "alley_ambiance.wav",
+            "expression": "neutral",
+            "bgm": "neon_noir_loop.mp3"
+        },
+        "content": "Still walking these shadows? You're either brave or very lost. Current Credits: {credits}",
+        "next_id": null,
+        "options": [
+            {
+                "content": "Looking for work.",
+                "next_id": "alley_work",
+                "conditions": [
+                    { "op": ">=", "var": "credits", "value": 0 }
+                ],
+                "style": "neutral"
+            },
+            {
+                "content": "Just passing through.",
+                "next_id": "alley_passing",
+                "events": [
+                    { "op": "sub", "var": "trust_akira", "value": 1 }
+                ]
+            },
+            {
+                "content": "[VIP] Ask about the heist.",
+                "next_id": "alley_heist_secret",
+                "conditions": [
+                    { "op": ">=", "var": "trust_akira", "value": 5 },
+                    { "op": ">=", "var": "credits", "value": 100 }
+                ],
+                "style": "premium"
+            }
+        ],
+        "events": []
+    },
+    "alley_heist_secret": {
+        "entity": "akira",
+        "metadata": {
+            "sfx": "whisper.wav",
+            "expression": "serious"
+        },
+        "content": "You've got the credits and you've got my trust. The heist is on Friday. Don't be late.",
+        "next_id": "alley_to_market",
+        "options": [],
+        "events": [
+            { "op": "mul", "var": "trust_akira", "value": 2 }
+        ]
+    },
+    "alley_work": {
+        "entity": "akira",
+        "content": "Work is a polite word for what I do. But you look like you can handle a blade. Go see Kael at the market. Tell him I sent you.",
+        "next_id": "alley_to_market",
+        "options": [],
+        "events": [
+            { "op": "add", "var": "trust_akira", "value": 1 },
+            { "op": "set", "var": "knows_about_target", "value": 1 }
+        ]
+    },
+    "alley_passing": {
+        "entity": "akira",
+        "content": "Is that so? Well, keep moving. The Neon Market is that way if you get hungry. Don't let the droids catch you staring.",
+        "next_id": "alley_to_market",
+        "options": [],
+        "events": []
+    },
+    "alley_to_market": {
+        "entity": "system",
+        "content": "You leave the damp alley and head towards the glow of the Neon Market.",
+        "next_id": "scene_market_start",
+        "options": [],
+        "events": []
+    }
+}
