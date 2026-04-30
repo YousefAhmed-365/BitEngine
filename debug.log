@@ -53,3 +53,8 @@
 2026-04-30 23:08:14 | [BitEngine:INFO] Loading project from: ./Test/res/configs.json
 2026-04-30 23:08:14 | [BitEngine:ERROR] [LoadProject] Could not load dialog file: v.json
 2026-04-30 23:08:14 | [BitEngine:ERROR] [LoadProject] No dialog nodes loaded. Check your dialog files.
+2026-04-30 23:25:03 | [BitEngine:INFO] Loading project from: ./Test/res/configs.json
+2026-04-30 23:25:03 | [BitEngine:ERROR] [LoadProject] No dialog nodes loaded. Check your dialog files.
+2026-04-30 23:25:11 | [BitEngine:INFO] Loading project from: ./Test/res/configs.json
+2026-04-30 23:25:11 | [BitEngine:ERROR] [LoadProject] Could not load dialog file: test.json
+2026-04-30 23:25:11 | [BitEngine:ERROR] [LoadProject] No dialog nodes loaded. Check your dialog files.

@@ -22,7 +22,7 @@ Color RichTextParser::StringToColor(const std::string& str) {
     if (s.length() == 7 && s[0] == '#') {
         unsigned int r, g, b;
         if (sscanf(s.c_str() + 1, "%02x%02x%02x", &r, &g, &b) == 3) {
-            return (Color){ (unsigned char)r, (unsigned char)g, (unsigned char)b, 255 };
+            return Color{ (unsigned char)r, (unsigned char)g, (unsigned char)b, 255 };
         }
     }
     return BLANK;

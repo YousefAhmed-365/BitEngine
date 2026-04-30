@@ -15,6 +15,7 @@ save/
 *.swo
 .DS_Store
 Thumbs.db
+debug.log
 
 # Any other potential executables or temporary files
 *.exe

@@ -80,13 +80,13 @@ void BitApp::Run() {
         uiBridge.HandleInput();
 
         BeginDrawing();
-        ClearBackground((Color){ 10, 10, 15, 255 });
+        ClearBackground(Color{ 10, 10, 15, 255 });
 
         // Subtle background grid
-        for (int i = 0; i < sw;  i += 80) DrawLine(i, 0, i, sh, Fade((Color){ 80, 80, 120, 255 }, 0.05f));
-        for (int i = 0; i < sh; i += 80) DrawLine(0, i, sw, i,  Fade((Color){ 80, 80, 120, 255 }, 0.05f));
+        for (int i = 0; i < sw;  i += 80) DrawLine(i, 0, i, sh, Fade(Color{ 80, 80, 120, 255 }, 0.05f));
+        for (int i = 0; i < sh; i += 80) DrawLine(0, i, sw, i,  Fade(Color{ 80, 80, 120, 255 }, 0.05f));
 
-        DrawText("BITENGINE v2.0 - MODULAR CORE", 30, 30, 22, (Color){ 80, 80, 120, 255 });
+        DrawText("BITENGINE v2.0 - MODULAR CORE", 30, 30, 22, Color{ 80, 80, 120, 255 });
 
         uiBridge.Draw();
 
@@ -104,8 +104,8 @@ void BitApp::Run() {
             int tw = MeasureText(label.c_str(), 14);
             DrawRectangle(20, sh - 46, tw + 24, 30, Fade(BLACK, 0.6f));
             DrawRectangleLines(20, sh - 46, tw + 24, 30, Fade(WHITE, 0.15f));
-            DrawText(label.c_str(), 32, sh - 38, 14, (Color){ 160, 160, 200, 255 });
-            DrawText("Tab / Shift+Tab to switch", 32, sh - 18, 11, Fade((Color){ 120, 120, 160, 255 }, 0.8f));
+            DrawText(label.c_str(), 32, sh - 38, 14, Color{ 160, 160, 200, 255 });
+            DrawText("Tab / Shift+Tab to switch", 32, sh - 18, 11, Fade(Color{ 120, 120, 160, 255 }, 0.8f));
         }
 
         EndDrawing();
