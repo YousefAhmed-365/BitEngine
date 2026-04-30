@@ -186,7 +186,11 @@ void BitRenderer::DrawMainBox() {
     int sw   = GetScreenWidth(), sh = GetScreenHeight();
     float bw = sw * style.boxWidthNorm;
     float bx = sw * style.boxNormX - bw / 2.0f;
-    float by = sh - style.boxHeight - style.boxMarginBottom;
+    float by = 0;
+    if (style.boxAnchor == "top") by = style.boxMarginBottom;
+    else if (style.boxAnchor == "center") by = sh / 2.0f - style.boxHeight / 2.0f;
+    else by = sh - style.boxHeight - style.boxMarginBottom; // bottom
+
     Rectangle box = { bx, by, bw, style.boxHeight };
 
     DrawRectangleRounded(box, style.boxRoundness, 10, style.boxBg);
@@ -194,9 +198,14 @@ void BitRenderer::DrawMainBox() {
 
     if (e) {
         float tw = MeasureTextEx(GetFontDefault(), e->name.c_str(), (float)style.labelFontSize, 2).x;
-        float lx = box.x + style.labelOffsetX;
-        float ly = box.y + style.labelOffsetY;
         float lw = tw + style.labelPadding * 2;
+        
+        float lx = box.x + style.labelOffsetX;
+        if (style.labelAlign == "center") lx = box.x + box.width / 2.0f - lw / 2.0f;
+        else if (style.labelAlign == "right") lx = box.x + box.width - lw - style.labelOffsetX;
+
+        float ly = box.y + style.labelOffsetY;
+        
         DrawRectangle((int)lx, (int)ly, (int)lw, style.labelHeight, style.labelBg);
         DrawRectangleLinesEx({ lx, ly, lw, (float)style.labelHeight }, 1.5f, style.labelBorder);
         DrawText(e->name.c_str(), (int)lx + style.labelPadding,
@@ -207,6 +216,15 @@ void BitRenderer::DrawMainBox() {
     DrawRichText(m_engine.GetParsedContent(), m_engine.GetRevealedCount(),
                  (int)(box.x + style.boxPadding), (int)(box.y + 40),
                  style.textFontSize, (int)bw - style.boxPadding * 2, style.textColor);
+                 
+    // Waiting for input animation (Completion Cursor)
+    if (!m_engine.IsTextRevealing()) {
+        float anim = sin(GetTime() * 10.0f) * 3.0f;
+        Color arrowCol = Fade(style.boxBorder, 0.8f);
+        DrawTriangle({ box.x + box.width - 30, box.y + box.height - 20 + anim },
+                     { box.x + box.width - 20, box.y + box.height - 30 + anim },
+                     { box.x + box.width - 40, box.y + box.height - 30 + anim }, arrowCol);
+    }
 }
 
 void BitRenderer::DrawChoiceBox() {

@@ -17,6 +17,7 @@ static UIStyle ParseStyleBlock(const json& j) {
 
     if (j.contains("dialog_box")) {
         auto& b = j["dialog_box"];
+        s.boxAnchor       = b.value("anchor",        s.boxAnchor);
         s.boxNormX        = b.value("pos_x",         s.boxNormX);
         s.boxNormY        = b.value("pos_y",         s.boxNormY);
         s.boxWidthNorm    = b.value("width_norm",    s.boxWidthNorm);
@@ -35,6 +36,7 @@ static UIStyle ParseStyleBlock(const json& j) {
     }
     if (j.contains("name_label")) {
         auto& l = j["name_label"];
+        s.labelAlign    = l.value("align",     s.labelAlign);
         s.labelOffsetX  = l.value("offset_x",  s.labelOffsetX);
         s.labelOffsetY  = l.value("offset_y",  s.labelOffsetY);
         s.labelPadding  = l.value("padding",   s.labelPadding);

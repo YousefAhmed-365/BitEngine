@@ -20,6 +20,7 @@ struct UIStyle {
     float boxRoundness     = 0.05f;
     float boxBorderThick   = 3.0f;
     int   boxPadding       = 40;
+    std::string boxAnchor  = "bottom";
     Color boxBg            = { 15,  15,  25,  240 };
     Color boxBorder        = {  0, 210, 255, 255 };
 
@@ -32,6 +33,7 @@ struct UIStyle {
     float labelOffsetY     = -20.0f;
     int   labelPadding     = 20;
     int   labelHeight      = 40;
+    std::string labelAlign = "left";
     Color labelBg          = { 15,  15,  25,  240 };
     Color labelBorder      = {  0, 210, 255, 255 };
     Color labelTextColor   = { 255, 215,   0, 255 };

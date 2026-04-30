@@ -3,6 +3,7 @@
 
         "neon_noir": {
             "dialog_box": {
+                "anchor": "bottom",
                 "pos_x": 0.5, "pos_y": 1.0, "width_norm": 0.93, "height": 190.0,
                 "margin_bottom": 20.0, "roundness": 0.05, "border_thick": 3.0, "padding": 40,
                 "bg_color":     [10,  10,  22, 240],
@@ -10,6 +11,7 @@
             },
             "dialog_text": { "color": [240, 245, 255, 255], "font_size": 24 },
             "name_label": {
+                "align": "left",
                 "offset_x": 30.0, "offset_y": -20.0, "padding": 20, "height": 40,
                 "bg_color":     [10,  10,  22, 240],
                 "border_color": [ 0, 210, 255, 255],
@@ -111,6 +113,7 @@
 
         "blood_red": {
             "dialog_box": {
+                "anchor": "bottom",
                 "pos_x": 0.5, "pos_y": 1.0, "width_norm": 0.94, "height": 195.0,
                 "margin_bottom": 18.0, "roundness": 0.02, "border_thick": 2.5, "padding": 42,
                 "bg_color":     [18,  4,  4, 248],
@@ -118,6 +121,7 @@
             },
             "dialog_text": { "color": [255, 220, 220, 255], "font_size": 24 },
             "name_label": {
+                "align": "left",
                 "offset_x": 32.0, "offset_y": -20.0, "padding": 20, "height": 40,
                 "bg_color":     [18,  4,  4, 248],
                 "border_color": [200, 30, 30, 255],
@@ -143,6 +147,43 @@
                 "font_size": 16
             },
             "vignette_opacity": 0.6
+        },
+        "cyber_top": {
+            "dialog_box": {
+                "anchor": "top",
+                "pos_x": 0.5, "pos_y": 0.0, "width_norm": 0.95, "height": 160.0,
+                "margin_bottom": 10.0, "roundness": 0.0, "border_thick": 2.0, "padding": 30,
+                "bg_color":     [5, 5, 15, 220],
+                "border_color": [0, 255, 150, 255]
+            },
+            "dialog_text": { "color": [200, 255, 230, 255], "font_size": 22 },
+            "name_label": {
+                "align": "center",
+                "offset_x": 0.0, "offset_y": 140.0, "padding": 15, "height": 35,
+                "bg_color":     [5, 5, 15, 240],
+                "border_color": [0, 255, 150, 255],
+                "text_color":   [0, 255, 150, 255],
+                "font_size": 24
+            },
+            "choice_box": {
+                "pos_x": 0.5, "pos_y": 0.6, "offset_y": 0.0, "width": 400.0,
+                "roundness": 0.0, "border_thick": 1.0,
+                "bg_color":       [5, 5, 15, 230],
+                "border_color":   [0, 255, 150, 255],
+                "option_color":   [0, 255, 150, 255],
+                "option_hover":   [255, 255, 255, 255],
+                "option_premium": [255, 255, 0, 255],
+                "option_font_size": 18, "option_height": 32, "option_gap": 8
+            },
+            "toast": {
+                "pos_x": 0.5, "pos_y": 1.0, "margin_x": 0.0, "margin_y": 20.0,
+                "width": 250.0, "height": 45.0,
+                "bg_color":     [5, 5, 15, 210],
+                "border_color": [0, 255, 150, 255],
+                "text_color":   [240, 255, 245, 255],
+                "font_size": 18
+            },
+            "vignette_opacity": 0.3
         }
     }
 }
