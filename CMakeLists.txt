@@ -36,6 +36,16 @@ set(WARN_FLAGS -Wall -Wextra -Wpedantic)
 target_compile_options(BitEngine PRIVATE ${WARN_FLAGS})
 target_compile_options(BitTool PRIVATE ${WARN_FLAGS})
 
+# Optimization Flags
+if(MSVC)
+    set(CMAKE_CXX_FLAGS_RELEASE "/O2 /Ob2 /DNDEBUG /GL")
+    set(CMAKE_CXX_FLAGS_DEBUG "/Od /Zi /Ob0 /RTC1")
+else()
+    # High-performance optimizations for Release
+    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -flto -DNDEBUG")
+    set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
+endif()
+
 # Linux extra libs
 if(UNIX AND NOT APPLE)
     target_link_libraries(BitEngine PRIVATE m pthread dl)

@@ -4,6 +4,21 @@
 BUILD_DIR="build"
 SAVE_DIR="save"
 
+# Default to Debug if no argument is given
+BUILD_TYPE="Debug"
+
+# Parse arguments
+if [ "$1" == "release" ] || [ "$1" == "Release" ]; then
+    BUILD_TYPE="Release"
+elif [ "$1" == "debug" ] || [ "$1" == "Debug" ]; then
+    BUILD_TYPE="Debug"
+elif [ "$1" != "" ]; then
+    echo "Usage: ./build.sh [debug|release]"
+    exit 1
+fi
+
+echo "--- Building BitEngine in $BUILD_TYPE mode ---"
+
 # 1. Create structure
 mkdir -p "$BUILD_DIR"
 mkdir -p "$SAVE_DIR"
@@ -16,7 +31,7 @@ mkdir -p "$SAVE_DIR"
 
 # 3. Build Project
 cd "$BUILD_DIR"
-cmake ..
+cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE ..
 make -j$(nproc)
 
 # 4. Check if build was successful
