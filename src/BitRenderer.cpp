@@ -204,9 +204,9 @@ void BitRenderer::DrawMainBox() {
                  style.labelFontSize, style.labelTextColor);
     }
 
-    DrawTextWrapped(m_engine.GetVisibleContent(),
-                    (int)(box.x + style.boxPadding), (int)(box.y + 40),
-                    style.textFontSize, (int)bw - style.boxPadding * 2, style.textColor);
+    DrawRichText(m_engine.GetParsedContent(), m_engine.GetRevealedCount(),
+                 (int)(box.x + style.boxPadding), (int)(box.y + 40),
+                 style.textFontSize, (int)bw - style.boxPadding * 2, style.textColor);
 }
 
 void BitRenderer::DrawChoiceBox() {
@@ -313,16 +313,60 @@ void BitRenderer::DrawDebugOverlay() {
 }
 
 // ============================================================
-void BitRenderer::DrawTextWrapped(const std::string& text, int x, int y, int fontSize, int maxWidth, Color color) {
-    std::string s(text), l = "", w; std::stringstream ss(s); int curY = y;
-    while (ss >> w) {
-        std::string t = l + (l.empty() ? "" : " ") + w;
-        if (MeasureTextEx(GetFontDefault(), t.c_str(), (float)fontSize, 2).x > maxWidth && !l.empty()) {
-            DrawTextEx(GetFontDefault(), l.c_str(), {(float)x,(float)curY}, (float)fontSize, 2, color);
-            l = w; curY += fontSize + 5;
-        } else l = t;
+void BitRenderer::DrawRichText(const std::vector<RichChar>& content, int limit, int x, int y, int fontSize, int maxWidth, Color defaultColor) {
+    int curX = x;
+    int curY = y;
+    float time = (float)GetTime();
+    float spacing = 2.0f; // Default Raylib letter spacing
+
+    int i = 0;
+    while (i < limit && i < (int)content.size()) {
+        if (content[i].ch == " " || content[i].ch == "\n") {
+            if (content[i].ch == "\n") {
+                curX = x;
+                curY += fontSize + 5;
+            } else {
+                curX += MeasureTextEx(GetFontDefault(), " ", (float)fontSize, spacing).x + spacing;
+            }
+            i++;
+            continue;
+        }
+
+        int wordEnd = i;
+        std::string wordRaw = "";
+        while (wordEnd < limit && wordEnd < (int)content.size() && content[wordEnd].ch != " " && content[wordEnd].ch != "\n") {
+            wordRaw += content[wordEnd].ch;
+            wordEnd++;
+        }
+        float wordWidth = MeasureTextEx(GetFontDefault(), wordRaw.c_str(), (float)fontSize, spacing).x;
+
+        if (curX + wordWidth > x + maxWidth && curX > x) {
+            curX = x;
+            curY += fontSize + 5;
+        }
+
+        for (int j = i; j < wordEnd; j++) {
+            const auto& rc = content[j];
+            Color c = (rc.color.a == 0 && rc.color.r == 0 && rc.color.g == 0 && rc.color.b == 0) ? defaultColor : rc.color;
+            
+            float ox = 0.0f;
+            float oy = 0.0f;
+
+            if (rc.shake) {
+                ox = GetRandomValue(-2, 2);
+                oy = GetRandomValue(-2, 2);
+            }
+            if (rc.wave) {
+                oy += sin(time * 6.0f + curX * 0.05f) * 4.0f;
+            }
+
+            Vector2 pos = { (float)curX + ox, (float)curY + oy };
+            DrawTextEx(GetFontDefault(), rc.ch.c_str(), pos, (float)fontSize, spacing, c);
+            curX += MeasureTextEx(GetFontDefault(), rc.ch.c_str(), (float)fontSize, spacing).x + spacing;
+        }
+        
+        i = wordEnd;
     }
-    if (!l.empty()) DrawTextEx(GetFontDefault(), l.c_str(), {(float)x,(float)curY}, (float)fontSize, 2, color);
 }
 
 Texture2D BitRenderer::GetTexture(const std::string& path) {

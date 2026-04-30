@@ -29,3 +29,68 @@
 2026-04-30 20:33:03 | [BitEngine:INFO] Saving game to slot 0
 2026-04-30 20:33:04 | [BitEngine:INFO] Starting dialog sequence: dialog_end_final
 2026-04-30 20:33:04 | [BitEngine:INFO] Saving game to slot 0
+2026-04-30 20:46:21 | [BitEngine:INFO] Starting dialog sequence: scene_alley_start
+2026-04-30 20:46:21 | [BitEngine:INFO] Saving game to slot 0
+2026-04-30 20:46:23 | [BitEngine:INFO] Starting dialog sequence: alley_work
+2026-04-30 20:46:23 | [BitEngine:INFO] Event: add 'trust_akira' 0 -> 1
+2026-04-30 20:46:23 | [BitEngine:INFO] Event: set 'knows_about_target' 0 -> 1
+2026-04-30 20:46:23 | [BitEngine:INFO] Saving game to slot 0
+2026-04-30 20:46:28 | [BitEngine:INFO] Starting dialog sequence: alley_to_market
+2026-04-30 20:46:28 | [BitEngine:INFO] Saving game to slot 0
+2026-04-30 20:46:33 | [BitEngine:INFO] Starting dialog sequence: scene_market_start
+2026-04-30 20:46:33 | [BitEngine:INFO] Saving game to slot 0
+2026-04-30 20:46:37 | [BitEngine:INFO] Starting dialog sequence: market_akira_ref
+2026-04-30 20:46:37 | [BitEngine:INFO] Saving game to slot 0
+2026-04-30 20:48:42 | [BitEngine:INFO] Starting dialog sequence: scene_alley_start
+2026-04-30 20:48:42 | [BitEngine:INFO] Saving game to slot 0
+2026-04-30 20:48:58 | [BitEngine:INFO] Starting dialog sequence: scene_alley_start
+2026-04-30 20:48:58 | [BitEngine:INFO] Saving game to slot 0
+2026-04-30 20:49:05 | [BitEngine:INFO] Starting dialog sequence: alley_work
+2026-04-30 20:49:05 | [BitEngine:INFO] Event: add 'trust_akira' 0 -> 1
+2026-04-30 20:49:05 | [BitEngine:INFO] Event: set 'knows_about_target' 0 -> 1
+2026-04-30 20:49:05 | [BitEngine:INFO] Saving game to slot 0
+2026-04-30 20:49:06 | [BitEngine:INFO] Starting dialog sequence: alley_to_market
+2026-04-30 20:49:06 | [BitEngine:INFO] Saving game to slot 0
+2026-04-30 20:49:24 | [BitEngine:INFO] Starting dialog sequence: scene_alley_start
+2026-04-30 20:49:24 | [BitEngine:INFO] Saving game to slot 0
+2026-04-30 20:49:48 | [BitEngine:INFO] Starting dialog sequence: scene_alley_start
+2026-04-30 20:49:48 | [BitEngine:INFO] Saving game to slot 0
+2026-04-30 20:49:57 | [BitEngine:INFO] Event: sub 'trust_akira' 0 -> -1
+2026-04-30 20:49:57 | [BitEngine:INFO] Starting dialog sequence: alley_passing
+2026-04-30 20:49:57 | [BitEngine:INFO] Saving game to slot 0
+2026-04-30 20:49:58 | [BitEngine:INFO] Starting dialog sequence: alley_to_market
+2026-04-30 20:49:58 | [BitEngine:INFO] Saving game to slot 0
+2026-04-30 20:50:00 | [BitEngine:INFO] Starting dialog sequence: scene_market_start
+2026-04-30 20:50:00 | [BitEngine:INFO] Saving game to slot 0
+2026-04-30 20:51:53 | [BitEngine:INFO] Compiling project to: data.bin
+2026-04-30 20:52:19 | [BitEngine:INFO] Starting dialog sequence: scene_alley_start
+2026-04-30 20:52:19 | [BitEngine:INFO] Saving game to slot 0
+2026-04-30 20:52:37 | [BitEngine:INFO] Starting dialog sequence: alley_work
+2026-04-30 20:52:37 | [BitEngine:INFO] Event: add 'trust_akira' 0 -> 1
+2026-04-30 20:52:37 | [BitEngine:INFO] Event: set 'knows_about_target' 0 -> 1
+2026-04-30 20:52:37 | [BitEngine:INFO] Saving game to slot 0
+2026-04-30 20:53:00 | [BitEngine:INFO] Starting dialog sequence: alley_to_market
+2026-04-30 20:53:00 | [BitEngine:INFO] Saving game to slot 0
+2026-04-30 20:53:02 | [BitEngine:INFO] Starting dialog sequence: scene_market_start
+2026-04-30 20:53:02 | [BitEngine:INFO] Saving game to slot 0
+2026-04-30 20:53:06 | [BitEngine:INFO] Starting dialog sequence: market_akira_ref
+2026-04-30 20:53:06 | [BitEngine:INFO] Saving game to slot 0
+2026-04-30 20:53:08 | [BitEngine:INFO] Starting dialog sequence: market_pay_success
+2026-04-30 20:53:08 | [BitEngine:INFO] Event: sub 'credits' 50 -> 30
+2026-04-30 20:53:08 | [BitEngine:INFO] Event: add 'trust_kael' 0 -> 2
+2026-04-30 20:53:08 | [BitEngine:INFO] Saving game to slot 0
+2026-04-30 20:53:09 | [BitEngine:INFO] Starting dialog sequence: dialog_end_final
+2026-04-30 20:53:09 | [BitEngine:INFO] Saving game to slot 0
+2026-04-30 20:53:14 | [BitEngine:INFO] Starting dialog sequence: scene_alley_start
+2026-04-30 20:53:14 | [BitEngine:INFO] Saving game to slot 0
+2026-04-30 20:53:16 | [BitEngine:INFO] Event: sub 'trust_akira' 0 -> -1
+2026-04-30 20:53:16 | [BitEngine:INFO] Starting dialog sequence: alley_passing
+2026-04-30 20:53:16 | [BitEngine:INFO] Saving game to slot 0
+2026-04-30 20:55:31 | [BitEngine:INFO] Starting dialog sequence: scene_alley_start
+2026-04-30 20:55:31 | [BitEngine:INFO] Saving game to slot 0
+2026-04-30 20:55:42 | [BitEngine:INFO] Starting dialog sequence: alley_work
+2026-04-30 20:55:42 | [BitEngine:INFO] Event: add 'trust_akira' 0 -> 1
+2026-04-30 20:55:42 | [BitEngine:INFO] Event: set 'knows_about_target' 0 -> 1
+2026-04-30 20:55:42 | [BitEngine:INFO] Saving game to slot 0
+2026-04-30 20:55:47 | [BitEngine:INFO] Starting dialog sequence: alley_to_market
+2026-04-30 20:55:47 | [BitEngine:INFO] Saving game to slot 0

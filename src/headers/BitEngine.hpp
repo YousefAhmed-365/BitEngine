@@ -1,6 +1,8 @@
 #ifndef BITENGINE_HPP
 #define BITENGINE_HPP
 
+#include "json.hpp"
+#include "RichText.hpp"
 #include <string>
 #include <vector>
 #include <map>
@@ -115,7 +117,9 @@ public:
     void Update(float deltaTime);
     void SkipReveal(); 
     bool IsTextRevealing() const;
-    std::string GetVisibleContent() const; 
+    const std::vector<RichChar>& GetParsedContent() const { return m_cachedParsedContent; }
+    int GetRevealedCount() const { return (int)m_revealedCount; }
+    std::string GetVisibleContent() const; // Legacy plain string access if needed
     
     int GetVariable(const std::string& name) const;
     void SetVariable(const std::string& name, int value);
@@ -157,7 +161,9 @@ private:
     bool m_isActive = false;
 
     float m_revealedCount = 0.0f;
+    float m_waitTimer = 0.0f;
     std::string m_cachedInterpolatedContent;
+    std::vector<RichChar> m_cachedParsedContent;
     size_t m_cachedTotalChars = 0;
     float m_shakeIntensity = 0.0f;
 

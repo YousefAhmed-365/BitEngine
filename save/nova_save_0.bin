@@ -1,16 +1,16 @@
 {
     "meta": {
         "char": "Log",
-        "node": "dialog_end_final",
-        "text": "Session Terminated. Stats - Akira: 1,...",
-        "time": "2026-04-30 20:33:04"
+        "node": "alley_to_market",
+        "text": "[color=GRAY]You leave the damp alley ...",
+        "time": "2026-04-30 20:55:47"
     },
-    "node_id": "dialog_end_final",
+    "node_id": "alley_to_market",
     "variables": {
-        "credits": 30,
+        "credits": 50,
         "knows_about_target": 1,
         "trust_akira": 1,
-        "trust_kael": 2
+        "trust_kael": 0
     },
     "version": 1
 }

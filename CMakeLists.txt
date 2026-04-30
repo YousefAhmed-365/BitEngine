@@ -19,6 +19,7 @@ find_package(raylib REQUIRED)
 # Common Core Sources
 set(CORE_SOURCES
     src/BitEngine.cpp
+    src/RichText.cpp
 )
 
 # --- BitEngine (The Game) ---

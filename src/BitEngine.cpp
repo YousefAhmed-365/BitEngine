@@ -443,8 +443,10 @@ void DialogEngine::StartDialog(const std::string& startId) {
     m_currentNodeId = id;
     m_isActive = true;
     m_cachedInterpolatedContent = InterpolateVariables(m_currentNode->content);
-    m_cachedTotalChars = GetUTF8Length(m_cachedInterpolatedContent);
+    m_cachedParsedContent = RichTextParser::Parse(m_cachedInterpolatedContent);
+    m_cachedTotalChars = m_cachedParsedContent.size();
     m_revealedCount = (m_project.configs.mode == "instant") ? (float)m_cachedTotalChars : 0.0f;
+    m_waitTimer = 0.0f;
     ProcessEvents(m_currentNode->events);
     RefreshVisibleOptions();
     if (m_project.configs.auto_save) SaveGame(0);
@@ -469,24 +471,46 @@ void DialogEngine::Next() {
 
 void DialogEngine::Update(float dt) {
     if (!m_isActive || !m_currentNode || m_project.configs.mode == "instant") return;
-    if (IsTextRevealing()) m_revealedCount = std::min((float)m_cachedTotalChars, m_revealedCount + m_project.configs.reveal_speed * dt);
+    
+    if (IsTextRevealing()) {
+        if (m_waitTimer > 0.0f) {
+            m_waitTimer -= dt;
+        } else {
+            int currentIdx = (int)m_revealedCount;
+            if (currentIdx < (int)m_cachedParsedContent.size()) {
+                if (m_cachedParsedContent[currentIdx].waitBefore > 0.0f) {
+                    m_waitTimer = m_cachedParsedContent[currentIdx].waitBefore;
+                    // Reset to avoid waiting again
+                    m_cachedParsedContent[currentIdx].waitBefore = 0.0f;
+                } else {
+                    float spd = m_project.configs.reveal_speed * m_cachedParsedContent[currentIdx].speedMod;
+                    m_revealedCount += spd * dt;
+                    if (m_revealedCount > (float)m_cachedTotalChars) m_revealedCount = (float)m_cachedTotalChars;
+                }
+            }
+        }
+    }
     
     // Decay shake effect
     if (m_shakeIntensity > 0) m_shakeIntensity = std::max(0.0f, m_shakeIntensity - dt * 20.0f);
 }
 
-void DialogEngine::SkipReveal() { if (m_currentNode) m_revealedCount = (float)m_cachedTotalChars; }
+void DialogEngine::SkipReveal() { 
+    if (m_currentNode) {
+        m_revealedCount = (float)m_cachedTotalChars; 
+        m_waitTimer = 0.0f;
+    }
+}
 bool DialogEngine::IsTextRevealing() const { return m_isActive && m_revealedCount < (float)m_cachedTotalChars; }
 
 std::string DialogEngine::GetVisibleContent() const {
     if (!m_currentNode) return "";
-    size_t byteIdx = 0, charCnt = 0;
-    while (byteIdx < m_cachedInterpolatedContent.length() && charCnt < (size_t)m_revealedCount) {
-        unsigned char c = m_cachedInterpolatedContent[byteIdx];
-        byteIdx += (c <= 127) ? 1 : ((c & 0xE0) == 0xC0) ? 2 : ((c & 0xF0) == 0xE0) ? 3 : 4;
-        charCnt++;
+    std::string out = "";
+    int limit = (int)m_revealedCount;
+    for (int i = 0; i < limit && i < (int)m_cachedParsedContent.size(); ++i) {
+        out += m_cachedParsedContent[i].ch;
     }
-    return m_cachedInterpolatedContent.substr(0, byteIdx);
+    return out;
 }
 
 size_t DialogEngine::GetUTF8Length(const std::string& s) const {

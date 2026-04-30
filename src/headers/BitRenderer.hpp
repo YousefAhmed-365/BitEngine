@@ -30,7 +30,7 @@ protected:
     virtual void DrawDebugOverlay();
     virtual void HandleAudio();
 
-    void DrawTextWrapped(const std::string& text, int x, int y, int fontSize, int maxWidth, Color color);
+    void DrawRichText(const std::vector<RichChar>& content, int limit, int x, int y, int fontSize, int maxWidth, Color defaultColor);
     Texture2D GetTexture(const std::string& path);
     void PlaySFX(const std::string& path);
     void CreateFallbackTexture();

@@ -8,7 +8,7 @@
             "expression": "neutral",
             "pos": "right"
         },
-        "content": "Still walking these shadows? You're either brave or very lost. Current Credits: {credits}",
+        "content": "Still walking these shadows? [wait=0.3][speed=0.5]You're either [color=RED]brave[/color] or very [shake]lost[/shake][/speed]. Current Credits: {credits}",
         "next_id": null,
         "options": [
             {
@@ -37,7 +37,7 @@
             "sfx": "confirm",
             "pos": "left"
         },
-        "content": "Work is a polite word for what I do. But you look like you can handle a blade. Go see Kael at the market. Tell him I sent you.",
+        "content": "Work is a polite word for what I do. [wait=0.5]But you look like you can handle a blade. [wait=0.3]Go see [color=SKYBLUE]Kael[/color] at the market. Tell him I sent you.",
         "next_id": "alley_to_market",
         "options": [],
         "events": [
@@ -52,7 +52,7 @@
             "pos": "center",
             "pos_y": "0.4"
         },
-        "content": "Is that so? Well, keep moving. Characters like you don't last long in the rain.",
+        "content": "Is that so? [wait=0.5][speed=2.0]Well, keep moving.[/speed] [wave]Characters like you[/wave] don't last long in the rain.",
         "next_id": "alley_to_market",
         "options": [],
         "events": [
@@ -65,7 +65,7 @@
             "bg": "market_bg",
             "bgm": "market_theme"
         },
-        "content": "You leave the damp alley and head towards the glow of the Neon Market.",
+        "content": "[color=GRAY]You leave the damp alley and head towards the glow of the Neon Market.[/color]",
         "next_id": "scene_market_start",
         "options": [],
         "events": []
