@@ -183,15 +183,23 @@ void BitRenderer::DrawEntitySprite() {
 void BitRenderer::DrawMainBox() {
     auto* e  = m_engine.GetCurrentEntity();
     auto& style = m_styleManager.GetStyle();
-    int sw   = GetScreenWidth(), sh = GetScreenHeight();
+    int sw = GetScreenWidth(), sh = GetScreenHeight();
     float bw = sw * style.boxWidthNorm;
+    float bh = (style.boxHeightNorm > 0) ? (sh * style.boxHeightNorm) : style.boxHeight;
     float bx = sw * style.boxNormX - bw / 2.0f;
-    float by = 0;
-    if (style.boxAnchor == "top") by = style.boxMarginBottom;
-    else if (style.boxAnchor == "center") by = sh / 2.0f - style.boxHeight / 2.0f;
-    else by = sh - style.boxHeight - style.boxMarginBottom; // bottom
+    float by = sh * style.boxNormY - bh / 2.0f;
 
-    Rectangle box = { bx, by, bw, style.boxHeight };
+    if (style.boxAnchor == "top") { 
+        by = style.boxMarginBottom; 
+    } else if (style.boxAnchor == "bottom") { 
+        by = sh - bh - style.boxMarginBottom; 
+    } else if (style.boxAnchor == "left") { 
+        bx = style.boxMarginBottom; 
+    } else if (style.boxAnchor == "right") { 
+        bx = sw - bw - style.boxMarginBottom; 
+    }
+
+    Rectangle box = { bx, by, bw, bh };
 
     DrawRectangleRounded(box, style.boxRoundness, 10, style.boxBg);
     DrawRectangleRoundedLinesEx(box, style.boxRoundness, 10, style.boxBorderThick, style.boxBorder);

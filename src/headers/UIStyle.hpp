@@ -16,6 +16,7 @@ struct UIStyle {
     float boxNormY         = 1.0f;
     float boxWidthNorm     = 0.93f;
     float boxHeight        = 190.0f;
+    float boxHeightNorm    = 0.0f; // 0 means use fixed boxHeight
     float boxMarginBottom  = 20.0f;
     float boxRoundness     = 0.05f;
     float boxBorderThick   = 3.0f;

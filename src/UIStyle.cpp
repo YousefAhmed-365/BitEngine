@@ -22,6 +22,7 @@ static UIStyle ParseStyleBlock(const json& j) {
         s.boxNormY        = b.value("pos_y",         s.boxNormY);
         s.boxWidthNorm    = b.value("width_norm",    s.boxWidthNorm);
         s.boxHeight       = b.value("height",        s.boxHeight);
+        s.boxHeightNorm   = b.value("height_norm",   s.boxHeightNorm);
         s.boxMarginBottom = b.value("margin_bottom", s.boxMarginBottom);
         s.boxRoundness    = b.value("roundness",     s.boxRoundness);
         s.boxBorderThick  = b.value("border_thick",  s.boxBorderThick);
