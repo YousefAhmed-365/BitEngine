@@ -131,6 +131,7 @@ public:
     const Entity* GetCurrentEntity() const;
     const std::vector<DialogOption>& GetVisibleOptions() const { return m_visibleOptions; }
     const DialogConfigs& GetConfigs() const { return m_project.configs; }
+    DialogProject& GetProject() { return m_project; }
     std::string GetDebugMode() const { return m_project.configs.debug_mode; }
     void Log(const std::string& msg, const std::string& level = "INFO");
 

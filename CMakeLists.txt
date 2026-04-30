@@ -28,7 +28,7 @@ target_include_directories(BitEngine PRIVATE src src/headers)
 target_link_libraries(BitEngine PRIVATE raylib)
 
 # --- BitTool (The Compiler) ---
-add_executable(BitTool src/BitTool.cpp ${CORE_SOURCES})
+add_executable(BitTool src/BitTool.cpp src/BitEditor.cpp ${CORE_SOURCES})
 target_include_directories(BitTool PRIVATE src src/headers)
 target_link_libraries(BitTool PRIVATE raylib) # Still needs Raylib for FileExists etc.
 
