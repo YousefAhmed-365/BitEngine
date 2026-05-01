@@ -26,15 +26,9 @@ add_executable(BitEngine src/main.cpp src/BitApp.cpp src/BitRenderer.cpp ${CORE_
 target_include_directories(BitEngine PRIVATE src src/headers)
 target_link_libraries(BitEngine PRIVATE raylib)
 
-# --- BitTool (The Compiler) ---
-add_executable(BitTool src/BitTool.cpp src/BitEditor.cpp ${CORE_SOURCES})
-target_include_directories(BitTool PRIVATE src src/headers)
-target_link_libraries(BitTool PRIVATE raylib) # Still needs Raylib for FileExists etc.
-
 # Compiler flags
 set(WARN_FLAGS -Wall -Wextra -Wpedantic)
 target_compile_options(BitEngine PRIVATE ${WARN_FLAGS})
-target_compile_options(BitTool PRIVATE ${WARN_FLAGS})
 
 # Optimization Flags
 if(MSVC)
@@ -49,8 +43,7 @@ endif()
 # Linux extra libs
 if(UNIX AND NOT APPLE)
     target_link_libraries(BitEngine PRIVATE m pthread dl)
-    target_link_libraries(BitTool PRIVATE m pthread dl)
 endif()
 
 # Set output directory for convenience
-set_target_properties(BitEngine BitTool PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
+set_target_properties(BitEngine PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")

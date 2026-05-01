@@ -38,7 +38,6 @@ make -j$(nproc)
 if [ $? -eq 0 ]; then
     echo "--- Build Successful! ---"
     echo "Executable: build/BitEngine"
-    echo "Compiler: build/BitTool"
 else
     echo "Build FAILED."
     exit 1
