@@ -145,6 +145,7 @@ protected:
 
     float m_animTimer   = 0.0f;
     int   m_animFrame   = 0;
+    float m_debugScroll = 0.0f;
     std::string m_lastSFX = "";
     std::string m_lastSFXNodeId = "";
     std::string m_lastSpritePath = "";

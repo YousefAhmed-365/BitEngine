@@ -8,7 +8,7 @@
 #include <sys/stat.h>
 
 using json = nlohmann::json;
-static const std::string KEY = "BITENGINE_SECRET_KEY_2026";
+static const std::string KEY = BITENGINE_KEY;
 
 #include <sstream>
 #include <algorithm>
@@ -292,6 +292,8 @@ bool DialogEngine::LoadProject(const std::string& configFilePath) {
         return false;
     }
     for (auto const& [id, def] : m_project.variables) m_variables[id] = def.initial_value;
+    
+    m_debugOverlayVisible = (m_project.configs.debug_mode == "debug_all");
     
     auto errors = ValidateProject(m_project);
     for (const auto& e : errors) RecordError(e.file + "/" + e.field, e.message);

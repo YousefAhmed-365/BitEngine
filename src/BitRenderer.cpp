@@ -215,8 +215,8 @@ void BitRenderer::Draw() {
         DrawMainBox();
         if (!m_engine.IsTextRevealing()) DrawChoiceBox();
     EndMode2D();
-    std::string dmode = m_engine.GetDebugMode();
-    if (dmode == "debug_overlay" || dmode == "debug_all") DrawDebugOverlay();
+    
+    if (m_engine.IsDebugOverlayVisible()) DrawDebugOverlay();
 
     // Toast notification
     if (saveToastTimer > 0.0f) {
@@ -291,6 +291,15 @@ void BitRenderer::HandleAudio() {
 
 void BitRenderer::HandleInput() {
     if (!m_engine.IsActive()) return;
+    
+    // Debug Scroll
+    std::string dmode = m_engine.GetDebugMode();
+    if (dmode == "debug_overlay" || dmode == "debug_all") {
+        m_debugScroll -= GetMouseWheelMove() * 20.0f;
+        if (m_debugScroll < 0) m_debugScroll = 0;
+    }
+
+    if (IsKeyPressed(KEY_F3)) m_engine.ToggleDebugOverlay();
     if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER)) { m_engine.Next(); return; }
     if (IsKeyPressed(KEY_F5)) { m_engine.SaveGame(1); saveToastMsg = "QUICK SAVE..."; saveToastTimer = 2.0f; }
     if (IsKeyPressed(KEY_F9)) { if (m_engine.LoadGame(1)) { saveToastMsg = "RELOADING..."; saveToastTimer = 2.0f; } }
@@ -478,87 +487,103 @@ void BitRenderer::DrawDebugOverlay() {
     const auto& trace  = m_engine.GetEventTrace();
     const auto& errors = m_engine.GetErrors();
     int sw = GetScreenWidth(), sh = GetScreenHeight();
-    int panelW = 220, panelH = 500, pad = 8, gap = 8;
-    int totalP = 4;
-    int totalW = panelW * totalP + gap * (totalP - 1);
-    int startX = sw - totalW - 10, startY = 10;
+    
+    int gap = 12, pad = 10;
+    int cols = 4;
+    if (sw < 1100) cols = 2;
+    if (sw < 600)  cols = 1;
+    
+    int rows = (4 + cols - 1) / cols;
+    int panelW = (sw - 40 - (cols - 1) * gap) / cols;
+    if (panelW > 280) panelW = 280;
+    
+    // Scale height based on rows available
+    int panelH = (sh - 60 - (rows - 1) * (gap + 20)) / rows;
+    if (panelH > 380) panelH = 380;
+    if (panelH < 150) panelH = 150;
 
-    DrawRectangle(startX - pad, startY - pad, totalW + pad * 2, panelH + pad * 2, Fade(BLACK, 0.85f));
+    int totalW = cols * panelW + (cols - 1) * gap;
+    int startX = sw - totalW - 20;
+    int startY = 20;
+
+    int scrollOffset = (int)m_debugScroll;
+
+    // Draw one unified background for the entire suite to avoid overlapping transparent blacks
+    int fullH = rows * panelH + (rows - 1) * (gap + 15);
+    DrawRectangle(startX - pad, startY - pad, totalW + pad * 2, fullH + pad * 2, Fade(BLACK, 0.85f));
+
+    auto GetPanelRect = [&](int idx) -> Rectangle {
+        int r = idx / cols;
+        int c = idx % cols;
+        return { (float)(startX + c * (panelW + gap)), (float)(startY + r * (panelH + gap + 15)), (float)panelW, (float)panelH };
+    };
 
     // Panel 1: Node Inspector
-    int px = startX;
-    DrawText("NODE INSPECTOR", px, startY, 13, SKYBLUE);
-    DrawLine(px, startY + 17, px + panelW, startY + 17, Fade(SKYBLUE, 0.4f));
-    int dy = startY + 24;
+    Rectangle r1 = GetPanelRect(0);
+    int px = r1.x, py = r1.y;
+    DrawText("NODE INSPECTOR", px, py, 13, SKYBLUE);
+    int dy = py + 22;
     if (node) {
         DrawText(TextFormat("ID:     %s", m_engine.GetCurrentNodeId().c_str()), px, dy, 10, RAYWHITE); dy += 14;
         DrawText(TextFormat("Entity: %s", node->entity.c_str()),                px, dy, 10, RAYWHITE); dy += 14;
         DrawText(TextFormat("Next:   %s", node->next_id.value_or("(none)").c_str()), px, dy, 10, RAYWHITE); dy += 14;
-        DrawText(TextFormat("Opts:   %d", (int)node->options.size()),            px, dy, 10, RAYWHITE); dy += 18;
         DrawText("Metadata:", px, dy, 10, YELLOW); dy += 13;
         for (auto const& [k, v] : node->metadata) {
-            DrawText(TextFormat("  %s: %s", k.c_str(), v.c_str()), px, dy, 9, Fade(RAYWHITE, 0.8f));
-            dy += 12; if (dy > startY + panelH - 10) break;
+            if (dy < r1.y + r1.height) {
+                DrawText(TextFormat("  %s: %s", k.c_str(), v.c_str()), px, dy, 9, Fade(RAYWHITE, 0.8f));
+                dy += 12;
+            }
         }
     } else { DrawText("(no active node)", px, dy, 10, Fade(RAYWHITE, 0.5f)); }
 
     // Panel 2: Variable Watcher
-    px = startX + panelW + gap; dy = startY;
-    DrawText("VARIABLE WATCHER", px, dy, 13, GREEN); dy += 18;
-    DrawLine(px, dy - 1, px + panelW, dy - 1, Fade(GREEN, 0.4f));
+    Rectangle r2 = GetPanelRect(1);
+    px = r2.x; py = r2.y; dy = py;
+    DrawText("VARIABLE WATCHER", px, dy, 13, GREEN); dy += 20;
     for (auto const& [name, val] : vars) {
-        DrawText(TextFormat("%-16s %d", name.c_str(), val), px, dy, 10, LIME);
-        dy += 13; if (dy > startY + panelH - 10) break;
+        if (dy - py + scrollOffset < r2.height - 10 && dy - py + scrollOffset > 0)
+            DrawText(TextFormat("%-16s %d", name.c_str(), val), px, dy, 10, LIME);
+        dy += 13;
     }
 
     // Panel 3: Event Trace
-    px = startX + (panelW + gap) * 2; dy = startY;
-    DrawText("EVENT TRACE", px, dy, 13, ORANGE); dy += 18;
-    DrawLine(px, dy - 1, px + panelW, dy - 1, Fade(ORANGE, 0.4f));
+    Rectangle r3 = GetPanelRect(2);
+    px = r3.x; py = r3.y; dy = py;
+    DrawText("EVENT TRACE", px, dy, 13, ORANGE); dy += 20;
     int maxTrace = 12, traceStart = (int)trace.size() > maxTrace ? (int)trace.size() - maxTrace : 0;
     for (int i = traceStart; i < (int)trace.size(); ++i) {
         const auto& t = trace[i];
-        DrawText(TextFormat("%s: %s", t.op.c_str(), t.var.c_str()), px, dy, 10, ORANGE); dy += 12;
-        DrawText(TextFormat("  %d->%d [%s]", t.old_value, t.new_value, t.node_id.c_str()), px, dy, 8, Fade(ORANGE, 0.7f)); dy += 13;
-        if (dy > startY + panelH - 20) break;
+        if (dy - py + scrollOffset < r3.height - 20 && dy - py + scrollOffset > 0) {
+            DrawText(TextFormat("%s: %s", t.op.c_str(), t.var.c_str()), px, dy, 10, ORANGE); 
+            DrawText(TextFormat("  %d->%d [%s]", t.old_value, t.new_value, t.node_id.c_str()), px, dy + 12, 8, Fade(ORANGE, 0.7f));
+        }
+        dy += 25;
     }
-    if (trace.empty()) DrawText("(no events yet)", px, dy, 10, Fade(RAYWHITE, 0.5f));
 
     // Panel 4: Asset Monitor
-    px = startX + (panelW + gap) * 3; dy = startY;
-    DrawText("ASSET MONITOR", px, dy, 13, PURPLE); dy += 18;
-    DrawLine(px, dy - 1, px + panelW, dy - 1, Fade(PURPLE, 0.4f));
+    Rectangle r4 = GetPanelRect(3);
+    px = r4.x; py = r4.y; dy = py;
+    DrawText("ASSET MONITOR", px, dy, 13, PURPLE); dy += 20;
     
     DrawText("Audio Engine:", px, dy, 11, LIGHTGRAY); dy += 15;
     DrawText(TextFormat(" BGM: %s", m_currentMusicPath.empty() ? "(none)" : GetFileName(m_currentMusicPath.c_str())), px, dy, 10, m_isMusicPlaying ? GOLD : GRAY); dy += 13;
     DrawText(TextFormat(" State: %s", m_isMusicPlaying ? "PLAYING" : "STOPPED"), px, dy, 10, m_isMusicPlaying ? LIME : RED); dy += 18;
 
     DrawText("Cache Stats:", px, dy, 11, LIGHTGRAY); dy += 15;
-    DrawText(TextFormat(" Textures: %d", (int)m_textureCache.size()), px, dy, 10, RAYWHITE); dy += 13;
-    DrawText(TextFormat(" Music:    %d", (int)m_musicCache.size()),   px, dy, 10, RAYWHITE); dy += 13;
-    DrawText(TextFormat(" SFX:      %d", (int)m_sfxCache.size()),     px, dy, 10, RAYWHITE); dy += 18;
+    DrawText(TextFormat(" Text: %d  Mus: %d  SFX: %d", (int)m_textureCache.size(), (int)m_musicCache.size(), (int)m_sfxCache.size()), px, dy, 9, RAYWHITE); dy += 20;
 
     DrawText("Load Failures:", px, dy, 11, RED); dy += 15;
     int errCount = 0;
-    
-    // Check Music
     for (auto const& [path, mus] : m_musicCache) if (mus.frameCount == 0) {
-        DrawText(TextFormat(" ! [MUS] %s", GetFileName(path.c_str())), px, dy, 9, PINK);
-        dy += 11; errCount++; if (errCount > 8) break;
+        if (dy < r4.y + r4.height - 10) DrawText(TextFormat(" ! [MUS] %s", GetFileName(path.c_str())), px, dy, 9, PINK);
+        dy += 11; errCount++; if (errCount > 5) break;
     }
-    // Check SFX
-    for (auto const& [path, sfx] : m_sfxCache) if (sfx.frameCount == 0) {
-        DrawText(TextFormat(" ! [SFX] %s", GetFileName(path.c_str())), px, dy, 9, ORANGE);
-        dy += 11; errCount++; if (errCount > 8) break;
-    }
-    // Check Textures
     for (auto const& [path, tex] : m_textureCache) if (tex.id == 0) {
-        DrawText(TextFormat(" ! [TEX] %s", GetFileName(path.c_str())), px, dy, 9, RED);
-        dy += 11; errCount++; if (errCount > 8) break;
+        if (dy < r4.y + r4.height - 10) DrawText(TextFormat(" ! [TEX] %s", GetFileName(path.c_str())), px, dy, 9, RED);
+        dy += 11; errCount++; if (errCount > 5) break;
     }
 
     if (errCount == 0) DrawText("(none)", px, dy, 10, Fade(RAYWHITE, 0.4f)); 
-    else if (errCount > 8) DrawText("...", px, dy, 9, RED);
 
     // Error log stays at far bottom
     if (!errors.empty()) {

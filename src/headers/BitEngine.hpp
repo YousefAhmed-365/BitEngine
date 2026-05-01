@@ -9,6 +9,8 @@
 #include <cstring>
 
 // Hardware-agnostic color representation
+#define BITENGINE_KEY "BITENGINE_SECRET_KEY_2026"
+
 struct BitColor {
     unsigned char r, g, b, a;
     static BitColor Blank() { return {0, 0, 0, 0}; }
@@ -155,6 +157,9 @@ public:
     DialogProject& GetProject() { return m_project; }
     std::string GetDebugMode() const { return m_project.configs.debug_mode; }
     void Log(const std::string& msg, const std::string& level = "INFO");
+    bool IsDebugOverlayVisible() const { return m_debugOverlayVisible; }
+    void ToggleDebugOverlay() { m_debugOverlayVisible = !m_debugOverlayVisible; }
+    void SetDebugOverlayVisible(bool visible) { m_debugOverlayVisible = visible; }
 
     // Global Asset Retrieval
     std::string GetBackground(const std::string& id) const { return m_project.backgrounds.count(id) ? m_project.backgrounds.at(id) : ""; }
@@ -176,6 +181,7 @@ public:
 
 private:
     DialogProject m_project;
+    bool m_debugOverlayVisible = false;
     std::unordered_map<std::string, int> m_variables;
     std::vector<DialogOption> m_visibleOptions;
     const DialogNode* m_currentNode = nullptr;
