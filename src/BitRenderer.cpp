@@ -315,8 +315,9 @@ void BitRenderer::HandleAudio() {
     const auto* node = m_engine.GetCurrentNode();
     if (!node) return;
 
-    if (node->metadata.count("bgm")) {
-        std::string req  = node->metadata.at("bgm");
+    std::string activeBgm = m_engine.GetActiveBgm();
+    if (!activeBgm.empty()) {
+        std::string req  = activeBgm;
         std::string path = m_engine.GetMusic(req);
         if (path.empty()) path = req;
         if (m_currentMusicPath != path) {
@@ -417,9 +418,9 @@ void BitRenderer::DrawBackground() {
     // Feature 5: Always paint the clear color first to prevent ghosting
     DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), style.clearColor);
 
-    const auto* node = m_engine.GetCurrentNode();
-    if (node && node->metadata.count("bg")) {
-        std::string req  = node->metadata.at("bg");
+    std::string activeBg = m_engine.GetActiveBg();
+    if (!activeBg.empty()) {
+        std::string req  = activeBg;
         std::string path = m_engine.GetBackground(req);
         if (path.empty()) path = req;
         Texture2D bg = GetTexture(path);
@@ -430,13 +431,13 @@ void BitRenderer::DrawBackground() {
 
 void BitRenderer::DrawEntitySprite() {
     const auto* entity = m_engine.GetCurrentEntity();
-    const auto* node   = m_engine.GetCurrentNode();
+    const auto* node = m_engine.GetCurrentNode();
     if (!entity || !node) return;
 
     // Feature 2: Read entity display properties from active style
     auto& style = m_styleManager.GetStyle();
 
-    std::string expr = node->metadata.count("expression") ? node->metadata.at("expression") : "idle";
+    std::string expr = m_engine.GetActiveExpression();
     std::string path = ""; int frames = 1; float speed = 1.0f;
     float scale = style.entityScale;
 

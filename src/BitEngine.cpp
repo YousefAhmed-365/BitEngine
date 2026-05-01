@@ -7,8 +7,6 @@
 #include <algorithm>
 #include <unordered_set>
 #include <ctime>
-#include <ctime>
-#include <sys/stat.h>
 #include <random>
 
 using json = nlohmann::json;
@@ -479,6 +477,9 @@ void DialogEngine::SaveGame(int slot) {
         sd.meta.summary = content;
         json j;
         j["version"] = sd.version; j["node_id"] = sd.current_node_id; j["variables"] = sd.variables;
+        j["active_bg"] = m_activeBg;
+        j["active_bgm"] = m_activeBgm;
+        j["active_expression"] = m_activeExpression;
         j["meta"] = { {"time", sd.meta.timestamp}, {"node", sd.meta.node_id}, {"char", sd.meta.entity_name}, {"text", sd.meta.summary} };
         std::string data = j.dump(4);
         if (m_project.configs.encrypt_save) data = XORBuffer(data);
@@ -498,6 +499,10 @@ bool DialogEngine::LoadGame(int slot) {
             json j = json::parse(data);
             // Deterministic: start from defaults, then apply saved values
             for (auto const& [id, def] : m_project.variables) m_variables[id] = def.initial_value;
+            
+            if (j.contains("active_bg")) m_activeBg = j["active_bg"].get<std::string>();
+            if (j.contains("active_bgm")) m_activeBgm = j["active_bgm"].get<std::string>();
+            if (j.contains("active_expression")) m_activeExpression = j["active_expression"].get<std::string>();
             if (j.contains("variables") && j["variables"].is_object()) {
                 for (auto& [id, val] : j["variables"].items()) {
                     if (m_project.variables.count(id)) m_variables[id] = val.get<int>();
@@ -520,7 +525,10 @@ bool DialogEngine::LoadGame(int slot) {
     return false;
 }
 
-bool DialogEngine::HasSave(int slot) const { struct stat buffer; return (stat(GetSlotPath(slot).c_str(), &buffer) == 0); }
+bool DialogEngine::HasSave(int slot) const { 
+    std::ifstream f(GetSlotPath(slot)); 
+    return f.good(); 
+}
 
 std::optional<SaveMetadata> DialogEngine::GetSaveMetadata(int slot) const {
     std::ifstream f(GetSlotPath(slot), std::ios::binary | std::ios::ate);
@@ -548,6 +556,11 @@ void DialogEngine::StartDialog(const std::string& startId) {
     m_currentNode = &m_project.nodes[id];
     m_currentNodeId = id;
     m_isActive = true;
+    
+    if (m_currentNode->metadata.count("bg")) m_activeBg = m_currentNode->metadata.at("bg");
+    if (m_currentNode->metadata.count("bgm")) m_activeBgm = m_currentNode->metadata.at("bgm");
+    if (m_currentNode->metadata.count("expression")) m_activeExpression = m_currentNode->metadata.at("expression");
+
     m_cachedInterpolatedContent = InterpolateVariables(m_currentNode->content);
     m_cachedParsedContent = RichTextParser::Parse(m_cachedInterpolatedContent);
     m_cachedTotalChars = m_cachedParsedContent.size();

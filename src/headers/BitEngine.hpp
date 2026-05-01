@@ -76,6 +76,9 @@ struct SaveData {
     int version = 1;
     std::string current_node_id;
     std::unordered_map<std::string, int> variables;
+    std::string active_bg;
+    std::string active_bgm;
+    std::string active_expression;
     SaveMetadata meta;
 };
 
@@ -166,6 +169,11 @@ public:
     std::string GetMusic(const std::string& id) const { return m_project.music.count(id) ? m_project.music.at(id) : ""; }
     std::string GetSFX(const std::string& id) const { return m_project.sfx.count(id) ? m_project.sfx.at(id) : ""; }
 
+    // Active Persistent States (Retained across nodes and saves)
+    std::string GetActiveBg() const { return m_activeBg; }
+    std::string GetActiveBgm() const { return m_activeBgm; }
+    std::string GetActiveExpression() const { return m_activeExpression; }
+
     // Conditional Audio Playback (Event-driven)
     const std::vector<std::string>& ConsumePendingSFX();
 
@@ -204,6 +212,10 @@ private:
     float m_engineDelayTimer = 0.0f;
     std::string m_pendingJumpId = "";
     std::vector<std::string> m_pendingSFX;
+
+    std::string m_activeBg = "";
+    std::string m_activeBgm = "";
+    std::string m_activeExpression = "idle";
 
     // Debug state
     std::vector<EventTraceEntry> m_eventTrace;
