@@ -215,6 +215,7 @@ protected:
     Texture2D m_customCursor;
     std::string m_currentCursorPath = "";
     bool m_showHistory = false;
+    float m_historyScroll = 0.0f;
 
     float m_animTimer    = 0.0f;
     int   m_animFrame    = 0;

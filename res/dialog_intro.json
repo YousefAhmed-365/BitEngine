@@ -106,20 +106,49 @@
         "content": "What's our next move?",
         "options": [
             { "content": "Search the stalls", "next_id": "market_browsing" },
-            { "content": "Check the terminal", "next_id": "market_terminal", "style": "premium" }
+            { "content": "Check the terminal", "next_id": "market_terminal", "style": "premium", "events": [{ "op": "add", "var": "trust_akira", "value": 1 }] }
         ]
     },
 
     "market_browsing": {
         "entity": "kael",
         "content": "Nothing but scrap metal and rusted parts.",
-        "next_id": "dialog_end_final",
+        "next_id": "check_ending",
         "metadata": { "join": "true", "pos": "right" }
     },
 
     "market_terminal": {
         "entity": "akira",
         "content": "Accessing the main terminal... [wait=0.5] [font=dream]ACCESS GRANTED[/font].",
+        "next_id": "check_ending"
+    },
+
+    "check_ending": {
+        "entity": "system",
+        "content": "Calculating outcome based on neural synchronization...",
+        "options": [
+            { 
+                "content": "Continue (Synchronization High)", 
+                "next_id": "ending_good", 
+                "conditions": [{ "var": "trust_akira", "op": ">=", "value": 1 }] 
+            },
+            { 
+                "content": "Continue (Synchronization Low)", 
+                "next_id": "ending_bad",
+                "conditions": [{ "var": "trust_akira", "op": "<", "value": 1 }]
+            }
+        ]
+    },
+
+    "ending_good": {
+        "entity": "akira",
+        "content": "Synchronization complete. We're in. Good work.",
+        "next_id": "dialog_end_final"
+    },
+
+    "ending_bad": {
+        "entity": "akira",
+        "content": "Synchronization failed. We're locked out. This is a disaster.",
         "next_id": "dialog_end_final"
     },
 

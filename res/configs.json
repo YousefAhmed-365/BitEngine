@@ -2,14 +2,14 @@
     "configs": {
         "start_node": "scene_alley_start",
         "reveal_speed": 45.0,
-        "auto_play_delay": 2000.0,
-        "debug_mode": "debug_all",
+        "auto_play_delay": 1000.0,
+        "debug_mode": "debug_overlay",
         "auto_save": true,
         "encrypt_save": false,
         "enable_floating": true,
         "enable_shadows": true,
         "enable_vignette": true,
-        "save_prefix": "nova_save_",
+        "save_prefix": "bit_save_",
         "max_slots": 10,
         "mode": "typewriter"
     },

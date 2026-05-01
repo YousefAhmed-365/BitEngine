@@ -423,19 +423,23 @@ void BitRenderer::HandleInput() {
     // Feature: Message History toggle
     if (IsKeyPressed(KEY_H)) {
         m_showHistory = !m_showHistory;
+        if (m_showHistory) m_historyScroll = 0; // Reset scroll on open
     }
 
+    // Allow debug overlay toggle even while history is open
+    if (IsKeyPressed(KEY_F3)) m_engine.ToggleDebugOverlay();
+
     if (m_showHistory) {
+        m_historyScroll -= GetMouseWheelMove() * 40.0f;
+        if (m_historyScroll < 0) m_historyScroll = 0;
         if (IsKeyPressed(KEY_ESCAPE)) m_showHistory = false;
-        return; // Block other inputs while history is open
+        return; // Block narrative inputs while history is open
     }
 
     if (m_engine.IsChoiceVisible()) {
         m_debugScroll -= GetMouseWheelMove() * 20.0f;
         if (m_debugScroll < 0) m_debugScroll = 0;
     }
-
-    if (IsKeyPressed(KEY_F3)) m_engine.ToggleDebugOverlay();
     if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER)) { m_engine.Next(); return; }
     if (IsKeyPressed(KEY_F5)) { m_engine.SaveGame(1); saveToastMsg = "QUICK SAVE..."; saveToastTimer = 2.0f; }
     if (IsKeyPressed(KEY_F9)) { if (m_engine.LoadGame(1)) { saveToastMsg = "RELOADING..."; saveToastTimer = 2.0f; } }
@@ -951,36 +955,50 @@ void BitRenderer::DrawHistory() {
     int sw = GetScreenWidth();
     int sh = GetScreenHeight();
 
-    // Semi-transparent background overlay
+    // Background overlay
     DrawRectangle(0, 0, sw, sh, style.historyBg);
 
-    float py = style.historyPadding;
     const auto& history = m_engine.GetHistory();
+    if (history.empty()) return;
+
     Font font = m_styleManager.GetCurrentFont();
+    float py = style.historyPadding + 60.0f - m_historyScroll;
+    float contentWidth = sw - style.historyPadding * 2 - 20;
 
-    DrawTextEx(font, "MESSAGE HISTORY", {style.historyPadding, py}, style.historySpeakerFontSize + 10, 1.0f, style.historySpeakerColor);
-    py += style.historySpeakerFontSize + 30;
-
-    // Draw from newest to oldest
-    for (int i = (int)history.size() - 1; i >= 0; --i) {
+    // Draw chronological order (Oldest at top, Newest at bottom)
+    for (size_t i = 0; i < history.size(); ++i) {
         const auto& entry = history[i];
         
+        // Skip if way off top
+        if (py + 100 < 0) {
+            // We still need to calculate height to advance py correctly... 
+            // This is tricky without a separate measurement pass.
+            // For now, let's just draw everything and optimize if history gets huge.
+        }
+
         // Speaker
         DrawTextEx(font, entry.speaker.c_str(), {style.historyPadding, py}, style.historySpeakerFontSize, 1.0f, style.historySpeakerColor);
         py += style.historySpeakerFontSize + 4;
         
-        // Content (Rich)
-        py = DrawRichText(entry.richContent, (int)entry.richContent.size(), 
-                          (int)(style.historyPadding + 10), (int)py, 
-                          (int)style.historyContentFontSize, (int)(sw - style.historyPadding * 2), 
-                          style.historyContentColor);
+        // Content
+        py = (float)DrawRichText(entry.richContent, (int)entry.richContent.size(), 
+                                (int)(style.historyPadding + 10), (int)py, 
+                                (int)style.historyContentFontSize, (int)contentWidth, 
+                                style.historyContentColor);
         
         py += style.historySpacing;
-        
-        if (py > sh - style.historyPadding) break; // Simple culling
     }
 
-    DrawText("ESC / H to close", sw - 120, sh - 30, 10, Fade(GRAY, 0.5f));
+    // Clamp scroll to history height
+    float totalHeight = py + m_historyScroll - (style.historyPadding + 60.0f);
+    float maxScroll = totalHeight - (sh - style.historyPadding * 2 - 100);
+    if (maxScroll < 0) maxScroll = 0;
+    if (m_historyScroll > maxScroll) m_historyScroll = maxScroll;
+
+    // Draw Title at top (pinned)
+    DrawRectangle(0, 0, sw, (int)style.historyPadding + 50, Fade(BLACK, 0.8f));
+    DrawTextEx(font, "MESSAGE HISTORY", {style.historyPadding, style.historyPadding}, style.historySpeakerFontSize + 12, 1.0f, style.historySpeakerColor);
+    DrawText("SCROLL WHEEL to move | ESC / H to close", sw - 230, (int)style.historyPadding + 10, 10, Fade(GRAY, 0.6f));
 }
 
 void BitRenderer::DrawCustomCursor() {

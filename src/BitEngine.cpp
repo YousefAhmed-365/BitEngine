@@ -624,16 +624,23 @@ void DialogEngine::StartDialog(const std::string& startId) {
     if (!isJoining) m_activeEntities.clear();
     
     if (m_currentNode && !m_currentNode->content.empty()) {
-        std::string speakerName = (m_currentNode->entity == "system") ? "SYSTEM" : "???";
-        if (m_project.entities.count(m_currentNode->entity)) 
-            speakerName = m_project.entities.at(m_currentNode->entity).name;
+        std::string speakerName = "SYSTEM"; // Default for system or empty entity
+        if (!m_currentNode->entity.empty() && m_currentNode->entity != "system") {
+            if (m_project.entities.count(m_currentNode->entity)) 
+                speakerName = m_project.entities.at(m_currentNode->entity).name;
+            else
+                speakerName = "???";
+        }
         
+        // Use interpolated content for history so variables are correct
+        std::string finalContent = InterpolateVariables(m_currentNode->content);
+
         // Don't add duplicate back-to-back entries if the content is the same
-        if (m_history.empty() || m_history.back().content != m_currentNode->content) {
+        if (m_history.empty() || m_history.back().content != finalContent) {
             HistoryEntry entry;
             entry.speaker = speakerName;
-            entry.content = m_currentNode->content;
-            entry.richContent = RichTextParser::Parse(entry.content);
+            entry.content = finalContent;
+            entry.richContent = RichTextParser::Parse(finalContent);
             m_history.push_back(entry);
             if (m_history.size() > 100) m_history.erase(m_history.begin());
         }
