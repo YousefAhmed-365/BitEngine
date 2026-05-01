@@ -14,6 +14,18 @@ static Color ParseColor(const json& j, const Color& def) {
     return def;
 }
 
+static StyleTexture ParseStyleTexture(const json& j) {
+    StyleTexture t;
+    t.path        = j.value("path",         t.path);
+    t.nineSlice   = j.value("nine_slice",   t.nineSlice);
+    t.sliceLeft   = j.value("slice_left",   t.sliceLeft);
+    t.sliceTop    = j.value("slice_top",    t.sliceTop);
+    t.sliceRight  = j.value("slice_right",  t.sliceRight);
+    t.sliceBottom = j.value("slice_bottom", t.sliceBottom);
+    if (j.contains("tint")) t.tint = ParseColor(j["tint"], t.tint);
+    return t;
+}
+
 static UIStyle ParseStyleBlock(const json& j) {
     UIStyle s;
 
@@ -105,6 +117,13 @@ static UIStyle ParseStyleBlock(const json& j) {
 
     // Feature 5: Background Clear Color
     if (j.contains("clear_color")) s.clearColor = ParseColor(j["clear_color"], s.clearColor);
+
+    // Texture Overrides — parsed last so they can appear anywhere in the JSON block
+    if (j.contains("box_texture"))    s.boxTexture    = ParseStyleTexture(j["box_texture"]);
+    if (j.contains("label_texture"))  s.labelTexture  = ParseStyleTexture(j["label_texture"]);
+    if (j.contains("choice_texture")) s.choiceTexture = ParseStyleTexture(j["choice_texture"]);
+    if (j.contains("toast_texture"))  s.toastTexture  = ParseStyleTexture(j["toast_texture"]);
+    if (j.contains("cursor_texture")) s.cursorTexture = ParseStyleTexture(j["cursor_texture"]);
 
     return s;
 }
@@ -281,11 +300,13 @@ void BitRenderer::Draw() {
         int sw = GetScreenWidth(), sh = GetScreenHeight();
         float tx = sw * style.toastNormX - style.toastWidth - style.toastMarginX;
         float ty = sh * style.toastNormY + style.toastMarginY;
-        DrawRectangle((int)tx, (int)ty, (int)style.toastWidth, (int)style.toastHeight, style.toastBg);
-        DrawRectangleLinesEx({ tx, ty, style.toastWidth, style.toastHeight }, 1.5f, style.toastBorder);
-        DrawText(saveToastMsg.c_str(), (int)tx + 10,
-                 (int)ty + (int)(style.toastHeight / 2) - style.toastFontSize / 2,
-                 style.toastFontSize, style.toastTextColor);
+        Rectangle toastRect = { tx, ty, style.toastWidth, style.toastHeight };
+        // Texture override for toast panel
+        DrawStyledRect(toastRect, style.toastTexture, style.toastBg, style.toastBorder, 0.0f, 1.5f, 4);
+        Font toastFont = m_styleManager.GetCurrentFont();
+        float textY = ty + style.toastHeight / 2.0f - style.toastFontSize / 2.0f;
+        DrawTextEx(toastFont, saveToastMsg.c_str(), { tx + 10, textY },
+                   (float)style.toastFontSize, 2.0f, style.toastTextColor);
         saveToastTimer -= GetFrameTime();
     }
 }
@@ -482,8 +503,9 @@ void BitRenderer::DrawMainBox() {
 
     Rectangle box = { bx, by, bw, bh };
 
-    DrawRectangleRounded(box, style.boxRoundness, 10, style.boxBg);
-    DrawRectangleRoundedLinesEx(box, style.boxRoundness, 10, style.boxBorderThick, style.boxBorder);
+    // Texture override for dialog box (falls back to rounded rect + border)
+    DrawStyledRect(box, style.boxTexture, style.boxBg, style.boxBorder,
+                   style.boxRoundness, style.boxBorderThick, 10);
 
     if (e) {
         Font font = m_styleManager.GetCurrentFont();
@@ -493,12 +515,12 @@ void BitRenderer::DrawMainBox() {
         float lx = box.x + style.labelOffsetX;
         if (style.labelAlign == "center") lx = box.x + box.width / 2.0f - lw / 2.0f;
         else if (style.labelAlign == "right") lx = box.x + box.width - lw - style.labelOffsetX;
-
         float ly = box.y + style.labelOffsetY;
-        
-        DrawRectangle((int)lx, (int)ly, (int)lw, style.labelHeight, style.labelBg);
-        DrawRectangleLinesEx({ lx, ly, lw, (float)style.labelHeight }, 1.5f, style.labelBorder);
-        // Feature 1: Use custom font for the character name label
+        Rectangle labelRect = { lx, ly, lw, (float)style.labelHeight };
+
+        // Texture override for name label
+        DrawStyledRect(labelRect, style.labelTexture, style.labelBg, style.labelBorder,
+                       0.0f, 1.5f, 4);
         float nameY = ly + style.labelHeight / 2.0f - style.labelFontSize / 2.0f;
         DrawTextEx(font, e->name.c_str(), { lx + style.labelPadding, nameY },
                    (float)style.labelFontSize, 2.0f, style.labelTextColor);
@@ -508,25 +530,38 @@ void BitRenderer::DrawMainBox() {
                  (int)(box.x + style.boxPadding), (int)(box.y + 40),
                  style.textFontSize, (int)bw - style.boxPadding * 2, style.textColor, style.textLineSpacing);
 
-    // Feature 3: Style-driven waiting cursor
+    // Texture override for cursor sprite (replaces all drawn cursor shapes)
     if (!m_engine.IsTextRevealing()) {
         float anim  = sinf((float)GetTime() * style.cursorAnimSpeed);
-        Color col   = Fade(style.cursorColor, 0.9f);
         float bR    = box.x + box.width  - 18.0f;
         float bB    = box.y + box.height - 14.0f;
         float sz    = style.cursorSize;
 
-        if (style.cursorShape == "dot") {
-            float radius = sz * (0.8f + anim * 0.2f);
-            DrawCircle((int)bR, (int)bB, radius, col);
-        } else if (style.cursorShape == "bar") {
-            float alpha = (anim + 1.0f) * 0.5f;
-            DrawRectangle((int)(bR - sz * 2.0f), (int)bB, (int)(sz * 2.0f), (int)(sz * 0.45f), Fade(col, alpha));
-        } else { // default: triangle
-            float pulse = anim * 3.0f;
-            DrawTriangle({ bR - sz * 1.25f, bB + pulse },
-                         { bR,              bB - sz * 1.25f + pulse },
-                         { bR - sz * 2.5f,  bB - sz * 1.25f + pulse }, col);
+        if (!style.cursorTexture.path.empty()) {
+            Texture2D ctex = GetTexture(style.cursorTexture.path);
+            if (ctex.id > 0) {
+                float scale = (anim * 0.08f + 1.0f);  // gentle breathing pulse
+                float tw = ctex.width  * scale;
+                float th = ctex.height * scale;
+                DrawTexturePro(ctex,
+                    { 0, 0, (float)ctex.width, (float)ctex.height },
+                    { bR - tw / 2.0f, bB - th / 2.0f, tw, th },
+                    { 0, 0 }, 0.0f, style.cursorTexture.tint);
+            }
+        } else {
+            Color col = Fade(style.cursorColor, 0.9f);
+            if (style.cursorShape == "dot") {
+                DrawCircle((int)bR, (int)bB, sz * (0.8f + anim * 0.2f), col);
+            } else if (style.cursorShape == "bar") {
+                DrawRectangle((int)(bR - sz * 2.0f), (int)bB,
+                              (int)(sz * 2.0f), (int)(sz * 0.45f),
+                              Fade(col, (anim + 1.0f) * 0.5f));
+            } else {
+                float pulse = anim * 3.0f;
+                DrawTriangle({ bR - sz * 1.25f, bB + pulse },
+                             { bR,              bB - sz * 1.25f + pulse },
+                             { bR - sz * 2.5f,  bB - sz * 1.25f + pulse }, col);
+            }
         }
     }
 }
@@ -545,8 +580,9 @@ void BitRenderer::DrawChoiceBox() {
     float cy    = sh * style.choiceNormY - ch / 2.0f + style.choiceOffsetY;
     Rectangle r = { cx, cy, cw, ch };
 
-    DrawRectangleRounded(r, style.choiceRoundness, 10, Fade(style.choiceBg, 0.95f));
-    DrawRectangleRoundedLinesEx(r, style.choiceRoundness, 10, style.choiceBorderThick, style.choiceBorder);
+    // Texture override for choice panel
+    DrawStyledRect(r, style.choiceTexture, Fade(style.choiceBg, 0.95f), style.choiceBorder,
+                   style.choiceRoundness, style.choiceBorderThick, 10);
 
     Font font = m_styleManager.GetCurrentFont();
     for (int i = 0; i < (int)opts.size(); ++i) {
@@ -802,4 +838,34 @@ void BitRenderer::CreateFallbackTexture() {
 void BitRenderer::CreateVignetteTexture() {
     Image img = GenImageGradientRadial(64, 64, 0.0f, BLANK, BLACK);
     m_vignette = LoadTextureFromImage(img); UnloadImage(img);
+}
+
+// ============================================================
+// DrawStyledRect: texture-first rendering with solid-rect fallback
+// ============================================================
+void BitRenderer::DrawStyledRect(Rectangle rect, const StyleTexture& stex,
+                                 Color fallbackBg, Color fallbackBorder,
+                                 float roundness, float borderThick, int segments) {
+    if (!stex.path.empty()) {
+        Texture2D tex = GetTexture(stex.path);
+        if (tex.id > 0) {
+            if (stex.nineSlice) {
+                NPatchInfo npi = {
+                    { 0, 0, (float)tex.width, (float)tex.height },
+                    stex.sliceLeft, stex.sliceTop, stex.sliceRight, stex.sliceBottom,
+                    NPATCH_NINE_PATCH
+                };
+                DrawTextureNPatch(tex, npi, rect, { 0.0f, 0.0f }, 0.0f, stex.tint);
+            } else {
+                DrawTexturePro(tex,
+                    { 0, 0, (float)tex.width, (float)tex.height },
+                    rect, { 0.0f, 0.0f }, 0.0f, stex.tint);
+            }
+            return; // Texture provides its own border; skip fallback
+        }
+    }
+    // Fallback: solid rounded rectangle + border
+    DrawRectangleRounded(rect, roundness, segments, fallbackBg);
+    if (borderThick > 0.0f)
+        DrawRectangleRoundedLinesEx(rect, roundness, segments, borderThick, fallbackBorder);
 }

@@ -9,6 +9,20 @@
 #include <string>
 
 // ============================================================
+// Texture override for any UI element.
+// If 'path' is empty the element falls back to its default rendering.
+// When 'nineSlice' is true the texture is stretched using Raylib's
+// NPatch system so borders don't distort on resize.
+// ============================================================
+struct StyleTexture {
+    std::string path      = "";                       // File path; empty = disabled
+    bool        nineSlice = false;                    // Use nine-slice (NPatch) scaling
+    int         sliceLeft = 0, sliceTop    = 0,       // Border sizes in pixels
+                sliceRight= 0, sliceBottom = 0;
+    Color       tint      = { 255, 255, 255, 255 };   // Multiplicative tint
+};
+
+// ============================================================
 // Full UI Style — all values are data-driven from style.json
 // ============================================================
 struct UIStyle {
@@ -94,6 +108,16 @@ struct UIStyle {
     // --- Background Clear Color (Feature 5) ---
     // Drawn as the very first layer of each frame — eliminates ghosting when no bg image is set.
     Color clearColor            = { 18, 18, 30, 255 };
+
+    // --- Texture Overrides ---
+    // For each element: if path is non-empty the texture is used instead of the
+    // default solid/rounded-rect rendering. Nine-slice is recommended for panels
+    // so borders scale correctly at any dialog box size.
+    StyleTexture boxTexture;     // Dialog box panel
+    StyleTexture labelTexture;   // Character name label
+    StyleTexture choiceTexture;  // Choice/options panel
+    StyleTexture toastTexture;   // Toast notification panel
+    StyleTexture cursorTexture;  // Waiting-for-input cursor sprite
 };
 
 class StyleManager {
@@ -154,6 +178,11 @@ protected:
     void PlaySFX(const std::string& path);
     void CreateFallbackTexture();
     void CreateVignetteTexture();
+    // Draw a rectangle using a StyleTexture if set, otherwise use solid/rounded-rect fallback.
+    // When the texture is active no separate border is drawn (the texture provides it).
+    void DrawStyledRect(Rectangle rect, const StyleTexture& stex,
+                        Color fallbackBg, Color fallbackBorder,
+                        float roundness = 0.0f, float borderThick = 1.5f, int segments = 8);
 
     DialogEngine& m_engine;
     StyleManager  m_styleManager;
