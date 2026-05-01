@@ -110,7 +110,7 @@ std::vector<RichChar> RichTextParser::Parse(const std::string& rawText) {
     return result;
 }
 
-// --- DialogParser ---
+// DialogParser
 DialogProject DialogParser::ParseConfig(const std::string& path) {
     DialogProject p;
     std::ifstream f(path); if (!f) return p;
@@ -225,7 +225,7 @@ bool DialogParser::LoadDialogFile(const std::string& path, DialogProject& p) {
     try {
         json j; f >> j;
         
-        // --- Helpers ---
+        // Helpers
         // Parse an Event from a JSON object
         auto parseEvent = [](const json& e) -> Event {
             return { e.value("op", ""), e };
@@ -257,7 +257,7 @@ bool DialogParser::LoadDialogFile(const std::string& path, DialogProject& p) {
             if (n.contains("next_id") && !n["next_id"].is_null())
                 node.next_id = n["next_id"].get<std::string>();
 
-            // --- Typed metadata (Phase 1) ---
+            // Typed metadata (Phase 1)
             if (n.contains("metadata")) {
                 auto& m = n["metadata"];
                 node.metadata.bg         = m.value("bg",         "");
@@ -274,7 +274,7 @@ bool DialogParser::LoadDialogFile(const std::string& path, DialogProject& p) {
                 node.metadata.transition_delay    = m.value("transition_delay",    0);
             }
 
-            // --- Options with typed conditions & events (Phase 2 + 5) ---
+            // Options with typed conditions & events (Phase 2 + 5)
             if (n.contains("options")) {
                 for (auto& o : n["options"]) {
                     DialogOption opt;
@@ -290,7 +290,7 @@ bool DialogParser::LoadDialogFile(const std::string& path, DialogProject& p) {
                 }
             }
 
-            // --- Node events (Phase 2) ---
+            // Node events (Phase 2)
             if (n.contains("events"))
                 for (auto& e : n["events"]) node.events.push_back(parseEvent(e));
 
@@ -320,7 +320,7 @@ bool DialogParser::LoadAssetsFile(const std::string& path, DialogProject& p) {
     return true;
 }
 
-// --- DialogEngine ---
+// DialogEngine
 DialogEngine::DialogEngine() {}
 
 bool DialogEngine::LoadProject(const std::string& configFilePath) {
@@ -1021,7 +1021,7 @@ void DialogEngine::ProcessEvents(const std::vector<Event>& events) {
         }
         auto& p = e.params;
 
-        // --- INSTANT ops ---
+        // INSTANT ops
         if (e.op == "shake")    { TriggerShake(p.value("intensity", 5.0f)); continue; }
         if (e.op == "play_sfx") { m_pendingSFX.push_back(p.value("id", "")); continue; }
         if (e.op == "clear")    { m_activeEntities.clear(); continue; }
@@ -1037,11 +1037,11 @@ void DialogEngine::ProcessEvents(const std::vector<Event>& events) {
             continue;
         }
 
-        // --- SYNC ops ---
+        // SYNC ops
         if (e.op == "jump")  { m_pendingJumpId = p.value("target", ""); continue; }
         if (e.op == "delay") { m_engineDelayTimer = p.value("duration", 0) / 1000.0f; continue; }
 
-        // --- ASYNC ops ---
+        // ASYNC ops
         if (e.op == "move") {
             auto& s = m_activeEntities[p.value("target", "")];
             float x = ParseXParam(p);
@@ -1079,7 +1079,7 @@ void DialogEngine::ProcessEvents(const std::vector<Event>& events) {
             continue;
         }
 
-        // --- Variable ops (INSTANT) ---
+        // Variable ops (INSTANT)
         std::string var = p.value("var", "");
         if (!var.empty() && !m_project.variables.count(var)) {
             RecordError("ProcessEvents", "Op '" + e.op + "' references undeclared variable '" + var + "' — skipping.");

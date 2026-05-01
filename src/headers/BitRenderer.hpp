@@ -8,12 +8,12 @@
 #include <vector>
 #include <string>
 
-// ============================================================
+
 // Texture override for any UI element.
 // If 'path' is empty the element falls back to its default rendering.
 // When 'nineSlice' is true the texture is stretched using Raylib's
 // NPatch system so borders don't distort on resize.
-// ============================================================
+
 struct StyleTexture {
     std::string path      = "";                       // File path; empty = disabled
     bool        nineSlice = false;                    // Use nine-slice (NPatch) scaling
@@ -22,12 +22,12 @@ struct StyleTexture {
     Color       tint      = { 255, 255, 255, 255 };   // Multiplicative tint
 };
 
-// ============================================================
+
 // Full UI Style — all values are data-driven from style.json
-// ============================================================
+
 struct UIStyle {
 
-    // --- Dialog Box ---
+    // Dialog Box
     float boxNormX         = 0.5f;
     float boxNormY         = 1.0f;
     float boxWidthNorm     = 0.93f;
@@ -41,12 +41,12 @@ struct UIStyle {
     Color boxBg            = { 15,  15,  25,  240 };
     Color boxBorder        = {  0, 210, 255, 255 };
 
-    // --- Dialog Text ---
+    // Dialog Text
     Color textColor        = { 245, 245, 255, 255 };
     int   textFontSize     = 24;
     int   textLineSpacing  = 5;
 
-    // --- Name Label ---
+    // Name Label
     float labelOffsetX     = 30.0f;
     float labelOffsetY     = -20.0f;
     int   labelPadding     = 20;
@@ -57,7 +57,7 @@ struct UIStyle {
     Color labelTextColor   = { 255, 215,   0, 255 };
     int   labelFontSize    = 28;
 
-    // --- Choice Box ---
+    // Choice Box
     float choiceNormX      = 0.5f;
     float choiceNormY      = 0.5f;
     float choiceOffsetY    = -100.0f;
@@ -73,7 +73,7 @@ struct UIStyle {
     int   optionHeight     = 35;
     int   optionGap        = 10;
 
-    // --- Toast Notification ---
+    // Toast Notification
     float toastNormX       = 1.0f;
     float toastNormY       = 0.0f;
     float toastMarginX     = 20.0f;
@@ -85,7 +85,7 @@ struct UIStyle {
     Color toastTextColor   = { 245, 245, 255, 255 };
     int   toastFontSize    = 16;
 
-    // --- Vignette ---
+    // Vignette
     float vignetteOpacity  = 0.4f;
 
     // Feature: Message History
@@ -109,24 +109,24 @@ struct UIStyle {
     // Feature 1: Custom Font
     std::string fontPath   = "";
 
-    // --- Entity Display (Feature 2) ---
+    // Entity Display
     float entityScale          = 3.0f;   // Sprite render scale multiplier
     float entityFloatAmplitude = 10.0f;  // Pixels of vertical floating movement
     float entityFloatSpeed     = 2.0f;   // Hz of the floating sine wave
     float entityShadowOpacity  = 0.4f;   // Alpha of the ellipse shadow beneath sprites
 
-    // --- Cursor / Waiting Indicator (Feature 3) ---
+    // Cursor / Waiting Indicator
     // shape: "triangle" | "dot" | "bar"
     std::string cursorShape     = "triangle";
     Color       cursorColor     = {  0, 210, 255, 255 };
     float       cursorSize      = 8.0f;
     float       cursorAnimSpeed = 10.0f;
 
-    // --- Background Clear Color (Feature 5) ---
+    // Background Clear Color
     // Drawn as the very first layer of each frame — eliminates ghosting when no bg image is set.
     Color clearColor            = { 18, 18, 30, 255 };
 
-    // --- Texture Overrides ---
+    // Texture Overrides
     // For each element: if path is non-empty the texture is used instead of the
     // default solid/rounded-rect rendering. Nine-slice is recommended for panels
     // so borders scale correctly at any dialog box size.

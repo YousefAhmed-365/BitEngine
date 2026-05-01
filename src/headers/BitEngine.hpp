@@ -34,7 +34,7 @@ public:
     static BitColor StringToColor(const std::string& str);
 };
 
-// --- Condition system: recursive tree ---
+// Condition system: recursive tree
 // A ConditionNode is either a leaf {var, op, value} or a group {"and":[...]} / {"or":[...]}.
 // The top-level conditions list is implicitly AND-ed.
 struct ConditionLeaf { std::string var, op; int value = 0; };
@@ -45,7 +45,7 @@ struct ConditionNode {
     ConditionLeaf leaf;                  // populated when isGroup=false
 };
 
-// --- Event: op + per-op typed params as JSON ---
+// Event: op + per-op typed params as JSON
 // INSTANT ops: set, add, sub, mul, random, shake, play_sfx, expression, hide, pos, clear
 // SYNC    ops: jump, delay  (block narrative until resolved)
 // ASYNC   ops: move, fade, fade_screen  (run in background)
@@ -97,7 +97,7 @@ struct HistoryEntry {
     std::vector<RichChar> richContent;
 };
 
-// --- Typed node metadata: declarative initial state ONLY ---
+// Typed node metadata: declarative initial state ONLY
 // Mutations belong in events, not here.
 struct NodeMetadata {
     std::string bg          = "";
@@ -167,7 +167,7 @@ struct DialogProject {
     std::unordered_map<std::string, std::string> fonts; // New: font name -> path mapping
 };
 
-// --- Validation Result ---
+// Validation Result
 struct ValidationError {
     std::string file;
     std::string field;
@@ -175,7 +175,7 @@ struct ValidationError {
 };
 using ValidationResult = std::vector<ValidationError>;
 
-// --- Event Trace Entry ---
+// Event Trace Entry
 struct EventTraceEntry {
     std::string node_id;
     std::string op;
@@ -266,10 +266,10 @@ public:
     float GetEffectShake() const { return m_shakeIntensity; }
     void TriggerShake(float intensity = 5.0f) { m_shakeIntensity = intensity; }
 
-    // --- Validation ---
+    // Validation
     static ValidationResult ValidateProject(const DialogProject& p);
 
-    // --- Debug Instrumentation ---
+    // Debug Instrumentation
     const std::vector<EventTraceEntry>& GetEventTrace() const { return m_eventTrace; }
     void ClearEventTrace() { m_eventTrace.clear(); }
     bool HasErrors() const { return !m_errors.empty(); }

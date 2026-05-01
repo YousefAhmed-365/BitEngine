@@ -458,7 +458,7 @@ void BitRenderer::HandleInput() {
     }
 }
 
-// ============================================================
+
 void BitRenderer::DrawBackground() {
     auto& style = m_styleManager.GetStyle();
     DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), style.clearColor);
@@ -676,9 +676,9 @@ void BitRenderer::DrawVFX() {
     }
 }
 
-// ============================================================
+
 // Debug overlay — intentionally NOT driven by style
-// ============================================================
+
 void BitRenderer::DrawDebugOverlay() {
     const auto* node   = m_engine.GetCurrentNode();
     const auto& vars   = m_engine.GetAllVariables();
@@ -802,7 +802,7 @@ void BitRenderer::DrawDebugOverlay() {
     }
 }
 
-// ============================================================
+
 int BitRenderer::DrawRichText(const std::vector<RichChar>& content, int limit, int x, int y, int fontSize, int maxWidth, Color defaultColor, int lineSpacing) {
     // Feature 1: Use the active style's custom font
     Font font = m_styleManager.GetCurrentFont();
@@ -928,9 +928,9 @@ void BitRenderer::CreateVignetteTexture() {
     m_vignette = LoadTextureFromImage(img); UnloadImage(img);
 }
 
-// ============================================================
+
 // DrawStyledRect: texture-first rendering with solid-rect fallback
-// ============================================================
+
 void BitRenderer::DrawStyledRect(Rectangle rect, const StyleTexture& stex,
                                  Color fallbackBg, Color fallbackBorder,
                                  float roundness, float borderThick, int segments) {
@@ -963,11 +963,11 @@ void BitRenderer::DrawHistory() {
     int sw = GetScreenWidth(), sh = GetScreenHeight();
     Font font = m_styleManager.GetCurrentFont();
 
-    // --- Backdrop ---
+    // Backdrop
     DrawStyledRect({ 0, 0, (float)sw, (float)sh }, style.historyBgTexture,
                    style.historyBg, BLANK, 0.0f, 0.0f, 0);
 
-    // --- Layout constants ---
+    // Layout constants
     const int HEADER_H   = style.historyHeaderHeight;
     const int FOOTER_H   = style.historyFooterHeight;
     const int SIDE_W     = style.historySidebarWidth;
@@ -981,7 +981,7 @@ void BitRenderer::DrawHistory() {
 
     const auto& history = m_engine.GetHistory();
 
-    // --- Measure total height (needed for scroll clamp + progress bar) ---
+    // Measure total height (needed for scroll clamp + progress bar)
     float totalContentH = (float)HEADER_H + 10.0f;
     for (size_t i = 0; i < history.size(); ++i) {
         float charW = CT_SIZE * 0.55f;
@@ -998,7 +998,7 @@ void BitRenderer::DrawHistory() {
     if (m_historyScroll > maxScroll) m_historyScroll = maxScroll;
     if (m_historyScroll < 0)         m_historyScroll = 0;
 
-    // --- Clip to content area (between header and footer) ---
+    // Clip to content area (between header and footer)
     BeginScissorMode(0, HEADER_H, sw, sh - HEADER_H - FOOTER_H);
 
     float py = (float)HEADER_H + 10.0f - m_historyScroll;
@@ -1058,7 +1058,7 @@ void BitRenderer::DrawHistory() {
 
     EndScissorMode();
 
-    // --- Scroll progress bar (right edge) ---
+    // Scroll progress bar (right edge)
     if (maxScroll > 0) {
         float barH   = (float)(sh - HEADER_H - FOOTER_H);
         float ratio  = m_historyScroll / maxScroll;
@@ -1068,7 +1068,7 @@ void BitRenderer::DrawHistory() {
         DrawRectangle(sw - 6, (int)thumbY, 6, (int)thumbH, ColorAlpha(ACCENT, 0.6f));
     }
 
-    // --- Pinned header bar ---
+    // Pinned header bar
     DrawRectangleGradientV(0, 0, sw, HEADER_H + 8, ColorAlpha(BLACK, 0.96f), ColorAlpha(BLACK, 0));
     DrawRectangle(0, 0, sw, HEADER_H, ColorAlpha(BLACK, 0.95f));
     DrawLineEx({ 0, (float)HEADER_H }, { (float)sw, (float)HEADER_H }, 1.5f, ColorAlpha(ACCENT, 0.4f));
@@ -1078,7 +1078,7 @@ void BitRenderer::DrawHistory() {
     DrawText("[ H ] or [ ESC ] to close  |  Mouse Wheel to scroll",
              sw - 310, HEADER_H / 2 - 5, 10, ColorAlpha(RAYWHITE, 0.4f));
 
-    // --- Pinned footer bar ---
+    // Pinned footer bar
     int fy = sh - FOOTER_H;
     DrawRectangle(0, fy, sw, FOOTER_H, ColorAlpha(BLACK, 0.95f));
     DrawLineEx({ 0, (float)fy }, { (float)sw, (float)fy }, 1.0f, ColorAlpha(ACCENT, 0.25f));
