@@ -3,9 +3,10 @@
 
 #include "json.hpp"
 #include <string>
-#include <vector>
+#include <unordered_map>
 #include <map>
 #include <optional>
+#include <cstring>
 
 // Hardware-agnostic color representation
 struct BitColor {
@@ -14,12 +15,14 @@ struct BitColor {
 };
 
 struct RichChar {
-    std::string ch;
-    BitColor color = BitColor::Blank(); // Blank means follow style default
+    char ch[5]; // UTF-8 character (max 4 bytes + null)
+    BitColor color = BitColor::Blank(); 
     float waitBefore = 0.0f;
     float speedMod = 1.0f;
     bool shake = false;
     bool wave = false;
+
+    RichChar() { std::memset(ch, 0, 5); }
 };
 
 class RichTextParser {
@@ -47,7 +50,7 @@ struct SpriteDef {
 struct Entity { 
     std::string id = "", name = "Unknown", type = "char"; 
     float default_pos_x = 0.5f;
-    std::map<std::string, SpriteDef> sprites = {}; 
+    std::unordered_map<std::string, SpriteDef> sprites = {}; 
 };
 
 struct VariableDef { std::string id = ""; int initial_value = 0; std::optional<int> min = std::nullopt, max = std::nullopt; };
@@ -57,7 +60,7 @@ struct DialogNode {
     std::optional<std::string> next_id = std::nullopt;
     std::vector<DialogOption> options = {};
     std::vector<Event> events = {};         
-    std::map<std::string, std::string> metadata = {}; 
+    std::unordered_map<std::string, std::string> metadata = {}; 
 };
 
 struct SaveMetadata {
@@ -70,7 +73,7 @@ struct SaveMetadata {
 struct SaveData {
     int version = 1;
     std::string current_node_id;
-    std::map<std::string, int> variables;
+    std::unordered_map<std::string, int> variables;
     SaveMetadata meta;
 };
 
@@ -89,14 +92,14 @@ struct DialogConfigs {
 
 struct DialogProject {
     DialogConfigs configs;
-    std::map<std::string, Entity> entities;
-    std::map<std::string, VariableDef> variables;
-    std::map<std::string, DialogNode> nodes;
+    std::unordered_map<std::string, Entity> entities;
+    std::unordered_map<std::string, VariableDef> variables;
+    std::unordered_map<std::string, DialogNode> nodes;
     
     // Asset Registries
-    std::map<std::string, std::string> backgrounds;
-    std::map<std::string, std::string> music;
-    std::map<std::string, std::string> sfx;
+    std::unordered_map<std::string, std::string> backgrounds;
+    std::unordered_map<std::string, std::string> music;
+    std::unordered_map<std::string, std::string> sfx;
 };
 
 // --- Validation Result ---
@@ -141,7 +144,7 @@ public:
     
     int GetVariable(const std::string& name) const;
     void SetVariable(const std::string& name, int value);
-    const std::map<std::string, int>& GetAllVariables() const { return m_variables; }
+    const std::unordered_map<std::string, int>& GetAllVariables() const { return m_variables; }
     
     bool IsActive() const { return m_isActive; }
     const DialogNode* GetCurrentNode() const { return m_currentNode; }
@@ -173,7 +176,7 @@ public:
 
 private:
     DialogProject m_project;
-    std::map<std::string, int> m_variables;
+    std::unordered_map<std::string, int> m_variables;
     std::vector<DialogOption> m_visibleOptions;
     const DialogNode* m_currentNode = nullptr;
     std::string m_currentNodeId;

@@ -40,6 +40,7 @@ BitColor RichTextParser::StringToColor(const std::string& str) {
 
 std::vector<RichChar> RichTextParser::Parse(const std::string& rawText) {
     std::vector<RichChar> result;
+    result.reserve(rawText.length()); // Prevent reallocations
     BitColor currentColor = BitColor::Blank();
     float currentSpeedMod = 1.0f;
     bool currentShake = false;
@@ -87,11 +88,11 @@ std::vector<RichChar> RichTextParser::Parse(const std::string& rawText) {
         unsigned char c = rawText[i];
         size_t charLen = (c <= 127) ? 1 : ((c & 0xE0) == 0xC0) ? 2 : ((c & 0xF0) == 0xE0) ? 3 : 4;
         
-        std::string utf8Char = rawText.substr(i, charLen);
+        RichChar rc;
+        std::memcpy(rc.ch, rawText.data() + i, charLen);
+        rc.ch[charLen] = '\0';
         i += charLen;
 
-        RichChar rc;
-        rc.ch = utf8Char;
         rc.color = currentColor;
         rc.speedMod = currentSpeedMod;
         rc.shake = currentShake;
@@ -411,7 +412,7 @@ bool DialogEngine::LoadCompiledProject(const std::string& binPath) {
                 if (node.contains("next_id") && !node["next_id"].is_null()) 
                     n.next_id = node.value("next_id", "");
                 
-                if (node.contains("metadata")) n.metadata = node["metadata"].get<std::map<std::string, std::string>>();
+                if (node.contains("metadata")) n.metadata = node["metadata"].get<std::unordered_map<std::string, std::string>>();
                 if (node.contains("events")) {
                     for (auto& e : node["events"]) n.events.push_back({ e.value("op", "set"), e.value("var", ""), e.value("value", 0) });
                 }
@@ -617,19 +618,32 @@ size_t DialogEngine::GetUTF8Length(const std::string& s) const {
 }
 
 std::string DialogEngine::InterpolateVariables(const std::string& text) const {
-    std::string res = text; std::regex re("\\{([a-zA-Z0-9_]+)\\}"); std::smatch m;
-    while (std::regex_search(res, m, re)) res.replace(m.position(), m.length(), std::to_string(GetVariable(m[1].str())));
+    std::string res;
+    res.reserve(text.size()); 
+    for (size_t i = 0; i < text.size(); ++i) {
+        if (text[i] == '{') {
+            size_t endIdx = text.find('}', i);
+            if (endIdx != std::string::npos) {
+                std::string varName = text.substr(i + 1, endIdx - i - 1);
+                res += std::to_string(GetVariable(varName));
+                i = endIdx;
+                continue;
+            }
+        }
+        res += text[i];
+    }
     return res;
 }
 
 int DialogEngine::GetVariable(const std::string& name) const { auto it = m_variables.find(name); return (it != m_variables.end()) ? it->second : 0; }
 
 void DialogEngine::SetVariable(const std::string& name, int value) {
-    if (!m_project.variables.count(name)) {
+    auto it = m_project.variables.find(name);
+    if (it == m_project.variables.end()) {
         RecordError("SetVariable", "Variable '" + name + "' is not declared — ignoring.");
         return;
     }
-    const auto& d = m_project.variables[name];
+    const auto& d = it->second;
     int v = value;
     if (d.min) v = std::max(v, *d.min);
     if (d.max) v = std::min(v, *d.max);

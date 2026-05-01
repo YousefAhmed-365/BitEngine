@@ -185,7 +185,8 @@ BitRenderer::BitRenderer(DialogEngine& engine) : m_engine(engine) {
 BitRenderer::~BitRenderer() {
     for (auto& [path, tex] : m_textureCache) UnloadTexture(tex);
     for (auto& [path, sfx] : m_sfxCache) UnloadSound(sfx);
-    if (m_isMusicPlaying) UnloadMusicStream(m_currentMusic);
+    for (auto& [path, mus] : m_musicCache) UnloadMusicStream(mus);
+    
     UnloadTexture(m_fallbackTexture);
     UnloadTexture(m_vignette);
     CloseAudioDevice();
@@ -244,12 +245,31 @@ void BitRenderer::HandleAudio() {
         std::string path = m_engine.GetMusic(req);
         if (path.empty()) path = req;
         if (m_currentMusicPath != path) {
-            if (m_isMusicPlaying) UnloadMusicStream(m_currentMusic);
-            m_currentMusic = LoadMusicStream(path.c_str());
-            if (m_currentMusic.frameCount > 0) {
-                PlayMusicStream(m_currentMusic);
+            auto it = m_musicCache.find(path);
+            if (it != m_musicCache.end()) {
+                if (m_isMusicPlaying) StopMusicStream(m_currentMusic);
+                m_currentMusic = it->second;
+                if (m_currentMusic.frameCount > 0) {
+                    PlayMusicStream(m_currentMusic);
+                    m_isMusicPlaying = true;
+                } else {
+                    m_isMusicPlaying = false;
+                }
                 m_currentMusicPath = path;
-                m_isMusicPlaying = true;
+            } else {
+                // Not in cache, try loading once
+                if (FileExists(path.c_str())) {
+                    Music m = LoadMusicStream(path.c_str());
+                    if (m.frameCount > 0) {
+                        m_musicCache[path] = m;
+                        if (m_isMusicPlaying) StopMusicStream(m_currentMusic);
+                        m_currentMusic = m;
+                        PlayMusicStream(m_currentMusic);
+                        m_isMusicPlaying = true;
+                    }
+                }
+                // Mark as handled even if failed to prevent frame-by-frame retries
+                m_currentMusicPath = path;
             }
         }
     }
@@ -453,53 +473,75 @@ void BitRenderer::DrawDebugOverlay() {
     const auto& trace  = m_engine.GetEventTrace();
     const auto& errors = m_engine.GetErrors();
     int sw = GetScreenWidth(), sh = GetScreenHeight();
-    int panelW = 240, panelH = 400, pad = 8, gap = 8;
-    int totalW = panelW * 3 + gap * 2;
+    int panelW = 220, panelH = 500, pad = 8, gap = 8;
+    int totalP = 4;
+    int totalW = panelW * totalP + gap * (totalP - 1);
     int startX = sw - totalW - 10, startY = 10;
 
-    DrawRectangle(startX - pad, startY - pad, totalW + pad * 2, panelH + pad * 2, Fade(BLACK, 0.82f));
+    DrawRectangle(startX - pad, startY - pad, totalW + pad * 2, panelH + pad * 2, Fade(BLACK, 0.85f));
 
     // Panel 1: Node Inspector
     int px = startX;
     DrawText("NODE INSPECTOR", px, startY, 13, SKYBLUE);
-    DrawLine(px, startY + 17, px + panelW, startY + 17, Fade(SKYBLUE, 0.5f));
+    DrawLine(px, startY + 17, px + panelW, startY + 17, Fade(SKYBLUE, 0.4f));
     int dy = startY + 24;
     if (node) {
-        DrawText(TextFormat("ID:     %s", m_engine.GetCurrentNodeId().c_str()), px, dy, 11, RAYWHITE); dy += 15;
-        DrawText(TextFormat("Entity: %s", node->entity.c_str()),                px, dy, 11, RAYWHITE); dy += 15;
-        DrawText(TextFormat("Next:   %s", node->next_id.value_or("(none)").c_str()), px, dy, 11, RAYWHITE); dy += 15;
-        DrawText(TextFormat("Opts:   %d", (int)node->options.size()),            px, dy, 11, RAYWHITE); dy += 18;
-        DrawText("Metadata:", px, dy, 11, YELLOW); dy += 14;
+        DrawText(TextFormat("ID:     %s", m_engine.GetCurrentNodeId().c_str()), px, dy, 10, RAYWHITE); dy += 14;
+        DrawText(TextFormat("Entity: %s", node->entity.c_str()),                px, dy, 10, RAYWHITE); dy += 14;
+        DrawText(TextFormat("Next:   %s", node->next_id.value_or("(none)").c_str()), px, dy, 10, RAYWHITE); dy += 14;
+        DrawText(TextFormat("Opts:   %d", (int)node->options.size()),            px, dy, 10, RAYWHITE); dy += 18;
+        DrawText("Metadata:", px, dy, 10, YELLOW); dy += 13;
         for (auto const& [k, v] : node->metadata) {
-            DrawText(TextFormat("  %s: %s", k.c_str(), v.c_str()), px, dy, 10, Fade(RAYWHITE, 0.8f));
-            dy += 13; if (dy > startY + panelH - 10) break;
+            DrawText(TextFormat("  %s: %s", k.c_str(), v.c_str()), px, dy, 9, Fade(RAYWHITE, 0.8f));
+            dy += 12; if (dy > startY + panelH - 10) break;
         }
-    } else { DrawText("(no active node)", px, dy, 11, Fade(RAYWHITE, 0.5f)); }
+    } else { DrawText("(no active node)", px, dy, 10, Fade(RAYWHITE, 0.5f)); }
 
     // Panel 2: Variable Watcher
     px = startX + panelW + gap; dy = startY;
     DrawText("VARIABLE WATCHER", px, dy, 13, GREEN); dy += 18;
-    DrawLine(px, dy - 1, px + panelW, dy - 1, Fade(GREEN, 0.5f));
+    DrawLine(px, dy - 1, px + panelW, dy - 1, Fade(GREEN, 0.4f));
     for (auto const& [name, val] : vars) {
-        DrawText(TextFormat("%-18s %d", name.c_str(), val), px, dy, 11, LIME);
-        dy += 14; if (dy > startY + panelH - 10) break;
+        DrawText(TextFormat("%-16s %d", name.c_str(), val), px, dy, 10, LIME);
+        dy += 13; if (dy > startY + panelH - 10) break;
     }
 
     // Panel 3: Event Trace
     px = startX + (panelW + gap) * 2; dy = startY;
     DrawText("EVENT TRACE", px, dy, 13, ORANGE); dy += 18;
-    DrawLine(px, dy - 1, px + panelW, dy - 1, Fade(ORANGE, 0.5f));
-    int maxTrace = 16, traceStart = (int)trace.size() > maxTrace ? (int)trace.size() - maxTrace : 0;
+    DrawLine(px, dy - 1, px + panelW, dy - 1, Fade(ORANGE, 0.4f));
+    int maxTrace = 12, traceStart = (int)trace.size() > maxTrace ? (int)trace.size() - maxTrace : 0;
     for (int i = traceStart; i < (int)trace.size(); ++i) {
         const auto& t = trace[i];
-        std::string arrow = std::to_string(t.old_value) + " -> " + std::to_string(t.new_value);
-        DrawText(TextFormat("%s %s", t.op.c_str(), t.var.c_str()), px, dy, 10, ORANGE); dy += 12;
-        DrawText(TextFormat("  %s [%s]", arrow.c_str(), t.node_id.c_str()), px, dy, 9, Fade(ORANGE, 0.7f)); dy += 13;
-        if (dy > startY + panelH - 10) break;
+        DrawText(TextFormat("%s: %s", t.op.c_str(), t.var.c_str()), px, dy, 10, ORANGE); dy += 12;
+        DrawText(TextFormat("  %d->%d [%s]", t.old_value, t.new_value, t.node_id.c_str()), px, dy, 8, Fade(ORANGE, 0.7f)); dy += 13;
+        if (dy > startY + panelH - 20) break;
     }
-    if (trace.empty()) DrawText("(no events yet)", px, startY + 24, 11, Fade(RAYWHITE, 0.5f));
+    if (trace.empty()) DrawText("(no events yet)", px, dy, 10, Fade(RAYWHITE, 0.5f));
 
-    // Errors bar
+    // Panel 4: Asset Monitor
+    px = startX + (panelW + gap) * 3; dy = startY;
+    DrawText("ASSET MONITOR", px, dy, 13, PURPLE); dy += 18;
+    DrawLine(px, dy - 1, px + panelW, dy - 1, Fade(PURPLE, 0.4f));
+    
+    DrawText("Audio Engine:", px, dy, 11, LIGHTGRAY); dy += 15;
+    DrawText(TextFormat(" BGM: %s", m_currentMusicPath.empty() ? "(none)" : GetFileName(m_currentMusicPath.c_str())), px, dy, 10, m_isMusicPlaying ? GOLD : GRAY); dy += 13;
+    DrawText(TextFormat(" State: %s", m_isMusicPlaying ? "PLAYING" : "STOPPED"), px, dy, 10, m_isMusicPlaying ? LIME : RED); dy += 18;
+
+    DrawText("Cache Stats:", px, dy, 11, LIGHTGRAY); dy += 15;
+    DrawText(TextFormat(" Textures: %d", (int)m_textureCache.size()), px, dy, 10, RAYWHITE); dy += 13;
+    DrawText(TextFormat(" Music:    %d", (int)m_musicCache.size()),   px, dy, 10, RAYWHITE); dy += 13;
+    DrawText(TextFormat(" SFX:      %d", (int)m_sfxCache.size()),     px, dy, 10, RAYWHITE); dy += 18;
+
+    DrawText("Load Failures:", px, dy, 11, RED); dy += 15;
+    int errCount = 0;
+    for (auto const& [path, mus] : m_musicCache) if (mus.frameCount == 0) {
+        DrawText(TextFormat(" ! %s", GetFileName(path.c_str())), px, dy, 9, PINK);
+        dy += 11; errCount++;
+    }
+    if (errCount == 0) DrawText("(none)", px, dy, 10, Fade(RAYWHITE, 0.4f)); 
+
+    // Error log stays at far bottom
     if (!errors.empty()) {
         DrawRectangle(0, sh - 26, sw, 26, Fade(RED, 0.75f));
         DrawText(errors.back().c_str(), 10, sh - 20, 11, WHITE);
@@ -514,26 +556,28 @@ void BitRenderer::DrawRichText(const std::vector<RichChar>& content, int limit, 
     float time = (float)GetTime();
     float spacing = 2.0f; // Default Raylib letter spacing
 
+    float spaceWidth = MeasureTextEx(GetFontDefault(), " ", (float)fontSize, spacing).x;
+
     int i = 0;
     while (i < limit && i < (int)content.size()) {
-        if (content[i].ch == " " || content[i].ch == "\n") {
-            if (content[i].ch == "\n") {
+        const char* charPtr = content[i].ch;
+        if (charPtr[0] == ' ' || charPtr[0] == '\n') {
+            if (charPtr[0] == '\n') {
                 curX = x;
                 curY += fontSize + 5;
             } else {
-                curX += MeasureTextEx(GetFontDefault(), " ", (float)fontSize, spacing).x + spacing;
+                curX += spaceWidth + spacing;
             }
             i++;
             continue;
         }
 
         int wordEnd = i;
-        std::string wordRaw = "";
-        while (wordEnd < limit && wordEnd < (int)content.size() && content[wordEnd].ch != " " && content[wordEnd].ch != "\n") {
-            wordRaw += content[wordEnd].ch;
+        float wordWidth = 0.0f;
+        while (wordEnd < limit && wordEnd < (int)content.size() && content[wordEnd].ch[0] != ' ' && content[wordEnd].ch[0] != '\n') {
+            wordWidth += MeasureTextEx(GetFontDefault(), content[wordEnd].ch, (float)fontSize, spacing).x + spacing;
             wordEnd++;
         }
-        float wordWidth = MeasureTextEx(GetFontDefault(), wordRaw.c_str(), (float)fontSize, spacing).x;
 
         if (curX + wordWidth > x + maxWidth && curX > x) {
             curX = x;
@@ -558,8 +602,8 @@ void BitRenderer::DrawRichText(const std::vector<RichChar>& content, int limit, 
             }
 
             Vector2 pos = { (float)curX + ox, (float)curY + oy };
-            DrawTextEx(GetFontDefault(), rc.ch.c_str(), pos, (float)fontSize, spacing, c);
-            curX += MeasureTextEx(GetFontDefault(), rc.ch.c_str(), (float)fontSize, spacing).x + spacing;
+            DrawTextEx(GetFontDefault(), rc.ch, pos, (float)fontSize, spacing, c);
+            curX += MeasureTextEx(GetFontDefault(), rc.ch, (float)fontSize, spacing).x + spacing;
         }
         
         i = wordEnd;
@@ -568,12 +612,36 @@ void BitRenderer::DrawRichText(const std::vector<RichChar>& content, int limit, 
 
 Texture2D BitRenderer::GetTexture(const std::string& path) {
     if (path.empty()) return m_fallbackTexture;
-    if (m_textureCache.count(path)) return m_textureCache[path];
+    auto it = m_textureCache.find(path);
+    if (it != m_textureCache.end()) return it->second;
     if (FileExists(path.c_str())) {
         Texture2D tex = LoadTexture(path.c_str());
         if (tex.id > 0) { m_textureCache[path] = tex; return tex; }
     }
     return m_fallbackTexture;
+}
+
+void BitRenderer::PreloadAssets() {
+    auto& proj = m_engine.GetProject();
+    std::cout << "[BitRenderer] Preloading assets into memory..." << std::endl;
+
+    for (auto const& [id, path] : proj.backgrounds) GetTexture(path);
+    
+    for (auto const& [id, path] : proj.music) {
+        if (path.empty() || m_musicCache.count(path)) continue;
+        Music m = LoadMusicStream(path.c_str());
+        if (m.frameCount > 0) m_musicCache[path] = m;
+    }
+
+    for (auto const& [id, path] : proj.sfx) {
+        if (path.empty() || m_sfxCache.count(path)) continue;
+        Sound s = LoadSound(path.c_str());
+        if (s.frameCount > 0) m_sfxCache[path] = s;
+    }
+
+    for (auto const& [id, ent] : proj.entities) {
+        for (auto const& [s_id, s_def] : ent.sprites) GetTexture(s_def.path);
+    }
 }
 
 void BitRenderer::PlaySFX(const std::string& path) {

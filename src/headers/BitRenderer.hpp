@@ -3,6 +3,7 @@
 
 #include "raylib.h"
 #include "BitEngine.hpp"
+#include <unordered_map>
 #include <map>
 #include <vector>
 #include <string>
@@ -91,7 +92,7 @@ public:
 private:
     UIStyle m_activeStyle;
     
-    std::map<std::string, UIStyle> m_styleLibrary;
+    std::unordered_map<std::string, UIStyle> m_styleLibrary;
     std::vector<std::string>       m_styleOrder;
     std::string                    m_currentStyleName;
     std::string                    m_stylePath;
@@ -106,6 +107,7 @@ public:
 
     void Draw();
     void HandleInput();
+    void PreloadAssets(); // Eagerly load all assets from engine registries
 
     // Expose StyleManager for external configuration / inputs
     StyleManager& GetStyleManager() { return m_styleManager; }
@@ -130,8 +132,9 @@ protected:
     DialogEngine& m_engine;
     StyleManager  m_styleManager;
 
-    std::map<std::string, Texture2D> m_textureCache;
-    std::map<std::string, Sound>     m_sfxCache;
+    std::unordered_map<std::string, Texture2D> m_textureCache;
+    std::unordered_map<std::string, Music>     m_musicCache;
+    std::unordered_map<std::string, Sound>     m_sfxCache;
     std::string m_currentMusicPath = "";
     Music m_currentMusic;
     bool m_isMusicPlaying = false;

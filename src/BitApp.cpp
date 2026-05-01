@@ -55,6 +55,7 @@ void BitApp::Run() {
     }
 
     uiBridge.GetStyleManager().LoadStyle("res/style.json");
+    uiBridge.PreloadAssets();
 
     if (loaded) {
         dialogSystem.StartDialog();
