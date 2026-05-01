@@ -12,6 +12,7 @@ obj/
 
 # Save and logs
 save/
+assets/
 **/save/
 debug.log
 *.log
