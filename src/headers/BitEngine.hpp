@@ -34,13 +34,30 @@ public:
     static BitColor StringToColor(const std::string& str);
 };
 
-struct Condition { std::string op, var; int value; };
-struct Event { std::string op, var; int value; int value_max = 0; std::string value_str = ""; };
+// --- Condition system: recursive tree ---
+// A ConditionNode is either a leaf {var, op, value} or a group {"and":[...]} / {"or":[...]}.
+// The top-level conditions list is implicitly AND-ed.
+struct ConditionLeaf { std::string var, op; int value = 0; };
+struct ConditionNode {
+    bool        isGroup    = false;
+    std::string groupLogic = "and";     // "and" | "or"
+    std::vector<ConditionNode> children; // populated when isGroup=true
+    ConditionLeaf leaf;                  // populated when isGroup=false
+};
+
+// --- Event: op + per-op typed params as JSON ---
+// INSTANT ops: set, add, sub, mul, random, shake, play_sfx, expression, hide, pos, clear
+// SYNC    ops: jump, delay  (block narrative until resolved)
+// ASYNC   ops: move, fade, fade_screen  (run in background)
+struct Event {
+    std::string         op;
+    nlohmann::json      params;  // fields depend on op — see ProcessEvents
+};
 
 struct DialogOption {
     std::string content, next_id, style;
-    std::vector<Condition> conditions; 
-    std::vector<Event> events;         
+    std::vector<ConditionNode> conditions;
+    std::vector<Event>         events;
 };
 
 struct SpriteDef {
@@ -80,12 +97,30 @@ struct HistoryEntry {
     std::vector<RichChar> richContent;
 };
 
+// --- Typed node metadata: declarative initial state ONLY ---
+// Mutations belong in events, not here.
+struct NodeMetadata {
+    std::string bg          = "";
+    std::string bgm         = "";
+    bool        hide_ui     = false;
+    bool        auto_next   = false;
+    bool        join        = false;
+    int         pre_delay   = 0;      // ms — entry timing lock
+    float       alpha       = 1.0f;   // initial entity opacity
+    std::string expression  = "";
+    std::string pos         = "";
+    // Cinematic transition (exit)
+    std::string transition          = "";  // e.g. "fade_black"
+    int         transition_duration = 600; // ms
+    int         transition_delay    = 0;   // ms post-fade before reveal
+};
+
 struct DialogNode {
     std::string entity = "", content = "";
     std::optional<std::string> next_id = std::nullopt;
-    std::vector<DialogOption> options = {};
-    std::vector<Event> events = {};         
-    std::unordered_map<std::string, std::string> metadata = {}; 
+    std::vector<DialogOption>  options = {};
+    std::vector<Event>         events  = {};
+    NodeMetadata               metadata;
 };
 
 struct SaveMetadata {
@@ -296,6 +331,7 @@ private:
 
     void RecordError(const std::string& context, const std::string& msg);
     void ProcessEvents(const std::vector<Event>& events);
+    bool EvalConditionNode(const ConditionNode& node) const;
     void RefreshVisibleOptions();
     size_t GetUTF8Length(const std::string& s) const;
     std::string InterpolateVariables(const std::string& text) const;
@@ -303,6 +339,7 @@ private:
     std::string GetSlotPath(int slot) const;
     std::string GetTimestamp() const;
     float ParsePosition(const std::string& pos) const;
+    float ParseXParam(const nlohmann::json& params, const std::string& key = "x") const;
 };
 
 class DialogParser {

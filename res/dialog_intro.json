@@ -6,13 +6,13 @@
         "metadata": {
             "bg": "alley_bg",
             "bgm": "neon_noir",
-            "hide_ui": "false",
-            "auto_next": "true",
-            "pre_delay": "1000"
+            "hide_ui": false,
+            "auto_next": true,
+            "pre_delay": 1000
         },
         "events": [
-            { "op": "fade_screen", "value_str": "1.0", "value": 0 },
-            { "op": "fade_screen", "value_str": "0.0", "value": 2000 }
+            { "op": "fade_screen", "alpha": 1.0, "duration": 0 },
+            { "op": "fade_screen", "alpha": 0.0, "duration": 2000 }
         ]
     },
 
@@ -21,12 +21,12 @@
         "content": "[shake]WARNING:[wait=0.5] System integrity compromised.",
         "next_id": "alley_start_real",
         "metadata": {
-            "hide_ui": "false",
-            "auto_next": "true"
+            "hide_ui": false,
+            "auto_next": true
         },
         "events": [
-            { "op": "shake", "value": 10 },
-            { "op": "delay", "value": 1500 }
+            { "op": "shake", "intensity": 10 },
+            { "op": "delay", "duration": 1500 }
         ]
     },
 
@@ -36,10 +36,11 @@
         "next_id": "kael_enters",
         "metadata": {
             "expression": "serious",
-            "pos": "left"
+            "pos": "left",
+            "alpha": 0.0
         },
         "events": [
-            { "op": "fade", "var": "akira", "value_str": "1.0", "value": 1000 }
+            { "op": "fade", "target": "akira", "alpha": 1.0, "duration": 1000 }
         ]
     },
 
@@ -48,12 +49,13 @@
         "content": "I can feel it too... it's like a [color=#ff00ff]glitch[/color] in the air.",
         "next_id": "alley_move_demo",
         "metadata": {
-            "join": "true",
+            "join": true,
             "expression": "idle",
-            "pos": "right"
+            "pos": "right",
+            "alpha": 0.0
         },
         "events": [
-            { "op": "fade", "var": "kael", "value_str": "1.0", "value": 800 }
+            { "op": "fade", "target": "kael", "alpha": 1.0, "duration": 800 }
         ]
     },
 
@@ -61,10 +63,10 @@
         "entity": "akira",
         "content": "Wait, I'm detecting a signature nearby. Let's move in.",
         "next_id": "alley_to_market",
-        "metadata": { },
+        "metadata": {},
         "events": [
-            { "op": "move", "var": "akira", "value_str": "center", "value": 500 },
-            { "op": "move", "var": "kael", "value_str": "0.9", "value": 400 }
+            { "op": "move", "target": "akira", "x": "center", "duration": 500 },
+            { "op": "move", "target": "kael",  "x": 0.9,      "duration": 400 }
         ]
     },
 
@@ -73,17 +75,17 @@
         "content": "Moving to the Market District...",
         "next_id": "scene_market_start",
         "metadata": {
-            "auto_next": "true",
-            "join": "true",
+            "auto_next": true,
+            "join": true,
             "transition": "fade_black",
-            "transition_duration": "1000",
-            "transition_delay": "500"
+            "transition_duration": 1000,
+            "transition_delay": 500
         },
         "events": [
-            { "op": "fade", "var": "bg", "value_str": "market_bg", "value": 2000 },
-            { "op": "fade", "var": "akira", "value_str": "0.0", "value": 1500 },
-            { "op": "fade", "var": "kael", "value_str": "0.0", "value": 1500 },
-            { "op": "delay", "value": 1500 }
+            { "op": "fade", "target": "bg",    "id": "market_bg", "duration": 2000 },
+            { "op": "fade", "target": "akira", "alpha": 0.0,      "duration": 1500 },
+            { "op": "fade", "target": "kael",  "alpha": 0.0,      "duration": 1500 },
+            { "op": "delay", "duration": 1500 }
         ]
     },
 
@@ -94,10 +96,10 @@
         "metadata": {
             "expression": "idle",
             "pos": "left",
-            "alpha": "0"
+            "alpha": 0.0
         },
         "events": [
-            { "op": "fade", "var": "akira", "value_str": "1.0", "value": 500 }
+            { "op": "fade", "target": "akira", "alpha": 1.0, "duration": 500 }
         ]
     },
 
@@ -105,8 +107,9 @@
         "entity": "akira",
         "content": "What's our next move?",
         "options": [
-            { "content": "Search the stalls", "next_id": "market_browsing" },
-            { "content": "Check the terminal", "next_id": "market_terminal", "style": "premium", "events": [{ "op": "add", "var": "trust_akira", "value": 1 }] }
+            { "content": "Search the stalls",  "next_id": "market_browsing" },
+            { "content": "Check the terminal", "next_id": "market_terminal", "style": "premium",
+              "events": [{ "op": "add", "var": "trust_akira", "value": 1 }] }
         ]
     },
 
@@ -114,7 +117,7 @@
         "entity": "kael",
         "content": "Nothing but scrap metal and rusted parts.",
         "next_id": "check_ending",
-        "metadata": { "join": "true", "pos": "right" }
+        "metadata": { "join": true, "pos": "right" }
     },
 
     "market_terminal": {
@@ -127,13 +130,13 @@
         "entity": "system",
         "content": "Calculating outcome based on neural synchronization...",
         "options": [
-            { 
-                "content": "Continue (Synchronization High)", 
-                "next_id": "ending_good", 
-                "conditions": [{ "var": "trust_akira", "op": ">=", "value": 1 }] 
+            {
+                "content": "Continue (Synchronization High)",
+                "next_id": "ending_good",
+                "conditions": [{ "var": "trust_akira", "op": ">=", "value": 1 }]
             },
-            { 
-                "content": "Continue (Synchronization Low)", 
+            {
+                "content": "Continue (Synchronization Low)",
                 "next_id": "ending_bad",
                 "conditions": [{ "var": "trust_akira", "op": "<", "value": 1 }]
             }

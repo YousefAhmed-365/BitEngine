@@ -387,22 +387,7 @@ void BitRenderer::HandleAudio() {
     }
     if (m_isMusicPlaying) UpdateMusicStream(m_currentMusic);
 
-    if (node->metadata.count("sfx")) {
-        std::string req  = node->metadata.at("sfx");
-        std::string path = m_engine.GetSFX(req);
-        if (path.empty()) path = req;
-        
-        // Reset lastSFX if the node has changed to allow repetitions
-        if (m_lastSFXNodeId != m_engine.GetCurrentNodeId()) {
-            m_lastSFX = "";
-            m_lastSFXNodeId = m_engine.GetCurrentNodeId();
-        }
-
-        if (m_lastSFX != path) { 
-            PlaySFX(path); 
-            m_lastSFX = path; 
-        }
-    }
+    // Note: per-node SFX is driven by the "play_sfx" event op — see ConsumePendingSFX below.
 
     // Feature: Event-driven SFX (play_sfx ops)
     for (const auto& pending : m_engine.ConsumePendingSFX()) {
@@ -734,11 +719,24 @@ void BitRenderer::DrawDebugOverlay() {
         DrawText(TextFormat("Entity: %s", node->entity.c_str()),                px, dy, 10, RAYWHITE); dy += 14;
         DrawText(TextFormat("Next:   %s", node->next_id.value_or("(none)").c_str()), px, dy, 10, RAYWHITE); dy += 14;
         DrawText("Metadata:", px, dy, 10, YELLOW); dy += 13;
-        for (auto const& [k, v] : node->metadata) {
-            if (dy < r1.y + r1.height) {
-                DrawText(TextFormat("  %s: %s", k.c_str(), v.c_str()), px, dy, 9, Fade(RAYWHITE, 0.8f));
+        const auto& meta = node->metadata;
+        auto mdump = [&](const char* k, const std::string& v) {
+            if (!v.empty() && dy < r1.y + r1.height) {
+                DrawText(TextFormat("  %s: %s", k, v.c_str()), px, dy, 9, Fade(RAYWHITE, 0.8f));
                 dy += 12;
             }
+        };
+        mdump("bg",         meta.bg);
+        mdump("bgm",        meta.bgm);
+        mdump("expression", meta.expression);
+        mdump("pos",        meta.pos);
+        mdump("transition", meta.transition);
+        if (meta.hide_ui)   { DrawText("  hide_ui: true",   px, dy, 9, YELLOW); dy += 12; }
+        if (meta.auto_next) { DrawText("  auto_next: true", px, dy, 9, YELLOW); dy += 12; }
+        if (meta.join)      { DrawText("  join: true",      px, dy, 9, YELLOW); dy += 12; }
+        if (meta.pre_delay > 0) {
+            DrawText(TextFormat("  pre_delay: %dms", meta.pre_delay), px, dy, 9, Fade(RAYWHITE, 0.8f));
+            dy += 12;
         }
     } else { DrawText("(no active node)", px, dy, 10, Fade(RAYWHITE, 0.5f)); }
 

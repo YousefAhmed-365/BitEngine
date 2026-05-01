@@ -224,36 +224,76 @@ bool DialogParser::LoadDialogFile(const std::string& path, DialogProject& p) {
     std::ifstream f(path); if (!f) return false;
     try {
         json j; f >> j;
+        
+        // --- Helpers ---
+        // Parse an Event from a JSON object
+        auto parseEvent = [](const json& e) -> Event {
+            return { e.value("op", ""), e };
+        };
+
+        // Recursively parse a ConditionNode from a JSON object.
+        // Objects with "var" key are leaves; "or"/"and" key are groups.
+        std::function<ConditionNode(const json&)> parseCondNode = [&](const json& c) -> ConditionNode {
+            ConditionNode node;
+            if (c.contains("or") && c["or"].is_array()) {
+                node.isGroup = true; node.groupLogic = "or";
+                for (auto& child : c["or"]) node.children.push_back(parseCondNode(child));
+            } else if (c.contains("and") && c["and"].is_array()) {
+                node.isGroup = true; node.groupLogic = "and";
+                for (auto& child : c["and"]) node.children.push_back(parseCondNode(child));
+            } else {
+                // Leaf
+                std::string op = c.value("op", "==");
+                if (op == "=") op = "==";
+                node.leaf = { c.value("var", ""), op, c.value("value", 0) };
+            }
+            return node;
+        };
+
         for (auto& [id, n] : j.items()) {
             DialogNode node;
-            node.entity = n.value("entity", "unk");
+            node.entity  = n.value("entity", "unk");
             node.content = n.value("content", "");
-            if (n.contains("next_id") && !n["next_id"].is_null()) node.next_id = n["next_id"].get<std::string>();
-            if (n.contains("metadata")) for (auto& [k, v] : n["metadata"].items()) node.metadata[k] = v.get<std::string>();
+            if (n.contains("next_id") && !n["next_id"].is_null())
+                node.next_id = n["next_id"].get<std::string>();
+
+            // --- Typed metadata (Phase 1) ---
+            if (n.contains("metadata")) {
+                auto& m = n["metadata"];
+                node.metadata.bg         = m.value("bg",         "");
+                node.metadata.bgm        = m.value("bgm",        "");
+                node.metadata.hide_ui    = m.value("hide_ui",    false);
+                node.metadata.auto_next  = m.value("auto_next",  false);
+                node.metadata.join       = m.value("join",       false);
+                node.metadata.pre_delay  = m.value("pre_delay",  0);
+                node.metadata.alpha      = m.value("alpha",      1.0f);
+                node.metadata.expression = m.value("expression", "");
+                node.metadata.pos        = m.value("pos",        "");
+                node.metadata.transition          = m.value("transition",          "");
+                node.metadata.transition_duration = m.value("transition_duration", 600);
+                node.metadata.transition_delay    = m.value("transition_delay",    0);
+            }
+
+            // --- Options with typed conditions & events (Phase 2 + 5) ---
             if (n.contains("options")) {
                 for (auto& o : n["options"]) {
                     DialogOption opt;
                     opt.content = o.value("content", "");
-                    opt.style = o.value("style", "normal");
-                    if (o.contains("next_id") && !o["next_id"].is_null()) opt.next_id = o["next_id"].get<std::string>();
-                    if (o.contains("conditions")) {
-                        auto& conds = o["conditions"];
-                        if (conds.is_array()) for (auto& c : conds) {
-                             std::string op = c.value("op", "==");
-                             if (op == "=") op = "==";
-                             opt.conditions.push_back({ op, c.value("var", ""), c.value("value", 0) });
-                        }
-                        else if (conds.is_object()) {
-                            std::string op = conds.value("op", "==");
-                            if (op == "=") op = "==";
-                            opt.conditions.push_back({ op, conds.value("var", ""), conds.value("value", 0) });
-                        }
-                    }
-                    if (o.contains("events")) for (auto& e : o["events"]) opt.events.push_back({ e.value("op", "set"), e.value("var", ""), e.value("value", 0), e.value("value_max", 0), e.value("value_str", "") });
+                    opt.style   = o.value("style",   "normal");
+                    if (o.contains("next_id") && !o["next_id"].is_null())
+                        opt.next_id = o["next_id"].get<std::string>();
+                    if (o.contains("conditions"))
+                        for (auto& c : o["conditions"]) opt.conditions.push_back(parseCondNode(c));
+                    if (o.contains("events"))
+                        for (auto& e : o["events"]) opt.events.push_back(parseEvent(e));
                     node.options.push_back(opt);
                 }
             }
-            if (n.contains("events")) for (auto& e : n["events"]) node.events.push_back({ e.value("op", "set"), e.value("var", ""), e.value("value", 0), e.value("value_max", 0), e.value("value_str", "") });
+
+            // --- Node events (Phase 2) ---
+            if (n.contains("events"))
+                for (auto& e : n["events"]) node.events.push_back(parseEvent(e));
+
             p.nodes[id] = node;
         }
     } catch (...) { return false; }
@@ -344,16 +384,39 @@ void DialogEngine::CompileProject(const std::string& outputPath) {
         j["variables"][id] = { {"initial", v.initial_value}, {"min", v.min}, {"max", v.max} };
     }
 
-    // Serialize Nodes
+    // Serialize Nodes (store params JSON verbatim — round-trip safe)
     for (auto const& [id, n] : m_project.nodes) {
-        json nj = { {"entity", n.entity}, {"content", n.content}, {"next_id", n.next_id}, {"metadata", n.metadata} };
+        json meta;
+        meta["bg"]                  = n.metadata.bg;
+        meta["bgm"]                 = n.metadata.bgm;
+        meta["hide_ui"]             = n.metadata.hide_ui;
+        meta["auto_next"]           = n.metadata.auto_next;
+        meta["join"]                = n.metadata.join;
+        meta["pre_delay"]           = n.metadata.pre_delay;
+        meta["alpha"]               = n.metadata.alpha;
+        meta["expression"]          = n.metadata.expression;
+        meta["pos"]                 = n.metadata.pos;
+        meta["transition"]          = n.metadata.transition;
+        meta["transition_duration"] = n.metadata.transition_duration;
+        meta["transition_delay"]    = n.metadata.transition_delay;
+        json nj;
+        nj["entity"]   = n.entity;
+        nj["content"]  = n.content;
+        nj["next_id"]  = n.next_id;
+        nj["metadata"] = meta;
         for (auto const& o : n.options) {
-            json oj = { {"content", o.content}, {"next_id", o.next_id}, {"style", o.style} };
-            for (auto const& c : o.conditions) oj["conditions"].push_back({ {"op", c.op}, {"var", c.var}, {"value", c.value} });
-            for (auto const& e : o.events) oj["events"].push_back({ {"op", e.op}, {"var", e.var}, {"value", e.value} });
+            json oj;
+            oj["content"] = o.content;
+            oj["next_id"] = o.next_id;
+            oj["style"]   = o.style;
+            // Conditions stored as plain leaf JSON (groups handled recursively below if needed)
+            for (auto const& c : o.conditions)
+                if (!c.isGroup) oj["conditions"].push_back({{ "var", c.leaf.var }, { "op", c.leaf.op }, { "value", c.leaf.value }});
+            // Events: store params verbatim
+            for (auto const& e : o.events) oj["events"].push_back(e.params);
             nj["options"].push_back(oj);
         }
-        for (auto const& e : n.events) nj["events"].push_back({ {"op", e.op}, {"var", e.var}, {"value", e.value} });
+        for (auto const& e : n.events) nj["events"].push_back(e.params);
         j["nodes"][id] = nj;
     }
     
@@ -424,30 +487,55 @@ bool DialogEngine::LoadCompiledProject(const std::string& binPath) {
         }
 
         if (j.contains("nodes")) {
+            // Reuse the same parsing helpers from LoadDialogFile logic inline
+            auto parseEvent = [](const json& e) -> Event { return { e.value("op", ""), e }; };
+            std::function<ConditionNode(const json&)> parseCond = [&](const json& c) -> ConditionNode {
+                ConditionNode node;
+                if (c.contains("or") && c["or"].is_array()) {
+                    node.isGroup = true; node.groupLogic = "or";
+                    for (auto& ch : c["or"]) node.children.push_back(parseCond(ch));
+                } else if (c.contains("and") && c["and"].is_array()) {
+                    node.isGroup = true; node.groupLogic = "and";
+                    for (auto& ch : c["and"]) node.children.push_back(parseCond(ch));
+                } else {
+                    std::string op = c.value("op", "=="); if (op == "=") op = "==";
+                    node.leaf = { c.value("var", ""), op, c.value("value", 0) };
+                }
+                return node;
+            };
             for (auto& [id, node] : j["nodes"].items()) {
                 DialogNode n;
-                n.entity = node.value("entity", "");
+                n.entity  = node.value("entity", "");
                 n.content = node.value("content", "");
-                if (node.contains("next_id") && !node["next_id"].is_null()) 
+                if (node.contains("next_id") && !node["next_id"].is_null())
                     n.next_id = node.value("next_id", "");
-                
-                if (node.contains("metadata")) n.metadata = node["metadata"].get<std::unordered_map<std::string, std::string>>();
-                if (node.contains("events")) {
-                    for (auto& e : node["events"]) n.events.push_back({ e.value("op", "set"), e.value("var", ""), e.value("value", 0) });
+                if (node.contains("metadata")) {
+                    auto& m = node["metadata"];
+                    n.metadata.bg                  = m.value("bg", "");
+                    n.metadata.bgm                 = m.value("bgm", "");
+                    n.metadata.hide_ui             = m.value("hide_ui", false);
+                    n.metadata.auto_next           = m.value("auto_next", false);
+                    n.metadata.join                = m.value("join", false);
+                    n.metadata.pre_delay           = m.value("pre_delay", 0);
+                    n.metadata.alpha               = m.value("alpha", 1.0f);
+                    n.metadata.expression          = m.value("expression", "");
+                    n.metadata.pos                 = m.value("pos", "");
+                    n.metadata.transition          = m.value("transition", "");
+                    n.metadata.transition_duration = m.value("transition_duration", 600);
+                    n.metadata.transition_delay    = m.value("transition_delay", 0);
                 }
+                if (node.contains("events"))
+                    for (auto& e : node["events"]) n.events.push_back(parseEvent(e));
                 if (node.contains("options")) {
                     for (auto& opt : node["options"]) {
                         DialogOption o;
                         o.content = opt.value("content", "");
                         o.next_id = opt.value("next_id", "");
-                        o.style = opt.value("style", "normal");
-                        
-                        if (opt.contains("conditions")) {
-                            for (auto& c : opt["conditions"]) o.conditions.push_back({ c.value("op", "=="), c.value("var", ""), c.value("value", 0) });
-                        }
-                        if (opt.contains("events")) {
-                            for (auto& e : opt["events"]) o.events.push_back({ e.value("op", "set"), e.value("var", ""), e.value("value", 0) });
-                        }
+                        o.style   = opt.value("style", "normal");
+                        if (opt.contains("conditions"))
+                            for (auto& c : opt["conditions"]) o.conditions.push_back(parseCond(c));
+                        if (opt.contains("events"))
+                            for (auto& e : opt["events"]) o.events.push_back(parseEvent(e));
                         n.options.push_back(o);
                     }
                 }
@@ -593,82 +681,64 @@ void DialogEngine::StartDialog(const std::string& startId) {
     m_currentNodeId = id;
     m_isActive = true;
     
-    if (m_currentNode->metadata.count("bg")) {
-        if (m_activeBg != m_currentNode->metadata.at("bg")) {
-            m_prevBg = m_activeBg;
-            m_activeBg = m_currentNode->metadata.at("bg");
-            m_bgFadeAlpha = 0.0f; // Start fading from previous
-            m_bgFadeTimer = 0.0f;
-            m_bgFadeDuration = 0.8f; // Default 0.8s fade
-        }
+    auto& meta = m_currentNode->metadata;
+
+    // Background
+    if (!meta.bg.empty() && m_activeBg != meta.bg) {
+        m_prevBg   = m_activeBg;
+        m_activeBg = meta.bg;
+        m_bgFadeAlpha   = 0.0f;
+        m_bgFadeTimer   = 0.0f;
+        m_bgFadeDuration = 0.8f;
     }
-    if (m_currentNode->metadata.count("bgm")) m_activeBgm = m_currentNode->metadata.at("bgm");
-    
-    // UI visibility and flow
-    m_isUiHidden = m_currentNode->metadata.count("hide_ui") && m_currentNode->metadata.at("hide_ui") == "true";
-    m_isAutoNext = m_currentNode->metadata.count("auto_next") && m_currentNode->metadata.at("auto_next") == "true";
-    
-    if (m_currentNode->metadata.count("pre_delay")) {
-        try { m_engineDelayTimer = std::stof(m_currentNode->metadata.at("pre_delay")) / 1000.0f; } catch(...) {}
-    }
+    if (!meta.bgm.empty()) m_activeBgm = meta.bgm;
+
+    // UI flags (typed booleans, no string coercion)
+    m_isUiHidden = meta.hide_ui;
+    m_isAutoNext = meta.auto_next;
+    if (meta.pre_delay > 0) m_engineDelayTimer = meta.pre_delay / 1000.0f;
 
     // Scene management: Smart joining
-    // If 'join' is true OR if the current speaker is already in the scene, we don't clear.
-    // System nodes ("system") also auto-join by default to preserve the scene.
-    bool isJoining = m_currentNode->metadata.count("join") && m_currentNode->metadata.at("join") == "true";
+    bool isJoining = meta.join;
     if (!isJoining && !m_currentNode->entity.empty()) {
         if (m_currentNode->entity == "system") isJoining = true;
         else if (m_activeEntities.count(m_currentNode->entity)) isJoining = true;
     }
-    
     if (!isJoining) m_activeEntities.clear();
-    
-    if (m_currentNode && !m_currentNode->content.empty()) {
-        std::string speakerName = "SYSTEM"; // Default for system or empty entity
-        if (!m_currentNode->entity.empty() && m_currentNode->entity != "system") {
-            if (m_project.entities.count(m_currentNode->entity)) 
-                speakerName = m_project.entities.at(m_currentNode->entity).name;
-            else
-                speakerName = "???";
-        }
-        
-        // Use interpolated content for history so variables are correct
-        std::string finalContent = InterpolateVariables(m_currentNode->content);
 
-        // Don't add duplicate back-to-back entries if the content is the same
+    // History entry
+    if (m_currentNode && !m_currentNode->content.empty()) {
+        std::string speakerName = "SYSTEM";
+        if (!m_currentNode->entity.empty() && m_currentNode->entity != "system") {
+            if (m_project.entities.count(m_currentNode->entity))
+                speakerName = m_project.entities.at(m_currentNode->entity).name;
+            else speakerName = "???";
+        }
+        std::string finalContent = InterpolateVariables(m_currentNode->content);
         if (m_history.empty() || m_history.back().content != finalContent) {
             HistoryEntry entry;
-            entry.speaker = speakerName;
-            entry.content = finalContent;
+            entry.speaker     = speakerName;
+            entry.content     = finalContent;
             entry.richContent = RichTextParser::Parse(finalContent);
             m_history.push_back(entry);
             if (m_history.size() > 100) m_history.erase(m_history.begin());
         }
     }
 
-    // Auto-show/update speaker for backward compatibility or convenience
+    // Entity initial state from typed metadata
     if (!m_currentNode->entity.empty() && m_currentNode->entity != "system") {
         auto& state = m_activeEntities[m_currentNode->entity];
-        if (m_currentNode->metadata.count("expression")) state.expression = m_currentNode->metadata.at("expression");
-        
-        std::string posStr = "";
-        if (m_currentNode->metadata.count("pos")) posStr = m_currentNode->metadata.at("pos");
-        if (m_currentNode->metadata.count("pos_x")) posStr = m_currentNode->metadata.at("pos_x");
-        
-        if (!posStr.empty()) {
-            state.pos = posStr;
-            state.targetNormX = ParsePosition(posStr);
+        if (!meta.expression.empty()) state.expression = meta.expression;
+        if (!meta.pos.empty()) {
+            state.pos        = meta.pos;
+            state.targetNormX = ParsePosition(meta.pos);
             if (state.moveDuration <= 0.0f) state.currentNormX = state.targetNormX;
         }
-
-        if (m_currentNode->metadata.count("alpha")) {
-            try { 
-                float a = std::stof(m_currentNode->metadata.at("alpha"));
-                state.alpha = a;
-                state.targetAlpha = a;
-                state.startAlpha = a;
-            } catch(...) {}
-        }
+        // Only apply alpha if the metadata explicitly sets it below 1.0
+        // (alpha == 1.0f is the default so we always apply it to allow reset)
+        state.alpha      = meta.alpha;
+        state.targetAlpha = meta.alpha;
+        state.startAlpha  = meta.alpha;
     }
 
     m_cachedInterpolatedContent = InterpolateVariables(m_currentNode->content);
@@ -711,32 +781,21 @@ void DialogEngine::Next() {
     if (IsTextRevealing()) { SkipReveal(); return; }
     if (!m_visibleOptions.empty()) return;
 
-    // Check for transition metadata
-    if (m_currentNode && m_currentNode->metadata.count("transition") && !m_isTransitioning) {
-        std::string type = m_currentNode->metadata.at("transition");
-        if (type == "fade_black") {
-            m_isTransitioning = true;
-            m_transitionState = 0; // Fading to black
+    // Check for typed transition metadata (Phase 1)
+    if (m_currentNode && !m_currentNode->metadata.transition.empty() && !m_isTransitioning) {
+        const auto& meta = m_currentNode->metadata;
+        if (meta.transition == "fade_black") {
+            m_isTransitioning    = true;
+            m_transitionState    = 0;
             m_transitionTargetNode = m_currentNode->next_id.value_or("dialog_end");
-            
-            float duration = 0.6f;
-            if (m_currentNode->metadata.count("transition_duration")) {
-                try { duration = std::stof(m_currentNode->metadata.at("transition_duration")) / 1000.0f; } catch(...) {}
-            }
-            m_transitionDurationVal = duration;
-            
-            float postDelay = 0.0f;
-            if (m_currentNode->metadata.count("transition_delay")) {
-                try { postDelay = std::stof(m_currentNode->metadata.at("transition_delay")) / 1000.0f; } catch(...) {}
-            }
-            m_transitionPostDelay = postDelay;
-
-            m_screenFadeTarget = 1.0f;
-            m_screenFadeStart = m_screenFadeAlpha;
+            m_transitionDurationVal = meta.transition_duration / 1000.0f;
+            m_transitionPostDelay   = meta.transition_delay    / 1000.0f;
+            m_screenFadeTarget   = 1.0f;
+            m_screenFadeStart    = m_screenFadeAlpha;
             m_screenFadeDuration = m_transitionDurationVal;
-            m_screenFadeTimer = 0.0f;
-            m_isUiHidden = true; // Hide UI during transition
-            return; 
+            m_screenFadeTimer    = 0.0f;
+            m_isUiHidden = true;
+            return;
         }
     }
 
@@ -950,101 +1009,95 @@ const std::vector<std::string>& DialogEngine::ConsumePendingSFX() {
 
 void DialogEngine::ProcessEvents(const std::vector<Event>& events) {
     static const std::unordered_set<std::string> VALID_OPS = {
-        "set", "add", "sub", "mul", "shake", "random", "play_sfx", "jump", "delay", 
-        "show_sprite", "hide_sprite", "pos_sprite", "clear_sprites",
-        "expression", "pos", "hide", // Unified names
-        "move", "fade", "fade_screen" // New cinematic ops
+        "set", "add", "sub", "mul", "random",
+        "shake", "play_sfx", "jump", "delay",
+        "expression", "hide", "pos", "clear",
+        "move", "fade", "fade_screen"
     };
     for (const auto& e : events) {
-        if (!VALID_OPS.count(e.op)) { RecordError("ProcessEvents", "Unknown op '" + e.op + "' — skipping."); continue; }
-        
-        // FX / Flow Events
-        if (e.op == "shake") { TriggerShake((float)e.value); continue; }
-        if (e.op == "play_sfx") { m_pendingSFX.push_back(e.var); continue; }
-        if (e.op == "jump") { m_pendingJumpId = e.var; continue; }
-        if (e.op == "delay") { m_engineDelayTimer = (float)e.value / 1000.0f; continue; }
-        if (e.op == "clear_sprites") { m_activeEntities.clear(); continue; }
-        
-        // Sprite Management (Unified + Legacy)
-        if (e.op == "show_sprite" || e.op == "expression") {
-            m_activeEntities[e.var].expression = e.value_str.empty() ? "idle" : e.value_str;
+        if (!VALID_OPS.count(e.op)) {
+            RecordError("ProcessEvents", "Unknown op '" + e.op + "' — skipping.");
             continue;
         }
-        if (e.op == "hide_sprite" || e.op == "hide") {
-            m_activeEntities.erase(e.var);
+        auto& p = e.params;
+
+        // --- INSTANT ops ---
+        if (e.op == "shake")    { TriggerShake(p.value("intensity", 5.0f)); continue; }
+        if (e.op == "play_sfx") { m_pendingSFX.push_back(p.value("id", "")); continue; }
+        if (e.op == "clear")    { m_activeEntities.clear(); continue; }
+        if (e.op == "expression") {
+            m_activeEntities[p.value("target", "")].expression = p.value("id", "idle");
             continue;
         }
-        if (e.op == "pos_sprite" || e.op == "pos") {
-            auto& state = m_activeEntities[e.var];
-            state.pos = e.value_str;
-            state.targetNormX = ParsePosition(e.value_str);
-            
-            // If not currently moving, jump to it
-            if (state.moveDuration <= 0.0f) state.currentNormX = state.targetNormX;
+        if (e.op == "hide") { m_activeEntities.erase(p.value("target", "")); continue; }
+        if (e.op == "pos") {
+            auto& s = m_activeEntities[p.value("target", "")];
+            float x = ParseXParam(p);
+            s.pos = std::to_string(x); s.currentNormX = x; s.targetNormX = x;
             continue;
         }
 
+        // --- SYNC ops ---
+        if (e.op == "jump")  { m_pendingJumpId = p.value("target", ""); continue; }
+        if (e.op == "delay") { m_engineDelayTimer = p.value("duration", 0) / 1000.0f; continue; }
+
+        // --- ASYNC ops ---
         if (e.op == "move") {
-            auto& state = m_activeEntities[e.var];
-            state.pos = e.value_str;
-            state.targetNormX = ParsePosition(e.value_str);
-            state.startNormX = state.currentNormX; // Start from where we are
-            
-            state.moveDuration = (float)e.value / 1000.0f;
-            state.moveTimer = 0.0f;
-            if (state.moveDuration <= 0.0f) state.currentNormX = state.targetNormX;
+            auto& s = m_activeEntities[p.value("target", "")];
+            float x = ParseXParam(p);
+            s.pos = std::to_string(x); s.targetNormX = x; s.startNormX = s.currentNormX;
+            s.moveDuration = p.value("duration", 0) / 1000.0f;
+            s.moveTimer    = 0.0f;
+            if (s.moveDuration <= 0.0f) s.currentNormX = x;
             continue;
         }
-
         if (e.op == "fade") {
-            float duration = (float)e.value / 1000.0f;
-            if (e.var == "bg") {
-                if (m_activeBg != e.value_str) {
-                    m_prevBg = m_activeBg;
-                    m_activeBg = e.value_str;
-                    m_bgFadeAlpha = 0.0f;
-                    m_bgFadeTimer = 0.0f;
-                    m_bgFadeDuration = std::max(0.01f, duration);
+            std::string target = p.value("target", "");
+            int   duration = p.value("duration", 0);
+            if (target == "bg") {
+                std::string bgId = p.value("id", "");
+                if (!bgId.empty() && m_activeBg != bgId) {
+                    m_prevBg = m_activeBg; m_activeBg = bgId;
+                    m_bgFadeAlpha    = 0.0f; m_bgFadeTimer = 0.0f;
+                    m_bgFadeDuration = std::max(0.01f, duration / 1000.0f);
                 }
             } else {
-                auto& state = m_activeEntities[e.var];
-                try { state.targetAlpha = std::stof(e.value_str); } catch(...) { state.targetAlpha = 1.0f; }
-                state.startAlpha = state.alpha; // Start from where we are
-                state.fadeDuration = std::max(0.01f, duration);
-                state.fadeTimer = 0.0f;
-                if (state.fadeDuration <= 0.0f) state.alpha = state.targetAlpha;
+                auto& s      = m_activeEntities[target];
+                s.targetAlpha = p.value("alpha", 1.0f);
+                s.startAlpha  = s.alpha;
+                s.fadeDuration = std::max(0.01f, duration / 1000.0f);
+                s.fadeTimer    = 0.0f;
             }
             continue;
         }
-
         if (e.op == "fade_screen") {
-            m_screenFadeTarget = std::stof(e.value_str);
-            m_screenFadeStart = m_screenFadeAlpha;
-            m_screenFadeDuration = (float)e.value / 1000.0f;
-            m_screenFadeTimer = 0.0f;
+            m_screenFadeTarget   = p.value("alpha", 0.0f);
+            m_screenFadeStart    = m_screenFadeAlpha;
+            m_screenFadeDuration = p.value("duration", 0) / 1000.0f;
+            m_screenFadeTimer    = 0.0f;
             if (m_screenFadeDuration <= 0.0f) m_screenFadeAlpha = m_screenFadeTarget;
             continue;
         }
 
-        // Variable Operations
-        if (!e.var.empty() && !m_project.variables.count(e.var)) {
-            RecordError("ProcessEvents", "Event op '" + e.op + "' references undeclared variable '" + e.var + "' — skipping.");
+        // --- Variable ops (INSTANT) ---
+        std::string var = p.value("var", "");
+        if (!var.empty() && !m_project.variables.count(var)) {
+            RecordError("ProcessEvents", "Op '" + e.op + "' references undeclared variable '" + var + "' — skipping.");
             continue;
         }
-        int cur = GetVariable(e.var);
-        int next = cur;
-        if      (e.op == "set") next = e.value;
-        else if (e.op == "add") next = cur + e.value;
-        else if (e.op == "sub") next = cur - e.value;
-        else if (e.op == "mul") next = cur * e.value;
+        int cur = GetVariable(var), next = cur;
+        if      (e.op == "set")    next = p.value("value", 0);
+        else if (e.op == "add")    next = cur + p.value("value", 0);
+        else if (e.op == "sub")    next = cur - p.value("value", 0);
+        else if (e.op == "mul")    next = cur * p.value("value", 1);
         else if (e.op == "random") {
-            int minVal = std::min(e.value, e.value_max);
-            int maxVal = std::max(e.value, e.value_max);
-            next = minVal + (std::rand() % (maxVal - minVal + 1));
+            int lo = p.value("min", 0), hi = p.value("max", 1);
+            if (lo > hi) std::swap(lo, hi);
+            next = lo + (std::rand() % (hi - lo + 1));
         }
-        SetVariable(e.var, next);
-        m_eventTrace.push_back({ m_currentNodeId, e.op, e.var, cur, GetVariable(e.var) });
-        Log("Event: " + e.op + " '" + e.var + "' " + std::to_string(cur) + " -> " + std::to_string(GetVariable(e.var)));
+        SetVariable(var, next);
+        m_eventTrace.push_back({ m_currentNodeId, e.op, var, cur, GetVariable(var) });
+        Log("Event: " + e.op + " '" + var + "' " + std::to_string(cur) + " -> " + std::to_string(GetVariable(var)));
     }
 }
 
@@ -1077,58 +1130,87 @@ void DialogEngine::Log(const std::string& msg, const std::string& level) {
 
 ValidationResult DialogEngine::ValidateProject(const DialogProject& p) {
     ValidationResult errors;
+    static const std::unordered_set<std::string> NON_VAR_OPS = {
+        "shake", "play_sfx", "jump", "delay", "expression", "hide", "pos",
+        "clear", "move", "fade", "fade_screen"
+    };
+
+    auto checkEvent = [&](const std::string& nodeId, const std::string& ctx, const Event& e) {
+        if (NON_VAR_OPS.count(e.op)) return;
+        std::string var = e.params.value("var", "");
+        if (!var.empty() && !p.variables.count(var))
+            errors.push_back({nodeId, ctx, "Event op '" + e.op + "' references undeclared variable '" + var + "'."});
+    };
+
+    // Recursive condition validator
+    std::function<void(const std::string&, const ConditionNode&)> checkCond =
+        [&](const std::string& nodeId, const ConditionNode& c) {
+            if (c.isGroup) { for (auto& ch : c.children) checkCond(nodeId, ch); return; }
+            if (!p.variables.count(c.leaf.var))
+                errors.push_back({nodeId, "options.conditions", "Condition references undeclared variable '" + c.leaf.var + "'."});
+        };
+
     if (!p.nodes.count(p.configs.start_node))
         errors.push_back({"configs", "start_node", "Start node '" + p.configs.start_node + "' does not exist."});
+
     for (const auto& [nodeId, node] : p.nodes) {
         if (!node.entity.empty() && node.entity != "system" && !p.entities.count(node.entity))
             errors.push_back({nodeId, "entity", "Entity '" + node.entity + "' is not defined."});
         if (node.next_id && *node.next_id != "dialog_end" && !node.next_id->empty() && !p.nodes.count(*node.next_id))
             errors.push_back({nodeId, "next_id", "next_id '" + *node.next_id + "' does not exist."});
-        for (const auto& e : node.events)
-            if (e.op != "shake" && e.op != "play_sfx" && e.op != "jump" && e.op != "delay" && 
-                e.op != "show_sprite" && e.op != "hide_sprite" && e.op != "pos_sprite" && e.op != "clear_sprites" &&
-                e.op != "expression" && e.op != "pos" && e.op != "hide" &&
-                e.op != "move" && e.op != "fade" &&
-                !e.var.empty() && !p.variables.count(e.var))
-                errors.push_back({nodeId, "events", "Event references undeclared variable '" + e.var + "'."});
+        for (const auto& e : node.events) checkEvent(nodeId, "events", e);
         for (const auto& opt : node.options) {
             if (!opt.next_id.empty() && opt.next_id != "dialog_end" && !p.nodes.count(opt.next_id))
                 errors.push_back({nodeId, "options.next_id", "Option next_id '" + opt.next_id + "' does not exist."});
-            for (const auto& c : opt.conditions)
-                if (!p.variables.count(c.var))
-                    errors.push_back({nodeId, "options.conditions", "Condition references undeclared variable '" + c.var + "'."});
-            for (const auto& e : opt.events)
-                if (e.op != "shake" && e.op != "play_sfx" && e.op != "jump" && e.op != "delay" && 
-                    e.op != "show_sprite" && e.op != "hide_sprite" && e.op != "pos_sprite" && e.op != "clear_sprites" &&
-                    e.op != "expression" && e.op != "pos" && e.op != "hide" &&
-                    e.op != "move" && e.op != "fade" &&
-                    !e.var.empty() && !p.variables.count(e.var))
-                    errors.push_back({nodeId, "options.events", "Option event references undeclared variable '" + e.var + "'."});
+            for (const auto& c : opt.conditions) checkCond(nodeId, c);
+            for (const auto& e : opt.events) checkEvent(nodeId, "options.events", e);
         }
     }
     return errors;
+}
+
+bool DialogEngine::EvalConditionNode(const ConditionNode& node) const {
+    if (!node.isGroup) {
+        // Leaf: evaluate single condition
+        int v = GetVariable(node.leaf.var);
+        const auto& op = node.leaf.op;
+        int val = node.leaf.value;
+        if (op == "==" || op == "=") return v == val;
+        if (op == "!=")              return v != val;
+        if (op == ">")               return v >  val;
+        if (op == "<")               return v <  val;
+        if (op == ">=")              return v >= val;
+        if (op == "<=")              return v <= val;
+        return false; // unknown op fails
+    }
+    // Group: evaluate children recursively
+    if (node.groupLogic == "or") {
+        for (const auto& c : node.children) if (EvalConditionNode(c)) return true;
+        return false;
+    } else { // "and"
+        for (const auto& c : node.children) if (!EvalConditionNode(c)) return false;
+        return true;
+    }
 }
 
 void DialogEngine::RefreshVisibleOptions() {
     m_visibleOptions.clear();
     for (auto& o : m_currentNode->options) {
         bool pass = true;
-        for (const auto& c : o.conditions) {
-            int v = GetVariable(c.var);
-            if ((c.op == "=" || c.op == "==") && v != c.value) pass = false;
-            else if (c.op == "!=" && v == c.value) pass = false;
-            else if (c.op == ">" && v <= c.value) pass = false;
-            else if (c.op == "<" && v >= c.value) pass = false;
-            else if (c.op == ">=" && v < c.value) pass = false;
-            else if (c.op == "<=" && v > c.value) pass = false;
-            else if (c.op != "==" && c.op != "=" && c.op != "!=" && c.op != ">" && c.op != "<" && c.op != ">=" && c.op != "<=") {
-                // If operator is unknown, actually fail the condition rather than passing it.
-                pass = false;
-            }
-            if (!pass) break;
+        for (const auto& cond : o.conditions) {
+            if (!EvalConditionNode(cond)) { pass = false; break; }
         }
         if (pass) m_visibleOptions.push_back(o);
     }
+}
+
+float DialogEngine::ParseXParam(const nlohmann::json& params, const std::string& key) const {
+    if (params.contains(key)) {
+        const auto& v = params[key];
+        if (v.is_number()) return v.get<float>();
+        if (v.is_string()) return ParsePosition(v.get<std::string>());
+    }
+    return 0.5f;
 }
 
 const Entity* DialogEngine::GetCurrentEntity() const {
