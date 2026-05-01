@@ -5,8 +5,9 @@
  * Usage:
  *   BitEngine [options] [file]
  *
+ *
  * If no option is given and a file is provided it is run directly.
- * The default project file is "res/configs.json".
+ * The default project file is "res_bitscript/main.bitscript".
  */
 
 #include "headers/BitApp.hpp"
@@ -52,13 +53,13 @@ static void printHelp(const char* argv0) {
         "  " << argv0 << " [options] [file]\n"
         "\n"
         "  If no option is given, the file is run directly.\n"
-        "  Default file: res/configs.json\n"
+        "  Default file: res_bitscript/main.bitscript\n"
         "\n"
         "OPTIONS:\n"
         "  -h, --help                 Show this help message and exit\n"
         "  -v, --version              Print version information and exit\n"
         "\n"
-        "  -r, --run <file>           Run a .bitscript, .bitc, or configs.json\n"
+        "  -r, --run <file>           Run a .bitscript or .bitc file\n"
         "  -c, --compile <src> [dst]  Compile a .bitscript to bytecode (.bitc)\n"
         "                             If [dst] is omitted, writes <src>.bitc\n"
         "  -d, --dry-run <file>       Parse/validate a .bitscript without launching\n"
@@ -68,8 +69,8 @@ static void printHelp(const char* argv0) {
         "                             for a .bitscript or .bitc file\n"
         "\n"
         "EXAMPLES:\n"
-        "  " << argv0 << "                              # run res/configs.json\n"
-        "  " << argv0 << " res_bitscript/main.bitscript # run a .bitscript directly\n"
+        "  " << argv0 << "                              # run default (res_bitscript/main.bitscript)\n"
+        "  " << argv0 << " custom.bitscript             # run a .bitscript directly\n"
         "  " << argv0 << " -r my_story.bitscript        # run with explicit flag\n"
         "  " << argv0 << " -c my_story.bitscript        # compile -> my_story.bitc\n"
         "  " << argv0 << " -c my_story.bitscript out.bitc\n"
@@ -81,7 +82,6 @@ static void printHelp(const char* argv0) {
         "FILE TYPES:\n"
         "  .bitscript    Human-readable BitScript source file\n"
         "  .bitc         Compiled bytecode (portable, no source needed)\n"
-        "  configs.json  Legacy JSON project configuration\n"
         "\n";
 }
 
@@ -206,7 +206,7 @@ int main(int argc, char** argv) {
 
     // No arguments: run default project
     if (argc == 1) {
-        BitApp app("res/configs.json");
+        BitApp app("res_bitscript/main.bitscript");
         app.Run();
         return 0;
     }

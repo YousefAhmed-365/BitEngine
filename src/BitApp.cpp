@@ -49,7 +49,7 @@ void BitApp::Run() {
 
     bool loaded = false;
     if (FileExists("data.bin")) {
-        loaded = dialogSystem.LoadCompiledProject("data.bin");
+        loaded = dialogSystem.LoadBytecodeFile("data.bin");
     } else {
         loaded = dialogSystem.LoadProject(m_projectPath);
     }

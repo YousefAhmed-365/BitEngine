@@ -127,31 +127,9 @@ struct HistoryEntry {
     std::vector<RichChar> richContent;
 };
 
-// Typed node metadata: declarative initial state ONLY
-// Mutations belong in events, not here.
-struct NodeMetadata {
-    std::string bg          = "";
-    std::string bgm         = "";
-    bool        hide_ui     = false;
-    bool        auto_next   = false;
-    bool        join        = false;
-    int         pre_delay   = 0;      // ms — entry timing lock
-    float       alpha       = 1.0f;   // initial entity opacity
-    std::string expression  = "";
-    std::string pos         = "";
-    // Cinematic transition (exit)
-    std::string transition          = "";  // e.g. "fade_black"
-    int         transition_duration = 600; // ms
-    int         transition_delay    = 0;   // ms post-fade before reveal
-};
+// Legacy JSON node structures removed. 
+// Narratives now run exclusively via BitScript bytecode.
 
-struct DialogNode {
-    std::string entity = "", content = "";
-    std::optional<std::string> next_id = std::nullopt;
-    std::vector<DialogOption>  options = {};
-    std::vector<Event>         events  = {};
-    NodeMetadata               metadata;
-};
 
 struct SaveMetadata {
     std::string timestamp;
@@ -162,7 +140,7 @@ struct SaveMetadata {
 
 struct SaveData {
     int version = 1;
-    std::string current_node_id;
+    int current_pc = 0;
     std::unordered_map<std::string, int> variables;
     std::string active_bg;
     std::string active_bgm;
@@ -171,30 +149,25 @@ struct SaveData {
 };
 
 struct DialogConfigs {
-    std::string start_node = "dialog_start", save_prefix = "save_slot_", mode = "typewriter";
+    std::string start_node = "scene_start", save_prefix = "save_slot_", mode = "typewriter";
     std::string debug_mode = "none";
     float reveal_speed = 45.0f;
     float auto_play_delay = 2.0f;
     bool auto_save = false, encrypt_save = false; 
     bool enable_floating = true, enable_shadows = true, enable_vignette = true;
     int max_slots = 5;
-    std::vector<std::string> dialog_files;
-    std::vector<std::string> entity_files;
-    std::vector<std::string> variable_files;
-    std::vector<std::string> asset_files;
 };
 
 struct DialogProject {
     DialogConfigs configs;
     std::unordered_map<std::string, Entity> entities;
     std::unordered_map<std::string, VariableDef> variables;
-    std::unordered_map<std::string, DialogNode> nodes;
     
     // Asset Registries
     std::unordered_map<std::string, std::string> backgrounds;
     std::unordered_map<std::string, std::string> music;
     std::unordered_map<std::string, std::string> sfx;
-    std::unordered_map<std::string, std::string> fonts; // New: font name -> path mapping
+    std::unordered_map<std::string, std::string> fonts;
     
     // Bytecode
     std::vector<BitInstruction> bytecode;
@@ -220,8 +193,7 @@ struct EventTraceEntry {
 class DialogEngine {
 public:
     DialogEngine();
-    bool LoadProject(const std::string& configFilePath);
-    bool LoadCompiledProject(const std::string& binPath);
+    bool LoadProject(const std::string& path);
     bool LoadBytecodeFile(const std::string& path);   // Load .bitc VM bytecode
     void CompileProject(const std::string& outputPath);
     bool SaveBytecode(const std::string& path) const; // Export .bitc VM bytecode
@@ -247,8 +219,8 @@ public:
     const std::unordered_map<std::string, int>& GetAllVariables() const { return m_variables; }
     
     bool IsActive() const { return m_isActive; }
-    const DialogNode* GetCurrentNode() const { return m_currentNode; }
-    std::string GetCurrentNodeId() const { return m_currentNodeId; }
+    int GetCurrentPC() const { return m_pc; }
+
     const Entity* GetCurrentEntity() const;
     const Entity* GetEntity(const std::string& id) const { return m_project.entities.count(id) ? &m_project.entities.at(id) : nullptr; }
     const std::vector<DialogOption>& GetVisibleOptions() const { return m_visibleOptions; }
@@ -315,8 +287,7 @@ private:
     bool m_debugOverlayVisible = false;
     std::unordered_map<std::string, int> m_variables;
     std::vector<DialogOption> m_visibleOptions;
-    const DialogNode* m_currentNode = nullptr;
-    std::string m_currentNodeId;
+    std::string m_currentSpeakerId;
     bool m_isActive = false;
 
     float m_revealedCount = 0.0f;

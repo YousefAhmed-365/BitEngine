@@ -355,8 +355,7 @@ void BitRenderer::Draw() {
 }
 
 void BitRenderer::HandleAudio() {
-    const auto* node = m_engine.GetCurrentNode();
-    if (!node) return;
+    if (!m_engine.IsActive()) return;
 
     std::string activeBgm = m_engine.GetActiveBgm();
     if (!activeBgm.empty()) {
@@ -680,7 +679,7 @@ void BitRenderer::DrawVFX() {
 // Debug overlay — intentionally NOT driven by style
 
 void BitRenderer::DrawDebugOverlay() {
-    const auto* node   = m_engine.GetCurrentNode();
+
     const auto& vars   = m_engine.GetAllVariables();
     const auto& trace  = m_engine.GetEventTrace();
     const auto& errors = m_engine.GetErrors();
@@ -716,37 +715,16 @@ void BitRenderer::DrawDebugOverlay() {
         return { (float)(startX + c * (panelW + gap)), (float)(startY + r * (panelH + gap + 15)), (float)panelW, (float)panelH };
     };
 
-    // Panel 1: Node Inspector
+    // Panel 1: VM Inspector
     Rectangle r1 = GetPanelRect(0);
     int px = (int)r1.x, py = (int)r1.y;
-    DrawText("NODE INSPECTOR", px, py, 13, SKYBLUE);
+    DrawText("VM INSPECTOR", px, py, 13, SKYBLUE);
     int dy = py + 22;
-    if (node) {
-        DrawText(TextFormat("ID:     %s", m_engine.GetCurrentNodeId().c_str()), px, dy, 10, RAYWHITE); dy += 14;
-        DrawText(TextFormat("Entity: %s", node->entity.c_str()),                px, dy, 10, RAYWHITE); dy += 14;
-        DrawText(TextFormat("Next:   %s", node->next_id.value_or("(none)").c_str()), px, dy, 10, RAYWHITE); dy += 14;
-        DrawText(TextFormat("Options:%d", (int)node->options.size()),             px, dy, 10, RAYWHITE); dy += 14;
-        DrawText("Metadata:", px, dy, 10, YELLOW); dy += 13;
-        const auto& meta = node->metadata;
-        auto mdump = [&](const char* k, const std::string& v) {
-            if (!v.empty() && dy < r1.y + r1.height) {
-                DrawText(TextFormat("  %s: %s", k, v.c_str()), px, dy, 9, Fade(RAYWHITE, 0.8f));
-                dy += 12;
-            }
-        };
-        mdump("bg",         meta.bg);
-        mdump("bgm",        meta.bgm);
-        mdump("expression", meta.expression);
-        mdump("pos",        meta.pos);
-        mdump("transition", meta.transition);
-        if (meta.hide_ui)   { DrawText("  hide_ui: true",   px, dy, 9, YELLOW); dy += 12; }
-        if (meta.auto_next) { DrawText("  auto_next: true", px, dy, 9, YELLOW); dy += 12; }
-        if (meta.join)      { DrawText("  join: true",      px, dy, 9, YELLOW); dy += 12; }
-        if (meta.pre_delay > 0) {
-            DrawText(TextFormat("  pre_delay: %dms", meta.pre_delay), px, dy, 9, Fade(RAYWHITE, 0.8f));
-            dy += 12;
-        }
-    } else { DrawText("(no active node)", px, dy, 10, Fade(RAYWHITE, 0.5f)); }
+    DrawText(TextFormat("PC:      %d", m_engine.GetCurrentPC()), px, dy, 10, RAYWHITE); dy += 14;
+    DrawText(TextFormat("ACTIVE:  %s", m_engine.IsActive() ? "YES" : "NO"), px, dy, 10, RAYWHITE); dy += 14;
+    DrawText(TextFormat("SPEAKER: %s", m_engine.GetCurrentEntity() ? m_engine.GetCurrentEntity()->id.c_str() : "NONE"), px, dy, 10, RAYWHITE); dy += 14;
+    DrawText(TextFormat("WAITING: %s", m_engine.IsTextRevealing() ? "YES" : "NO"), px, dy, 10, RAYWHITE); dy += 14;
+
 
     // Panel 2: Variable Watcher
     Rectangle r2 = GetPanelRect(1);

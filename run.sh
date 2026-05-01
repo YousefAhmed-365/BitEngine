@@ -1,2 +1,2 @@
-# Run the Engine (It will check for data.bin or res/configs.json)
+# Run the Engine (It will check for res_bitscript/main.bitscript)
 ./build/BitEngine res_bitscript/main.bitscript

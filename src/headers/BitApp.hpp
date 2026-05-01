@@ -6,7 +6,7 @@
 
 class BitApp {
 public:
-    BitApp(const std::string& projectPath = "res/configs.json");
+    BitApp(const std::string& projectPath = "res_bitscript/main.bitscript");
     ~BitApp();
 
     void Run();
