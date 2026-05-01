@@ -699,7 +699,7 @@ void BitRenderer::DrawDebugOverlay() {
 
     int scrollOffset = (int)m_debugScroll;
 
-    // Draw one unified background for the entire suite to avoid overlapping transparent blacks
+    // We now have 4 panels. Draw unified background:
     int fullH = rows * panelH + (rows - 1) * (gap + 15);
     DrawRectangle(startX - pad, startY - pad, totalW + pad * 2, fullH + pad * 2, Fade(BLACK, 0.85f));
 
@@ -711,13 +711,14 @@ void BitRenderer::DrawDebugOverlay() {
 
     // Panel 1: Node Inspector
     Rectangle r1 = GetPanelRect(0);
-    int px = r1.x, py = r1.y;
+    int px = (int)r1.x, py = (int)r1.y;
     DrawText("NODE INSPECTOR", px, py, 13, SKYBLUE);
     int dy = py + 22;
     if (node) {
         DrawText(TextFormat("ID:     %s", m_engine.GetCurrentNodeId().c_str()), px, dy, 10, RAYWHITE); dy += 14;
         DrawText(TextFormat("Entity: %s", node->entity.c_str()),                px, dy, 10, RAYWHITE); dy += 14;
         DrawText(TextFormat("Next:   %s", node->next_id.value_or("(none)").c_str()), px, dy, 10, RAYWHITE); dy += 14;
+        DrawText(TextFormat("Options:%d", (int)node->options.size()),             px, dy, 10, RAYWHITE); dy += 14;
         DrawText("Metadata:", px, dy, 10, YELLOW); dy += 13;
         const auto& meta = node->metadata;
         auto mdump = [&](const char* k, const std::string& v) {
@@ -742,7 +743,7 @@ void BitRenderer::DrawDebugOverlay() {
 
     // Panel 2: Variable Watcher
     Rectangle r2 = GetPanelRect(1);
-    px = r2.x; py = r2.y; dy = py;
+    px = (int)r2.x; py = (int)r2.y; dy = py;
     DrawText("VARIABLE WATCHER", px, dy, 13, GREEN); dy += 20;
     for (auto const& [name, val] : vars) {
         if (dy - py + scrollOffset < r2.height - 10 && dy - py + scrollOffset > 0)
@@ -752,7 +753,7 @@ void BitRenderer::DrawDebugOverlay() {
 
     // Panel 3: Event Trace
     Rectangle r3 = GetPanelRect(2);
-    px = r3.x; py = r3.y; dy = py;
+    px = (int)r3.x; py = (int)r3.y; dy = py;
     DrawText("EVENT TRACE", px, dy, 13, ORANGE); dy += 20;
     int maxTrace = 12, traceStart = (int)trace.size() > maxTrace ? (int)trace.size() - maxTrace : 0;
     for (int i = traceStart; i < (int)trace.size(); ++i) {
@@ -764,13 +765,16 @@ void BitRenderer::DrawDebugOverlay() {
         dy += 25;
     }
 
-    // Panel 4: Cinematic State
+    // Panel 4: Cinematic State & Engine Flags
     Rectangle r4 = GetPanelRect(3);
-    px = r4.x; py = r4.y; dy = py;
-    DrawText("CINEMATIC STATE", px, dy, 13, GOLD); dy += 22;
+    px = (int)r4.x; py = (int)r4.y; dy = py;
+    DrawText("ENGINE & CINEMATIC STATE", px, dy, 13, GOLD); dy += 22;
     
-    DrawText(TextFormat("UI Hidden: %s", m_engine.IsUiHidden() ? "TRUE" : "FALSE"), px, dy, 10, m_engine.IsUiHidden() ? YELLOW : GRAY); dy += 14;
-    DrawText(TextFormat("BG Fade:   %.2f", m_engine.GetBgFadeAlpha()), px, dy, 10, RAYWHITE); dy += 18;
+    DrawText(TextFormat("UI Hidden:   %s", m_engine.IsUiHidden() ? "TRUE" : "FALSE"), px, dy, 10, m_engine.IsUiHidden() ? YELLOW : GRAY); dy += 14;
+    DrawText(TextFormat("Auto-Play:   %s", m_engine.IsAutoPlaying() ? "ON" : "OFF"), px, dy, 10, m_engine.IsAutoPlaying() ? LIME : GRAY); dy += 14;
+    DrawText(TextFormat("Transition:  %s", m_engine.IsTransitioning() ? "ACTIVE" : "FALSE"), px, dy, 10, m_engine.IsTransitioning() ? ORANGE : GRAY); dy += 14;
+    DrawText(TextFormat("Wait Timer:  %.2fs", m_engine.IsEventDelaying() ? m_engine.GetBgFadeAlpha() : 0.0f), px, dy, 10, m_engine.IsEventDelaying() ? ORANGE : GRAY); dy += 14;
+    DrawText(TextFormat("BG Fade:     %.2f", m_engine.GetBgFadeAlpha()), px, dy, 10, RAYWHITE); dy += 18;
 
     DrawText("Entities:", px, dy, 11, SKYBLUE); dy += 15;
     const auto& entities = m_engine.GetActiveEntities();
@@ -781,7 +785,6 @@ void BitRenderer::DrawDebugOverlay() {
                  px, dy, 9, (s.moveTimer < s.moveDuration || s.fadeTimer < s.fadeDuration) ? LIME : GRAY);
         dy += 12;
     }
-
     if (entities.empty()) DrawText("(none)", px, dy, 10, Fade(RAYWHITE, 0.4f)); 
 
     // Error log stays at far bottom
@@ -950,53 +953,123 @@ void BitRenderer::DrawStyledRect(Rectangle rect, const StyleTexture& stex,
 
 void BitRenderer::DrawHistory() {
     UIStyle style = m_styleManager.GetStyle();
-    int sw = GetScreenWidth();
-    int sh = GetScreenHeight();
+    int sw = GetScreenWidth(), sh = GetScreenHeight();
+    Font font = m_styleManager.GetCurrentFont();
 
-    // Background overlay
-    DrawRectangle(0, 0, sw, sh, style.historyBg);
+    // --- Backdrop ---
+    DrawRectangle(0, 0, sw, sh, ColorAlpha(BLACK, 0.82f));
+
+    // --- Layout constants ---
+    const int HEADER_H   = 56;
+    const int FOOTER_H   = 36;
+    const int SIDE_W     = 130;
+    const int CONTENT_X  = SIDE_W + 20;
+    const int CONTENT_W  = sw - CONTENT_X - 24;
+    const int ENTRY_GAP  = 14;
+    const float SP_SIZE  = style.historySpeakerFontSize;
+    const float CT_SIZE  = style.historyContentFontSize;
+    const Color DIM      = ColorAlpha(RAYWHITE, 0.12f);
+    const Color ACCENT   = style.historySpeakerColor;
 
     const auto& history = m_engine.GetHistory();
-    if (history.empty()) return;
 
-    Font font = m_styleManager.GetCurrentFont();
-    float py = style.historyPadding + 60.0f - m_historyScroll;
-    float contentWidth = sw - style.historyPadding * 2 - 20;
-
-    // Draw chronological order (Oldest at top, Newest at bottom)
+    // --- Measure total height (needed for scroll clamp + progress bar) ---
+    float totalContentH = (float)HEADER_H + 10.0f;
     for (size_t i = 0; i < history.size(); ++i) {
-        const auto& entry = history[i];
-        
-        // Skip if way off top
-        if (py + 100 < 0) {
-            // We still need to calculate height to advance py correctly... 
-            // This is tricky without a separate measurement pass.
-            // For now, let's just draw everything and optimize if history gets huge.
-        }
-
-        // Speaker
-        DrawTextEx(font, entry.speaker.c_str(), {style.historyPadding, py}, style.historySpeakerFontSize, 1.0f, style.historySpeakerColor);
-        py += style.historySpeakerFontSize + 4;
-        
-        // Content
-        py = (float)DrawRichText(entry.richContent, (int)entry.richContent.size(), 
-                                (int)(style.historyPadding + 10), (int)py, 
-                                (int)style.historyContentFontSize, (int)contentWidth, 
-                                style.historyContentColor);
-        
-        py += style.historySpacing;
+        totalContentH += SP_SIZE + 6;
+        // Estimate wrapped lines
+        float charW = CT_SIZE * 0.55f;
+        int charsPerLine = std::max(1, (int)(CONTENT_W / charW));
+        int chars = (int)history[i].richContent.size();
+        int lines = std::max(1, (chars + charsPerLine - 1) / charsPerLine);
+        totalContentH += lines * (CT_SIZE + 4) + ENTRY_GAP + 12;
     }
 
-    // Clamp scroll to history height
-    float totalHeight = py + m_historyScroll - (style.historyPadding + 60.0f);
-    float maxScroll = totalHeight - (sh - style.historyPadding * 2 - 100);
-    if (maxScroll < 0) maxScroll = 0;
+    float viewH      = (float)(sh - HEADER_H - FOOTER_H);
+    float maxScroll  = std::max(0.0f, totalContentH - viewH);
     if (m_historyScroll > maxScroll) m_historyScroll = maxScroll;
+    if (m_historyScroll < 0)         m_historyScroll = 0;
 
-    // Draw Title at top (pinned)
-    DrawRectangle(0, 0, sw, (int)style.historyPadding + 50, Fade(BLACK, 0.8f));
-    DrawTextEx(font, "MESSAGE HISTORY", {style.historyPadding, style.historyPadding}, style.historySpeakerFontSize + 12, 1.0f, style.historySpeakerColor);
-    DrawText("SCROLL WHEEL to move | ESC / H to close", sw - 230, (int)style.historyPadding + 10, 10, Fade(GRAY, 0.6f));
+    // --- Clip to content area (between header and footer) ---
+    BeginScissorMode(0, HEADER_H, sw, sh - HEADER_H - FOOTER_H);
+
+    float py = (float)HEADER_H + 10.0f - m_historyScroll;
+
+    for (size_t i = 0; i < history.size(); ++i) {
+        const auto& entry = history[i];
+
+        // Only draw if at least partially visible
+        if (py < (float)(sh - FOOTER_H) && py + 80 > (float)HEADER_H) {
+            // Entry number (far left, dimmed)
+            DrawText(TextFormat("#%d", (int)(i + 1)), 8, (int)py, 9, ColorAlpha(RAYWHITE, 0.25f));
+
+            // Speaker sidebar pill
+            float spW = MeasureTextEx(font, entry.speaker.c_str(), SP_SIZE, 1).x + 16;
+            float spX = (float)SIDE_W - spW - 4;
+            DrawRectangleRounded({ spX, py - 2, spW, SP_SIZE + 8 }, 0.4f, 6,
+                                  ColorAlpha(ACCENT, 0.18f));
+            DrawTextEx(font, entry.speaker.c_str(), { spX + 8, py }, SP_SIZE, 1, ACCENT);
+
+            // Vertical sidebar accent line
+            DrawRectangle(SIDE_W - 2, (int)py - 2, 2, 200, ColorAlpha(ACCENT, 0.25f));
+
+            py += SP_SIZE + 6;
+
+            // Rich content
+            int newY = DrawRichText(entry.richContent, (int)entry.richContent.size(),
+                                    CONTENT_X, (int)py, (int)CT_SIZE, CONTENT_W,
+                                    style.historyContentColor);
+            py = (float)newY + ENTRY_GAP;
+
+            // Divider between entries
+            if (i + 1 < history.size()) {
+                DrawLineEx({ (float)SIDE_W, py }, { (float)(sw - 12), py }, 1.0f, DIM);
+                py += 12;
+            }
+        } else {
+            // Off-screen: still advance py by estimated height
+            float charW = CT_SIZE * 0.55f;
+            int charsPerLine = std::max(1, (int)(CONTENT_W / charW));
+            int chars = (int)entry.richContent.size();
+            int lines = std::max(1, (chars + charsPerLine - 1) / charsPerLine);
+            py += SP_SIZE + 6 + lines * (CT_SIZE + 4) + ENTRY_GAP + 12;
+        }
+    }
+
+    EndScissorMode();
+
+    // --- Scroll progress bar (right edge) ---
+    if (maxScroll > 0) {
+        float barH   = (float)(sh - HEADER_H - FOOTER_H);
+        float ratio  = m_historyScroll / maxScroll;
+        float thumbH = std::max(30.0f, barH * viewH / totalContentH);
+        float thumbY = (float)HEADER_H + ratio * (barH - thumbH);
+        DrawRectangle(sw - 6, HEADER_H, 6, (int)barH,     ColorAlpha(WHITE, 0.06f));
+        DrawRectangle(sw - 6, (int)thumbY, 6, (int)thumbH, ColorAlpha(ACCENT, 0.6f));
+    }
+
+    // --- Pinned header bar ---
+    DrawRectangleGradientV(0, 0, sw, HEADER_H + 8, ColorAlpha(BLACK, 0.96f), ColorAlpha(BLACK, 0));
+    DrawRectangle(0, 0, sw, HEADER_H, ColorAlpha(BLACK, 0.95f));
+    DrawLineEx({ 0, (float)HEADER_H }, { (float)sw, (float)HEADER_H }, 1.5f, ColorAlpha(ACCENT, 0.4f));
+    DrawTextEx(font, "MESSAGE HISTORY", { 18, 14 }, SP_SIZE + 10, 1, ACCENT);
+    int cnt = (int)history.size();
+    DrawText(TextFormat("%d entries", cnt), 22, (int)(14 + SP_SIZE + 12), 9, ColorAlpha(RAYWHITE, 0.4f));
+    DrawText("[ H ] or [ ESC ] to close  |  Mouse Wheel to scroll",
+             sw - 310, HEADER_H / 2 - 5, 10, ColorAlpha(RAYWHITE, 0.4f));
+
+    // --- Pinned footer bar ---
+    int fy = sh - FOOTER_H;
+    DrawRectangle(0, fy, sw, FOOTER_H, ColorAlpha(BLACK, 0.95f));
+    DrawLineEx({ 0, (float)fy }, { (float)sw, (float)fy }, 1.0f, ColorAlpha(ACCENT, 0.25f));
+    if (history.empty()) {
+        DrawText("No messages yet.", 18, fy + 10, 10, ColorAlpha(RAYWHITE, 0.3f));
+    } else {
+        const auto& last = history.back();
+        DrawText(TextFormat("Latest: [%s]  %s", last.speaker.c_str(),
+                 last.content.substr(0, 60).c_str()),
+                 18, fy + 10, 10, ColorAlpha(RAYWHITE, 0.45f));
+    }
 }
 
 void BitRenderer::DrawCustomCursor() {
