@@ -288,7 +288,7 @@ void BitRenderer::Draw() {
     BeginMode2D(cam);
         DrawBackground();
         DrawVFX(); // Vignette shakes with the camera now for more impact
-        DrawEntitySprite();
+        DrawEntitySprites();
         DrawMainBox();
         if (!m_engine.IsTextRevealing()) DrawChoiceBox();
     EndMode2D();
@@ -429,65 +429,63 @@ void BitRenderer::DrawBackground() {
     }
 }
 
-void BitRenderer::DrawEntitySprite() {
-    const auto* entity = m_engine.GetCurrentEntity();
-    const auto* node = m_engine.GetCurrentNode();
-    if (!entity || !node) return;
-
-    // Feature 2: Read entity display properties from active style
+void BitRenderer::DrawEntitySprites() {
     auto& style = m_styleManager.GetStyle();
-
-    std::string expr = m_engine.GetActiveExpression();
-    std::string path = ""; int frames = 1; float speed = 1.0f;
-    float scale = style.entityScale;
-
-    if (entity->sprites.count(expr)) {
-        auto& s = entity->sprites.at(expr); path = s.path; frames = s.frames; speed = s.speed;
-        // Sprite-level scale is a multiplier on top of the style scale
-        scale = s.scale * style.entityScale / 3.0f;
-    } else if (entity->sprites.count("idle")) {
-        auto& s = entity->sprites.at("idle"); path = s.path; frames = s.frames; speed = s.speed;
-        scale = s.scale * style.entityScale / 3.0f;
-    }
-
-    Texture2D tex = path.empty() ? m_fallbackTexture : GetTexture(path);
-    int finalFrames = frames > 0 ? frames : 1;
-    m_animTimer += GetFrameTime();
-    if (m_animTimer >= 1.0f / (speed > 0 ? speed : 1.0f)) { m_animTimer = 0.0f; m_animFrame = (m_animFrame + 1) % finalFrames; }
-
-    float normX = entity->default_pos_x;
-    if (node->metadata.count("pos")) {
-        std::string p = node->metadata.at("pos");
-        if      (p == "left")   normX = 0.2f;
-        else if (p == "right")  normX = 0.8f;
-        else if (p == "center") normX = 0.5f;
-    }
-    if (node->metadata.count("pos_x")) {
-        try { normX = std::stof(node->metadata.at("pos_x")); } catch (...) {}
-    }
-    float normY = 0.45f;
-    if (node->metadata.count("pos_y")) {
-        try { normY = std::stof(node->metadata.at("pos_y")); } catch (...) {}
-    }
-
-    int fw = tex.width / finalFrames;
-    Rectangle src = { (float)(m_animFrame * fw), 0, (float)fw, (float)tex.height };
+    const auto& activeEntities = m_engine.GetActiveEntities();
     int sw = GetScreenWidth(), sh = GetScreenHeight();
 
-    // Feature 2: Use style-driven float amplitude and speed
-    m_floatOffset = m_engine.GetConfigs().enable_floating
-        ? sinf((float)GetTime() * style.entityFloatSpeed) * style.entityFloatAmplitude
-        : 0.0f;
+    for (const auto& [entityId, state] : activeEntities) {
+        const auto* entity = m_engine.GetEntity(entityId);
+        if (!entity) continue;
 
-    Vector2 pos = { (sw * normX) - (fw * scale) / 2.0f,
-                    (sh * normY) - (tex.height * scale) / 2.0f + m_floatOffset };
+        std::string expr = state.expression;
+        std::string path = ""; int frames = 1; float speed = 1.0f;
+        float scale = style.entityScale;
 
-    // Feature 2: Style-driven shadow opacity
-    if (m_engine.GetConfigs().enable_shadows)
-        DrawEllipse((int)pos.x + (int)(fw*scale/2), (int)pos.y + (int)(tex.height*scale),
-                    (int)(fw*scale/3), 10, Fade(BLACK, style.entityShadowOpacity));
+        if (entity->sprites.count(expr)) {
+            auto& s = entity->sprites.at(expr); path = s.path; frames = s.frames; speed = s.speed;
+            scale = s.scale * style.entityScale / 3.0f;
+        } else if (entity->sprites.count("idle")) {
+            auto& s = entity->sprites.at("idle"); path = s.path; frames = s.frames; speed = s.speed;
+            scale = s.scale * style.entityScale / 3.0f;
+        }
 
-    DrawTexturePro(tex, src, { pos.x, pos.y, fw * scale, tex.height * scale }, {0,0}, 0, WHITE);
+        Texture2D tex = path.empty() ? m_fallbackTexture : GetTexture(path);
+        int finalFrames = frames > 0 ? frames : 1;
+        
+        // Calculate animation frame
+        int currentFrame = (int)(GetTime() * speed) % finalFrames;
+
+        float normX = 0.5f; // Default to center if no position is specified
+        float normY = 0.45f;
+        
+        std::string p = state.pos;
+        if (!p.empty()) {
+            if      (p == "left")   normX = 0.2f;
+            else if (p == "right")  normX = 0.8f;
+            else if (p == "center") normX = 0.5f;
+            else {
+                try { normX = std::stof(p); } catch (...) {}
+            }
+        }
+
+        int fw = tex.width / finalFrames;
+        Rectangle src = { (float)(currentFrame * fw), 0, (float)fw, (float)tex.height };
+
+        m_floatOffset = m_engine.GetConfigs().enable_floating
+            ? sinf((float)GetTime() * style.entityFloatSpeed) * style.entityFloatAmplitude
+            : 0.0f;
+
+        Vector2 pos = { (sw * normX) - (fw * scale) / 2.0f,
+                        (sh * normY) - (tex.height * scale) / 2.0f + m_floatOffset };
+
+        if (m_engine.GetConfigs().enable_shadows) {
+            DrawEllipse((int)pos.x + (int)(fw*scale/2), (int)pos.y + (int)(tex.height*scale),
+                        (int)(fw*scale/3), 10, Fade(BLACK, style.entityShadowOpacity));
+        }
+
+        DrawTexturePro(tex, src, {pos.x, pos.y, fw * scale, tex.height * scale}, {0,0}, 0, WHITE);
+    }
 }
 
 void BitRenderer::DrawMainBox() {

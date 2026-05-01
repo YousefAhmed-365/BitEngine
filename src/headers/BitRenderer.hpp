@@ -168,7 +168,7 @@ protected:
     virtual void DrawBackground();
     virtual void DrawMainBox();
     virtual void DrawChoiceBox();
-    virtual void DrawEntitySprite();
+    virtual void DrawEntitySprites();
     virtual void DrawVFX();
     virtual void DrawDebugOverlay();
     virtual void HandleAudio();

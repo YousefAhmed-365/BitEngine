@@ -242,11 +242,11 @@ bool DialogParser::LoadDialogFile(const std::string& path, DialogProject& p) {
                             opt.conditions.push_back({ op, conds.value("var", ""), conds.value("value", 0) });
                         }
                     }
-                    if (o.contains("events")) for (auto& e : o["events"]) opt.events.push_back({ e.value("op", "set"), e.value("var", ""), e.value("value", 0), e.value("value_max", 0) });
+                    if (o.contains("events")) for (auto& e : o["events"]) opt.events.push_back({ e.value("op", "set"), e.value("var", ""), e.value("value", 0), e.value("value_max", 0), e.value("value_str", "") });
                     node.options.push_back(opt);
                 }
             }
-            if (n.contains("events")) for (auto& e : n["events"]) node.events.push_back({ e.value("op", "set"), e.value("var", ""), e.value("value", 0), e.value("value_max", 0) });
+            if (n.contains("events")) for (auto& e : n["events"]) node.events.push_back({ e.value("op", "set"), e.value("var", ""), e.value("value", 0), e.value("value_max", 0), e.value("value_str", "") });
             p.nodes[id] = node;
         }
     } catch (...) { return false; }
@@ -479,7 +479,11 @@ void DialogEngine::SaveGame(int slot) {
         j["version"] = sd.version; j["node_id"] = sd.current_node_id; j["variables"] = sd.variables;
         j["active_bg"] = m_activeBg;
         j["active_bgm"] = m_activeBgm;
-        j["active_expression"] = m_activeExpression;
+        json entities = json::object();
+        for (const auto& [id, state] : m_activeEntities) {
+            entities[id] = { {"expression", state.expression}, {"pos", state.pos} };
+        }
+        j["active_entities"] = entities;
         j["meta"] = { {"time", sd.meta.timestamp}, {"node", sd.meta.node_id}, {"char", sd.meta.entity_name}, {"text", sd.meta.summary} };
         std::string data = j.dump(4);
         if (m_project.configs.encrypt_save) data = XORBuffer(data);
@@ -502,7 +506,13 @@ bool DialogEngine::LoadGame(int slot) {
             
             if (j.contains("active_bg")) m_activeBg = j["active_bg"].get<std::string>();
             if (j.contains("active_bgm")) m_activeBgm = j["active_bgm"].get<std::string>();
-            if (j.contains("active_expression")) m_activeExpression = j["active_expression"].get<std::string>();
+            
+            if (j.contains("active_entities") && j["active_entities"].is_object()) {
+                m_activeEntities.clear();
+                for (auto& [id, state] : j["active_entities"].items()) {
+                    m_activeEntities[id] = { state.value("expression", "idle"), state.value("pos", "") };
+                }
+            }
             if (j.contains("variables") && j["variables"].is_object()) {
                 for (auto& [id, val] : j["variables"].items()) {
                     if (m_project.variables.count(id)) m_variables[id] = val.get<int>();
@@ -559,7 +569,18 @@ void DialogEngine::StartDialog(const std::string& startId) {
     
     if (m_currentNode->metadata.count("bg")) m_activeBg = m_currentNode->metadata.at("bg");
     if (m_currentNode->metadata.count("bgm")) m_activeBgm = m_currentNode->metadata.at("bgm");
-    if (m_currentNode->metadata.count("expression")) m_activeExpression = m_currentNode->metadata.at("expression");
+    
+    // Scene management: Clear sprites unless this node is explicitly "joining" the current setup
+    bool isJoining = m_currentNode->metadata.count("join") && m_currentNode->metadata.at("join") == "true";
+    if (!isJoining) m_activeEntities.clear();
+    
+    // Auto-show/update speaker for backward compatibility or convenience
+    if (!m_currentNode->entity.empty() && m_currentNode->entity != "system") {
+        auto& state = m_activeEntities[m_currentNode->entity];
+        if (m_currentNode->metadata.count("expression")) state.expression = m_currentNode->metadata.at("expression");
+        if (m_currentNode->metadata.count("pos")) state.pos = m_currentNode->metadata.at("pos");
+        if (m_currentNode->metadata.count("pos_x")) state.pos = m_currentNode->metadata.at("pos_x");
+    }
 
     m_cachedInterpolatedContent = InterpolateVariables(m_currentNode->content);
     m_cachedParsedContent = RichTextParser::Parse(m_cachedInterpolatedContent);
@@ -717,7 +738,11 @@ const std::vector<std::string>& DialogEngine::ConsumePendingSFX() {
 }
 
 void DialogEngine::ProcessEvents(const std::vector<Event>& events) {
-    static const std::unordered_set<std::string> VALID_OPS = {"set", "add", "sub", "mul", "shake", "random", "play_sfx", "jump", "delay"};
+    static const std::unordered_set<std::string> VALID_OPS = {
+        "set", "add", "sub", "mul", "shake", "random", "play_sfx", "jump", "delay", 
+        "show_sprite", "hide_sprite", "pos_sprite", "clear_sprites",
+        "expression", "pos", "hide" // Unified names
+    };
     for (const auto& e : events) {
         if (!VALID_OPS.count(e.op)) { RecordError("ProcessEvents", "Unknown op '" + e.op + "' — skipping."); continue; }
         
@@ -726,7 +751,22 @@ void DialogEngine::ProcessEvents(const std::vector<Event>& events) {
         if (e.op == "play_sfx") { m_pendingSFX.push_back(e.var); continue; }
         if (e.op == "jump") { m_pendingJumpId = e.var; continue; }
         if (e.op == "delay") { m_engineDelayTimer = (float)e.value / 1000.0f; continue; }
+        if (e.op == "clear_sprites") { m_activeEntities.clear(); continue; }
         
+        // Sprite Management (Unified + Legacy)
+        if (e.op == "show_sprite" || e.op == "expression") {
+            m_activeEntities[e.var].expression = e.value_str.empty() ? "idle" : e.value_str;
+            continue;
+        }
+        if (e.op == "hide_sprite" || e.op == "hide") {
+            m_activeEntities.erase(e.var);
+            continue;
+        }
+        if (e.op == "pos_sprite" || e.op == "pos") {
+            m_activeEntities[e.var].pos = e.value_str;
+            continue;
+        }
+
         // Variable Operations
         if (!e.var.empty() && !m_project.variables.count(e.var)) {
             RecordError("ProcessEvents", "Event op '" + e.op + "' references undeclared variable '" + e.var + "' — skipping.");
@@ -786,7 +826,10 @@ ValidationResult DialogEngine::ValidateProject(const DialogProject& p) {
         if (node.next_id && *node.next_id != "dialog_end" && !node.next_id->empty() && !p.nodes.count(*node.next_id))
             errors.push_back({nodeId, "next_id", "next_id '" + *node.next_id + "' does not exist."});
         for (const auto& e : node.events)
-            if (e.op != "shake" && e.op != "play_sfx" && e.op != "jump" && e.op != "delay" && !e.var.empty() && !p.variables.count(e.var))
+            if (e.op != "shake" && e.op != "play_sfx" && e.op != "jump" && e.op != "delay" && 
+                e.op != "show_sprite" && e.op != "hide_sprite" && e.op != "pos_sprite" && e.op != "clear_sprites" &&
+                e.op != "expression" && e.op != "pos" && e.op != "hide" &&
+                !e.var.empty() && !p.variables.count(e.var))
                 errors.push_back({nodeId, "events", "Event references undeclared variable '" + e.var + "'."});
         for (const auto& opt : node.options) {
             if (!opt.next_id.empty() && opt.next_id != "dialog_end" && !p.nodes.count(opt.next_id))
@@ -795,7 +838,10 @@ ValidationResult DialogEngine::ValidateProject(const DialogProject& p) {
                 if (!p.variables.count(c.var))
                     errors.push_back({nodeId, "options.conditions", "Condition references undeclared variable '" + c.var + "'."});
             for (const auto& e : opt.events)
-                if (e.op != "shake" && e.op != "play_sfx" && e.op != "jump" && e.op != "delay" && !e.var.empty() && !p.variables.count(e.var))
+                if (e.op != "shake" && e.op != "play_sfx" && e.op != "jump" && e.op != "delay" && 
+                    e.op != "show_sprite" && e.op != "hide_sprite" && e.op != "pos_sprite" && e.op != "clear_sprites" &&
+                    e.op != "expression" && e.op != "pos" && e.op != "hide" &&
+                    !e.var.empty() && !p.variables.count(e.var))
                     errors.push_back({nodeId, "options.events", "Option event references undeclared variable '" + e.var + "'."});
         }
     }

@@ -34,7 +34,7 @@ public:
 };
 
 struct Condition { std::string op, var; int value; };
-struct Event { std::string op, var; int value; int value_max = 0; };
+struct Event { std::string op, var; int value; int value_max = 0; std::string value_str = ""; };
 
 struct DialogOption {
     std::string content, next_id, style;
@@ -57,6 +57,11 @@ struct Entity {
 
 struct VariableDef { std::string id = ""; int initial_value = 0; std::optional<int> min = std::nullopt, max = std::nullopt; };
 
+struct ActiveEntityState {
+    std::string expression = "idle";
+    std::string pos = "";
+};
+
 struct DialogNode {
     std::string entity = "", content = "";
     std::optional<std::string> next_id = std::nullopt;
@@ -78,7 +83,7 @@ struct SaveData {
     std::unordered_map<std::string, int> variables;
     std::string active_bg;
     std::string active_bgm;
-    std::string active_expression;
+    std::unordered_map<std::string, ActiveEntityState> active_entities;
     SaveMetadata meta;
 };
 
@@ -155,6 +160,7 @@ public:
     const DialogNode* GetCurrentNode() const { return m_currentNode; }
     std::string GetCurrentNodeId() const { return m_currentNodeId; }
     const Entity* GetCurrentEntity() const;
+    const Entity* GetEntity(const std::string& id) const { return m_project.entities.count(id) ? &m_project.entities.at(id) : nullptr; }
     const std::vector<DialogOption>& GetVisibleOptions() const { return m_visibleOptions; }
     const DialogConfigs& GetConfigs() const { return m_project.configs; }
     DialogProject& GetProject() { return m_project; }
@@ -172,7 +178,7 @@ public:
     // Active Persistent States (Retained across nodes and saves)
     std::string GetActiveBg() const { return m_activeBg; }
     std::string GetActiveBgm() const { return m_activeBgm; }
-    std::string GetActiveExpression() const { return m_activeExpression; }
+    const std::unordered_map<std::string, ActiveEntityState>& GetActiveEntities() const { return m_activeEntities; }
 
     // Conditional Audio Playback (Event-driven)
     const std::vector<std::string>& ConsumePendingSFX();
@@ -215,7 +221,7 @@ private:
 
     std::string m_activeBg = "";
     std::string m_activeBgm = "";
-    std::string m_activeExpression = "idle";
+    std::unordered_map<std::string, ActiveEntityState> m_activeEntities;
 
     // Debug state
     std::vector<EventTraceEntry> m_eventTrace;
