@@ -126,6 +126,10 @@ bool DialogEngine::LoadProject(const std::string& configFilePath) {
         return true;
     }
 
+    if (configFilePath.size() > 5 && configFilePath.substr(configFilePath.size() - 5) == ".bitc") {
+        return LoadBytecodeFile(configFilePath);
+    }
+
     m_project = BitJsonInterpreter::ParseConfig(configFilePath);
     
     for (const auto& f : m_project.configs.entity_files)
@@ -230,6 +234,166 @@ void DialogEngine::CompileProject(const std::string& outputPath) {
     data = XORBuffer(data);
     std::ofstream f(outputPath, std::ios::binary);
     f.write(data.data(), data.size());
+}
+
+// ── BitScript VM Bytecode I/O ─────────────────────────────────────────────────
+
+static const char* BITC_MAGIC = "BITC";
+static const int   BITC_VERSION = 1;
+
+static std::string OpToStr(BitOp op) {
+    switch(op) {
+        case BitOp::TEXT:    return "TEXT";
+        case BitOp::SAY:     return "SAY";
+        case BitOp::CHOICE:  return "CHOICE";
+        case BitOp::IF:      return "IF";
+        case BitOp::IF_REF:  return "IF_REF";
+        case BitOp::GOTO:    return "GOTO";
+        case BitOp::SET:     return "SET";
+        case BitOp::SET_REF: return "SET_REF";
+        case BitOp::ADD:     return "ADD";
+        case BitOp::ADD_REF: return "ADD_REF";
+        case BitOp::SUB:     return "SUB";
+        case BitOp::SUB_REF: return "SUB_REF";
+        case BitOp::MUL:     return "MUL";
+        case BitOp::MUL_REF: return "MUL_REF";
+        case BitOp::DIV:     return "DIV";
+        case BitOp::DIV_REF: return "DIV_REF";
+        case BitOp::EVENT:   return "EVENT";
+        case BitOp::BG:      return "BG";
+        case BitOp::BGM:     return "BGM";
+        case BitOp::LABEL:   return "LABEL";
+        case BitOp::HALT:    return "HALT";
+        default:             return "NOP";
+    }
+}
+
+static BitOp StrToOp(const std::string& s) {
+    if (s=="TEXT")    return BitOp::TEXT;
+    if (s=="SAY")     return BitOp::SAY;
+    if (s=="CHOICE")  return BitOp::CHOICE;
+    if (s=="IF")      return BitOp::IF;
+    if (s=="IF_REF")  return BitOp::IF_REF;
+    if (s=="GOTO")    return BitOp::GOTO;
+    if (s=="SET")     return BitOp::SET;
+    if (s=="SET_REF") return BitOp::SET_REF;
+    if (s=="ADD")     return BitOp::ADD;
+    if (s=="ADD_REF") return BitOp::ADD_REF;
+    if (s=="SUB")     return BitOp::SUB;
+    if (s=="SUB_REF") return BitOp::SUB_REF;
+    if (s=="MUL")     return BitOp::MUL;
+    if (s=="MUL_REF") return BitOp::MUL_REF;
+    if (s=="DIV")     return BitOp::DIV;
+    if (s=="DIV_REF") return BitOp::DIV_REF;
+    if (s=="EVENT")   return BitOp::EVENT;
+    if (s=="BG")      return BitOp::BG;
+    if (s=="BGM")     return BitOp::BGM;
+    if (s=="LABEL")   return BitOp::LABEL;
+    if (s=="HALT")    return BitOp::HALT;
+    return BitOp::HALT;
+}
+
+bool DialogEngine::SaveBytecode(const std::string& path) const {
+    if (m_project.bytecode.empty()) {
+        Log("SaveBytecode: no bytecode to save.", "WARN");
+        return false;
+    }
+    json root;
+    root["magic"]   = BITC_MAGIC;
+    root["version"] = BITC_VERSION;
+
+    // Project metadata (entities, assets, variables, configs)
+    root["configs"]["start_node"]    = m_project.configs.start_node;
+    root["configs"]["mode"]          = m_project.configs.mode;
+    root["configs"]["reveal_speed"]  = m_project.configs.reveal_speed;
+    root["configs"]["auto_play_delay"]= m_project.configs.auto_play_delay;
+    root["configs"]["auto_save"]     = m_project.configs.auto_save;
+
+    for (auto& [k,v] : m_project.backgrounds) root["backgrounds"][k] = v;
+    for (auto& [k,v] : m_project.music)        root["music"][k]       = v;
+    for (auto& [k,v] : m_project.sfx)          root["sfx"][k]         = v;
+    for (auto& [k,v] : m_project.fonts)        root["fonts"][k]       = v;
+    for (auto& [k,v] : m_project.variables)
+        root["variables"][k] = { {"id", v.id}, {"initial_value", v.initial_value} };
+    for (auto& [k,e] : m_project.entities) {
+        json ej = { {"id",e.id},{"name",e.name},{"type",e.type},{"default_pos_x",e.default_pos_x} };
+        for (auto& [sn,sd] : e.sprites)
+            ej["sprites"][sn] = { {"path",sd.path},{"frames",sd.frames},{"speed",sd.speed},{"scale",sd.scale} };
+        root["entities"][k] = ej;
+    }
+
+    // Bytecode instructions
+    json bc = json::array();
+    for (const auto& ins : m_project.bytecode) {
+        json inj;
+        inj["op"]   = OpToStr(ins.op);
+        inj["args"] = ins.args;
+        if (!ins.metadata.empty()) inj["meta"] = ins.metadata;
+        bc.push_back(inj);
+    }
+    root["bytecode"] = bc;
+
+    std::string data = root.dump(2);
+    std::ofstream f(path);
+    if (!f) { Log("SaveBytecode: failed to open '" + path + "' for writing.", "ERROR"); return false; }
+    f << data;
+    Log("Saved bytecode to: " + path + " (" + std::to_string(m_project.bytecode.size()) + " instructions)");
+    return true;
+}
+
+bool DialogEngine::LoadBytecodeFile(const std::string& path) {
+    Log("Loading bytecode file: " + path);
+    std::ifstream f(path);
+    if (!f) { Log("LoadBytecodeFile: file not found: " + path, "ERROR"); return false; }
+    json root;
+    try { root = json::parse(f); }
+    catch (const std::exception& e) { Log(std::string("LoadBytecodeFile: parse error: ") + e.what(), "ERROR"); return false; }
+
+    if (root.value("magic","") != BITC_MAGIC) { Log("LoadBytecodeFile: invalid magic.", "ERROR"); return false; }
+
+    // Restore project metadata
+    if (root.contains("configs")) {
+        auto& c = root["configs"];
+        m_project.configs.start_node    = c.value("start_node","dialog_start");
+        m_project.configs.mode          = c.value("mode","typewriter");
+        m_project.configs.reveal_speed  = c.value("reveal_speed", 45.0f);
+        m_project.configs.auto_play_delay= c.value("auto_play_delay",2.0f);
+        m_project.configs.auto_save     = c.value("auto_save",false);
+    }
+    if (root.contains("backgrounds")) for (auto& [k,v] : root["backgrounds"].items()) m_project.backgrounds[k] = v;
+    if (root.contains("music"))        for (auto& [k,v] : root["music"].items())        m_project.music[k]       = v;
+    if (root.contains("sfx"))          for (auto& [k,v] : root["sfx"].items())          m_project.sfx[k]         = v;
+    if (root.contains("fonts"))        for (auto& [k,v] : root["fonts"].items())        m_project.fonts[k]       = v;
+    if (root.contains("variables"))
+        for (auto& [k,vj] : root["variables"].items()) {
+            VariableDef vd; vd.id = vj.value("id",k); vd.initial_value = vj.value("initial_value",0);
+            m_project.variables[k] = vd; m_variables[k] = vd.initial_value;
+        }
+    if (root.contains("entities"))
+        for (auto& [k,ej] : root["entities"].items()) {
+            Entity e; e.id = ej.value("id",k); e.name = ej.value("name","Unknown");
+            e.type = ej.value("type","char"); e.default_pos_x = ej.value("default_pos_x",0.5f);
+            if (ej.contains("sprites"))
+                for (auto& [sn,sd] : ej["sprites"].items()) {
+                    SpriteDef sdef; sdef.path = sd.value("path","");
+                    sdef.frames = sd.value("frames",1); sdef.speed = sd.value("speed",5.0f); sdef.scale = sd.value("scale",1.0f);
+                    e.sprites[sn] = sdef;
+                }
+            m_project.entities[k] = e;
+        }
+
+    // Restore bytecode
+    if (!root.contains("bytecode")) { Log("LoadBytecodeFile: no bytecode array.", "ERROR"); return false; }
+    m_project.bytecode.clear();
+    for (auto& inj : root["bytecode"]) {
+        BitInstruction ins;
+        ins.op   = StrToOp(inj.value("op","HALT"));
+        ins.args = inj.value("args", std::vector<std::string>{});
+        if (inj.contains("meta")) ins.metadata = inj["meta"];
+        m_project.bytecode.push_back(ins);
+    }
+    Log("Loaded " + std::to_string(m_project.bytecode.size()) + " bytecode instructions from " + path);
+    return true;
 }
 
 bool DialogEngine::LoadCompiledProject(const std::string& binPath) {
@@ -861,6 +1025,10 @@ std::string DialogEngine::InterpolateVariables(const std::string& text) const {
 int DialogEngine::GetVariable(const std::string& name) const { auto it = m_variables.find(name); return (it != m_variables.end()) ? it->second : 0; }
 
 void DialogEngine::SetVariable(const std::string& name, int value) {
+    if (name.substr(0, 5) == "__tmp") {
+        m_variables[name] = value;
+        return;
+    }
     auto it = m_project.variables.find(name);
     if (it == m_project.variables.end()) {
         RecordError("SetVariable", "Variable '" + name + "' is not declared — ignoring.");
@@ -954,7 +1122,7 @@ void DialogEngine::ProcessEvents(const std::vector<Event>& events) {
 
         // Variable ops (INSTANT)
         std::string var = p.value("var", "");
-        if (!var.empty() && !m_project.variables.count(var)) {
+        if (!var.empty() && var.substr(0, 5) != "__tmp" && !m_project.variables.count(var)) {
             RecordError("ProcessEvents", "Op '" + e.op + "' references undeclared variable '" + var + "' — skipping.");
             continue;
         }
@@ -980,7 +1148,7 @@ void DialogEngine::RecordError(const std::string& context, const std::string& ms
     Log(full, "ERROR");
 }
 
-void DialogEngine::Log(const std::string& msg, const std::string& level) {
+void DialogEngine::Log(const std::string& msg, const std::string& level) const {
     std::string mode = m_project.configs.debug_mode;
     bool isError = (level == "ERROR");
     if (mode == "none" && !isError) return;

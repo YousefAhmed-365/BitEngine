@@ -222,7 +222,9 @@ public:
     DialogEngine();
     bool LoadProject(const std::string& configFilePath);
     bool LoadCompiledProject(const std::string& binPath);
+    bool LoadBytecodeFile(const std::string& path);   // Load .bitc VM bytecode
     void CompileProject(const std::string& outputPath);
+    bool SaveBytecode(const std::string& path) const; // Export .bitc VM bytecode
     
     void SaveGame(int slot = 0); 
     bool LoadGame(int slot = 0);
@@ -253,7 +255,7 @@ public:
     const DialogConfigs& GetConfigs() const { return m_project.configs; }
     DialogProject& GetProject() { return m_project; }
     std::string GetDebugMode() const { return m_project.configs.debug_mode; }
-    void Log(const std::string& msg, const std::string& level = "INFO");
+    void Log(const std::string& msg, const std::string& level = "INFO") const;
     bool IsDebugOverlayVisible() const { return m_debugOverlayVisible; }
     void ToggleDebugOverlay() { m_debugOverlayVisible = !m_debugOverlayVisible; }
     void SetDebugOverlayVisible(bool visible) { m_debugOverlayVisible = visible; }

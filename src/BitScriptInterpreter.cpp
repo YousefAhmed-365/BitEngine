@@ -13,7 +13,8 @@ bool BitScriptLexer::IsKeyword(const std::string& s) {
         "config", "var", "entities", "assets", "backgrounds", "music", "sfx", "fonts",
         "sprite", "scene", "choice", "jump", "if", "and", "or", "true", "false", 
         "left", "right", "center", "bg", "bgm",
-        "shake", "delay", "fade", "move", "fade_screen", "halt"
+        "shake", "delay", "fade", "move", "fade_screen", "halt",
+        "play_sfx", "expression", "hide", "pos", "clear", "random"
     };
     for (const auto& k : kw) if (k == s) return true;
     return false;
@@ -293,6 +294,56 @@ void BitScriptParser::ParseScene() {
             expect(TokenType::Symbol, ";");
             nlohmann::json j; j["op"] = "delay"; j["duration"] = std::stoi(dur.val);
             p.bytecode.push_back({BitOp::EVENT, {"delay"}, j});
+        }
+        else if (match(TokenType::Keyword, "play_sfx")) {
+            // play_sfx id;
+            std::string id = consume().value;
+            expect(TokenType::Symbol, ";");
+            nlohmann::json j; j["op"] = "play_sfx"; j["id"] = id;
+            p.bytecode.push_back({BitOp::EVENT, {"play_sfx"}, j});
+        }
+        else if (match(TokenType::Keyword, "expression")) {
+            // expression target, id;
+            std::string target = consume().value;
+            expect(TokenType::Symbol, ",");
+            std::string id = consume().value;
+            expect(TokenType::Symbol, ";");
+            nlohmann::json j; j["op"] = "expression"; j["target"] = target; j["id"] = id;
+            p.bytecode.push_back({BitOp::EVENT, {"expression"}, j});
+        }
+        else if (match(TokenType::Keyword, "hide")) {
+            // hide target;
+            std::string target = consume().value;
+            expect(TokenType::Symbol, ";");
+            nlohmann::json j; j["op"] = "hide"; j["target"] = target;
+            p.bytecode.push_back({BitOp::EVENT, {"hide"}, j});
+        }
+        else if (match(TokenType::Keyword, "pos")) {
+            // pos target, x;
+            std::string target = consume().value;
+            expect(TokenType::Symbol, ",");
+            std::string x = consume().value;
+            expect(TokenType::Symbol, ";");
+            nlohmann::json j; j["op"] = "pos"; j["target"] = target; j["x"] = x;
+            p.bytecode.push_back({BitOp::EVENT, {"pos"}, j});
+        }
+        else if (match(TokenType::Keyword, "clear")) {
+            // clear;  — remove all entities from scene
+            expect(TokenType::Symbol, ";");
+            nlohmann::json j; j["op"] = "clear";
+            p.bytecode.push_back({BitOp::EVENT, {"clear"}, j});
+        }
+        else if (match(TokenType::Keyword, "random")) {
+            // random var, min, max;
+            std::string var = consume().value;
+            expect(TokenType::Symbol, ",");
+            Operand lo = ParseExpression(p.bytecode);
+            expect(TokenType::Symbol, ",");
+            Operand hi = ParseExpression(p.bytecode);
+            expect(TokenType::Symbol, ";");
+            nlohmann::json j; j["op"] = "random"; j["var"] = var;
+            j["min"] = std::stoi(lo.val); j["max"] = std::stoi(hi.val);
+            p.bytecode.push_back({BitOp::EVENT, {"random"}, j});
         }
         else if (match(TokenType::Keyword, "fade")) {
             // fade target, alpha/id, duration;
