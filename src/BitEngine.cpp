@@ -683,11 +683,39 @@ void DialogEngine::SelectOption(int index) {
 }
 
 void DialogEngine::Next() {
-    if (!m_isActive || IsEventDelaying() || !m_pendingJumpId.empty()) return;
+    if (!m_isActive || IsEventDelaying() || !m_pendingJumpId.empty() || m_isTransitioning) return;
     if (IsTextRevealing()) { SkipReveal(); return; }
     if (!m_visibleOptions.empty()) return;
 
-    // If an event previously triggered a jump/delay, we shouldn't proceed normally
+    // Check for transition metadata
+    if (m_currentNode && m_currentNode->metadata.count("transition") && !m_isTransitioning) {
+        std::string type = m_currentNode->metadata.at("transition");
+        if (type == "fade_black") {
+            m_isTransitioning = true;
+            m_transitionState = 0; // Fading to black
+            m_transitionTargetNode = m_currentNode->next_id.value_or("dialog_end");
+            
+            float duration = 0.6f;
+            if (m_currentNode->metadata.count("transition_duration")) {
+                try { duration = std::stof(m_currentNode->metadata.at("transition_duration")) / 1000.0f; } catch(...) {}
+            }
+            m_transitionDurationVal = duration;
+            
+            float postDelay = 0.0f;
+            if (m_currentNode->metadata.count("transition_delay")) {
+                try { postDelay = std::stof(m_currentNode->metadata.at("transition_delay")) / 1000.0f; } catch(...) {}
+            }
+            m_transitionPostDelay = postDelay;
+
+            m_screenFadeTarget = 1.0f;
+            m_screenFadeStart = m_screenFadeAlpha;
+            m_screenFadeDuration = m_transitionDurationVal;
+            m_screenFadeTimer = 0.0f;
+            m_isUiHidden = true; // Hide UI during transition
+            return; 
+        }
+    }
+
     std::string nId = m_currentNode->next_id.value_or("dialog_end");
     if (nId == "dialog_end") { m_isActive = false; m_currentNode = nullptr; }
     else StartDialog(nId);
@@ -696,6 +724,48 @@ void DialogEngine::Next() {
 void DialogEngine::Update(float dt) {
     if (!m_isActive || !m_currentNode || m_project.configs.mode == "instant") return;
     
+    // 1. Transition and Screen Fade updates (These must always run)
+    if (m_isTransitioning) {
+        if (m_transitionState == 0) {
+            if (m_screenFadeAlpha >= 0.98f) {
+                m_transitionState = 1;
+                if (m_transitionTargetNode == "dialog_end") {
+                    m_isActive = false; m_currentNode = nullptr; m_isTransitioning = false;
+                } else {
+                    StartDialog(m_transitionTargetNode);
+                    m_screenFadeTarget = 0.0f; m_screenFadeStart = 1.0f;
+                    m_screenFadeDuration = m_transitionDurationVal; 
+                    m_screenFadeTimer = 0.0f;
+                }
+            }
+        } else if (m_transitionState == 1) {
+            if (m_screenFadeAlpha <= 0.02f) {
+                if (m_transitionPostDelay > 0.0f) {
+                    m_transitionState = 2;
+                    m_transitionTimer = 0.0f;
+                } else {
+                    m_isTransitioning = false;
+                }
+            }
+        } else if (m_transitionState == 2) {
+            m_transitionTimer += dt;
+            if (m_transitionTimer >= m_transitionPostDelay) {
+                m_isTransitioning = false;
+            }
+        }
+    }
+
+    if (m_screenFadeTimer < m_screenFadeDuration) {
+        m_screenFadeTimer += dt;
+        float t = std::min(1.0f, m_screenFadeTimer / m_screenFadeDuration);
+        m_screenFadeAlpha = m_screenFadeStart + (m_screenFadeTarget - m_screenFadeStart) * t;
+        if (m_screenFadeTimer >= m_screenFadeDuration) m_screenFadeAlpha = m_screenFadeTarget;
+    }
+
+    // 2. Pause normal narrative processing while transitioning
+    if (m_isTransitioning) return;
+
+    // 3. Normal Narrative Processing
     if (IsTextRevealing()) {
         if (m_waitTimer > 0.0f) {
             m_waitTimer -= dt;
@@ -704,7 +774,6 @@ void DialogEngine::Update(float dt) {
             if (currentIdx < (int)m_cachedParsedContent.size()) {
                 if (m_cachedParsedContent[currentIdx].waitBefore > 0.0f) {
                     m_waitTimer = m_cachedParsedContent[currentIdx].waitBefore;
-                    // Reset to avoid waiting again
                     m_cachedParsedContent[currentIdx].waitBefore = 0.0f;
                 } else {
                     float spd = m_project.configs.reveal_speed * m_cachedParsedContent[currentIdx].speedMod;
@@ -715,26 +784,15 @@ void DialogEngine::Update(float dt) {
         }
     }
     
-    // Decay shake effect
     if (m_shakeIntensity > 0) m_shakeIntensity = std::max(0.0f, m_shakeIntensity - dt * 20.0f);
 
-    // Auto-advance if text is done and auto_next is set
     if (!IsTextRevealing() && m_isAutoNext && m_waitTimer <= 0.0f) {
         Next();
     }
 
-    // Background fading
     if (m_bgFadeAlpha < 1.0f) {
         m_bgFadeTimer += dt;
         m_bgFadeAlpha = std::min(1.0f, m_bgFadeTimer / m_bgFadeDuration);
-    }
-
-    // Screen fading
-    if (m_screenFadeTimer < m_screenFadeDuration) {
-        m_screenFadeTimer += dt;
-        float t = std::min(1.0f, m_screenFadeTimer / m_screenFadeDuration);
-        m_screenFadeAlpha = m_screenFadeStart + (m_screenFadeTarget - m_screenFadeStart) * t;
-        if (m_screenFadeTimer >= m_screenFadeDuration) m_screenFadeAlpha = m_screenFadeTarget;
     }
 
     // Entity Interpolation

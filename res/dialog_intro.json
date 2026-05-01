@@ -74,7 +74,10 @@
         "next_id": "scene_market_start",
         "metadata": {
             "auto_next": "true",
-            "join": "true"
+            "join": "true",
+            "transition": "fade_black",
+            "transition_duration": "1000",
+            "transition_delay": "500"
         },
         "events": [
             { "op": "fade", "var": "bg", "value_str": "market_bg", "value": 2000 },

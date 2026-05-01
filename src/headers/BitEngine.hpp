@@ -202,7 +202,8 @@ public:
     
     const std::string& GetActiveBgm() const { return m_activeBgm; }
     
-    bool IsUiHidden() const { return m_isUiHidden; }
+    bool IsUiHidden() const { return m_isUiHidden || m_isTransitioning; }
+    bool IsTransitioning() const { return m_isTransitioning; }
     bool IsAutoNext() const { return m_isAutoNext; }
     const std::map<std::string, ActiveEntityState>& GetActiveEntities() const { return m_activeEntities; }
 
@@ -258,6 +259,14 @@ private:
     float m_screenFadeTimer = 0.0f;
     float m_screenFadeDuration = 0.0f;
     BitColor m_screenFadeColor = {0,0,0,255};
+
+    // Transition state machine
+    bool m_isTransitioning = false;
+    int m_transitionState = 0; // 0: Fading in, 1: Fading out, 2: Post-delay
+    std::string m_transitionTargetNode = "";
+    float m_transitionDurationVal = 0.6f;
+    float m_transitionPostDelay = 0.0f;
+    float m_transitionTimer = 0.0f;
 
     std::string m_activeBgm = "";
     bool m_isUiHidden = false;
