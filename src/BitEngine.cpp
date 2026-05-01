@@ -607,8 +607,19 @@ void DialogEngine::StartDialog(const std::string& startId) {
     m_isUiHidden = m_currentNode->metadata.count("hide_ui") && m_currentNode->metadata.at("hide_ui") == "true";
     m_isAutoNext = m_currentNode->metadata.count("auto_next") && m_currentNode->metadata.at("auto_next") == "true";
     
-    // Scene management: Clear sprites unless this node is explicitly "joining" the current setup
+    if (m_currentNode->metadata.count("pre_delay")) {
+        try { m_engineDelayTimer = std::stof(m_currentNode->metadata.at("pre_delay")) / 1000.0f; } catch(...) {}
+    }
+
+    // Scene management: Smart joining
+    // If 'join' is true OR if the current speaker is already in the scene, we don't clear.
+    // System nodes ("system") also auto-join by default to preserve the scene.
     bool isJoining = m_currentNode->metadata.count("join") && m_currentNode->metadata.at("join") == "true";
+    if (!isJoining && !m_currentNode->entity.empty()) {
+        if (m_currentNode->entity == "system") isJoining = true;
+        else if (m_activeEntities.count(m_currentNode->entity)) isJoining = true;
+    }
+    
     if (!isJoining) m_activeEntities.clear();
     
     // Auto-show/update speaker for backward compatibility or convenience
@@ -716,6 +727,14 @@ void DialogEngine::Update(float dt) {
     if (m_bgFadeAlpha < 1.0f) {
         m_bgFadeTimer += dt;
         m_bgFadeAlpha = std::min(1.0f, m_bgFadeTimer / m_bgFadeDuration);
+    }
+
+    // Screen fading
+    if (m_screenFadeTimer < m_screenFadeDuration) {
+        m_screenFadeTimer += dt;
+        float t = std::min(1.0f, m_screenFadeTimer / m_screenFadeDuration);
+        m_screenFadeAlpha = m_screenFadeStart + (m_screenFadeTarget - m_screenFadeStart) * t;
+        if (m_screenFadeTimer >= m_screenFadeDuration) m_screenFadeAlpha = m_screenFadeTarget;
     }
 
     // Entity Interpolation
@@ -841,7 +860,7 @@ void DialogEngine::ProcessEvents(const std::vector<Event>& events) {
         "set", "add", "sub", "mul", "shake", "random", "play_sfx", "jump", "delay", 
         "show_sprite", "hide_sprite", "pos_sprite", "clear_sprites",
         "expression", "pos", "hide", // Unified names
-        "move", "fade" // New cinematic ops
+        "move", "fade", "fade_screen" // New cinematic ops
     };
     for (const auto& e : events) {
         if (!VALID_OPS.count(e.op)) { RecordError("ProcessEvents", "Unknown op '" + e.op + "' — skipping."); continue; }
@@ -902,6 +921,15 @@ void DialogEngine::ProcessEvents(const std::vector<Event>& events) {
                 state.fadeTimer = 0.0f;
                 if (state.fadeDuration <= 0.0f) state.alpha = state.targetAlpha;
             }
+            continue;
+        }
+
+        if (e.op == "fade_screen") {
+            m_screenFadeTarget = std::stof(e.value_str);
+            m_screenFadeStart = m_screenFadeAlpha;
+            m_screenFadeDuration = (float)e.value / 1000.0f;
+            m_screenFadeTimer = 0.0f;
+            if (m_screenFadeDuration <= 0.0f) m_screenFadeAlpha = m_screenFadeTarget;
             continue;
         }
 

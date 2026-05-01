@@ -635,6 +635,14 @@ void BitRenderer::DrawVFX() {
         DrawTexturePro(m_vignette, {0,0,64,64},
                        {0,0,(float)GetScreenWidth(),(float)GetScreenHeight()},
                        {0,0}, 0, Fade(WHITE, style.vignetteOpacity));
+    
+    // Feature: Global Screen Fade
+    float screenFade = m_engine.GetScreenFadeAlpha();
+    if (screenFade > 0.01f) {
+        BitColor bc = m_engine.GetScreenFadeColor();
+        Color c = { bc.r, bc.g, bc.b, (unsigned char)(screenFade * 255.0f) };
+        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), c);
+    }
 }
 
 // ============================================================

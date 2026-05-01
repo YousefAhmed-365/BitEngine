@@ -7,8 +7,13 @@
             "bg": "alley_bg",
             "bgm": "neon_noir",
             "hide_ui": "false",
-            "auto_next": "true"
-        }
+            "auto_next": "true",
+            "pre_delay": "1000"
+        },
+        "events": [
+            { "op": "fade_screen", "value_str": "1.0", "value": 0 },
+            { "op": "fade_screen", "value_str": "0.0", "value": 2000 }
+        ]
     },
 
     "intro_cinematic": {
@@ -56,7 +61,7 @@
         "entity": "akira",
         "content": "Wait, I'm detecting a signature nearby. Let's move in.",
         "next_id": "alley_to_market",
-        "metadata": { "join": "true" },
+        "metadata": { },
         "events": [
             { "op": "move", "var": "akira", "value_str": "center", "value": 500 },
             { "op": "move", "var": "kael", "value_str": "0.9", "value": 400 }

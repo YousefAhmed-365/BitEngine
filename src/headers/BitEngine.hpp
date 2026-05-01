@@ -195,11 +195,16 @@ public:
     const std::string& GetActiveBg() const { return m_activeBg; }
     const std::string& GetPrevBg() const { return m_prevBg; }
     float GetBgFadeAlpha() const { return m_bgFadeAlpha; }
+    
+    // Screen fade
+    float GetScreenFadeAlpha() const { return m_screenFadeAlpha; }
+    BitColor GetScreenFadeColor() const { return m_screenFadeColor; }
+    
     const std::string& GetActiveBgm() const { return m_activeBgm; }
     
     bool IsUiHidden() const { return m_isUiHidden; }
     bool IsAutoNext() const { return m_isAutoNext; }
-    const std::unordered_map<std::string, ActiveEntityState>& GetActiveEntities() const { return m_activeEntities; }
+    const std::map<std::string, ActiveEntityState>& GetActiveEntities() const { return m_activeEntities; }
 
     // Conditional Audio Playback (Event-driven)
     const std::vector<std::string>& ConsumePendingSFX();
@@ -246,10 +251,18 @@ private:
     float m_bgFadeTimer = 0.0f;
     float m_bgFadeDuration = 0.0f;
 
+    // Screen fade state
+    float m_screenFadeAlpha = 0.0f;
+    float m_screenFadeTarget = 0.0f;
+    float m_screenFadeStart = 0.0f;
+    float m_screenFadeTimer = 0.0f;
+    float m_screenFadeDuration = 0.0f;
+    BitColor m_screenFadeColor = {0,0,0,255};
+
     std::string m_activeBgm = "";
     bool m_isUiHidden = false;
     bool m_isAutoNext = false;
-    std::unordered_map<std::string, ActiveEntityState> m_activeEntities;
+    std::map<std::string, ActiveEntityState> m_activeEntities;
 
     // Debug state
     std::vector<EventTraceEntry> m_eventTrace;
