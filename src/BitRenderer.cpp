@@ -366,6 +366,13 @@ void BitRenderer::HandleAudio() {
             m_lastSFX = path; 
         }
     }
+
+    // Feature: Event-driven SFX (play_sfx ops)
+    for (const auto& pending : m_engine.ConsumePendingSFX()) {
+        std::string sfxPath = m_engine.GetSFX(pending);
+        if (sfxPath.empty()) sfxPath = pending;
+        PlaySFX(sfxPath);
+    }
 }
 
 void BitRenderer::HandleInput() {

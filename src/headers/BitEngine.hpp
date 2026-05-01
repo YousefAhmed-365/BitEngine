@@ -34,7 +34,7 @@ public:
 };
 
 struct Condition { std::string op, var; int value; };
-struct Event { std::string op, var; int value; };
+struct Event { std::string op, var; int value; int value_max = 0; };
 
 struct DialogOption {
     std::string content, next_id, style;
@@ -166,6 +166,12 @@ public:
     std::string GetMusic(const std::string& id) const { return m_project.music.count(id) ? m_project.music.at(id) : ""; }
     std::string GetSFX(const std::string& id) const { return m_project.sfx.count(id) ? m_project.sfx.at(id) : ""; }
 
+    // Conditional Audio Playback (Event-driven)
+    const std::vector<std::string>& ConsumePendingSFX();
+
+    // Delay State
+    bool IsEventDelaying() const { return m_engineDelayTimer > 0.0f; }
+
     // Narrative Effects State
     float GetEffectShake() const { return m_shakeIntensity; }
     void TriggerShake(float intensity = 5.0f) { m_shakeIntensity = intensity; }
@@ -194,6 +200,10 @@ private:
     std::vector<RichChar> m_cachedParsedContent;
     size_t m_cachedTotalChars = 0;
     float m_shakeIntensity = 0.0f;
+
+    float m_engineDelayTimer = 0.0f;
+    std::string m_pendingJumpId = "";
+    std::vector<std::string> m_pendingSFX;
 
     // Debug state
     std::vector<EventTraceEntry> m_eventTrace;

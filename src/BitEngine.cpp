@@ -7,7 +7,9 @@
 #include <algorithm>
 #include <unordered_set>
 #include <ctime>
+#include <ctime>
 #include <sys/stat.h>
+#include <random>
 
 using json = nlohmann::json;
 static const std::string KEY = BITENGINE_KEY;
@@ -242,11 +244,11 @@ bool DialogParser::LoadDialogFile(const std::string& path, DialogProject& p) {
                             opt.conditions.push_back({ op, conds.value("var", ""), conds.value("value", 0) });
                         }
                     }
-                    if (o.contains("events")) for (auto& e : o["events"]) opt.events.push_back({ e.value("op", "set"), e.value("var", ""), e.value("value", 0) });
+                    if (o.contains("events")) for (auto& e : o["events"]) opt.events.push_back({ e.value("op", "set"), e.value("var", ""), e.value("value", 0), e.value("value_max", 0) });
                     node.options.push_back(opt);
                 }
             }
-            if (n.contains("events")) for (auto& e : n["events"]) node.events.push_back({ e.value("op", "set"), e.value("var", ""), e.value("value", 0) });
+            if (n.contains("events")) for (auto& e : n["events"]) node.events.push_back({ e.value("op", "set"), e.value("var", ""), e.value("value", 0), e.value("value_max", 0) });
             p.nodes[id] = node;
         }
     } catch (...) { return false; }
@@ -557,17 +559,23 @@ void DialogEngine::StartDialog(const std::string& startId) {
 }
 
 void DialogEngine::SelectOption(int index) {
-    if (!m_isActive || IsTextRevealing() || index < 0 || index >= (int)m_visibleOptions.size()) return;
+    if (!m_isActive || IsTextRevealing() || IsEventDelaying() || !m_pendingJumpId.empty() || index < 0 || index >= (int)m_visibleOptions.size()) return;
     ProcessEvents(m_visibleOptions[index].events);
+    
+    // If a jump was triggered during the event processing, we ignore the option's default next_id
+    if (!m_pendingJumpId.empty() || IsEventDelaying()) return;
+
     std::string nextId = m_visibleOptions[index].next_id;
     if (nextId.empty() || nextId == "dialog_end") { m_isActive = false; m_currentNode = nullptr; }
     else StartDialog(nextId);
 }
 
 void DialogEngine::Next() {
-    if (!m_isActive) return;
+    if (!m_isActive || IsEventDelaying() || !m_pendingJumpId.empty()) return;
     if (IsTextRevealing()) { SkipReveal(); return; }
     if (!m_visibleOptions.empty()) return;
+
+    // If an event previously triggered a jump/delay, we shouldn't proceed normally
     std::string nId = m_currentNode->next_id.value_or("dialog_end");
     if (nId == "dialog_end") { m_isActive = false; m_currentNode = nullptr; }
     else StartDialog(nId);
@@ -597,6 +605,29 @@ void DialogEngine::Update(float dt) {
     
     // Decay shake effect
     if (m_shakeIntensity > 0) m_shakeIntensity = std::max(0.0f, m_shakeIntensity - dt * 20.0f);
+
+    if (m_engineDelayTimer > 0.0f) {
+        m_engineDelayTimer -= dt;
+        if (m_engineDelayTimer <= 0.0f) {
+            m_engineDelayTimer = 0.0f;
+            if (!m_pendingJumpId.empty()) {
+                std::string jumpId = m_pendingJumpId;
+                m_pendingJumpId = "";
+                StartDialog(jumpId);
+            } else {
+                // If it was just a delay with no jump, we just let the engine unpause.
+                // We should also clear any option states or force a Next if we had no options.
+            }
+        }
+        return; // Pause the engine processing while delayed
+    }
+
+    if (!m_pendingJumpId.empty()) {
+        std::string jumpId = m_pendingJumpId;
+        m_pendingJumpId = "";
+        StartDialog(jumpId);
+        return;
+    }
 }
 
 void DialogEngine::SkipReveal() { 
@@ -665,11 +696,25 @@ void DialogEngine::SetVariable(const std::string& name, int value) {
     m_variables[name] = v;
 }
 
+const std::vector<std::string>& DialogEngine::ConsumePendingSFX() {
+    static std::vector<std::string> copy;
+    copy = m_pendingSFX;
+    m_pendingSFX.clear();
+    return copy;
+}
+
 void DialogEngine::ProcessEvents(const std::vector<Event>& events) {
-    static const std::unordered_set<std::string> VALID_OPS = {"set", "add", "sub", "mul", "shake"};
+    static const std::unordered_set<std::string> VALID_OPS = {"set", "add", "sub", "mul", "shake", "random", "play_sfx", "jump", "delay"};
     for (const auto& e : events) {
         if (!VALID_OPS.count(e.op)) { RecordError("ProcessEvents", "Unknown op '" + e.op + "' — skipping."); continue; }
+        
+        // FX / Flow Events
         if (e.op == "shake") { TriggerShake((float)e.value); continue; }
+        if (e.op == "play_sfx") { m_pendingSFX.push_back(e.var); continue; }
+        if (e.op == "jump") { m_pendingJumpId = e.var; continue; }
+        if (e.op == "delay") { m_engineDelayTimer = (float)e.value / 1000.0f; continue; }
+        
+        // Variable Operations
         if (!e.var.empty() && !m_project.variables.count(e.var)) {
             RecordError("ProcessEvents", "Event op '" + e.op + "' references undeclared variable '" + e.var + "' — skipping.");
             continue;
@@ -680,6 +725,11 @@ void DialogEngine::ProcessEvents(const std::vector<Event>& events) {
         else if (e.op == "add") next = cur + e.value;
         else if (e.op == "sub") next = cur - e.value;
         else if (e.op == "mul") next = cur * e.value;
+        else if (e.op == "random") {
+            int minVal = std::min(e.value, e.value_max);
+            int maxVal = std::max(e.value, e.value_max);
+            next = minVal + (std::rand() % (maxVal - minVal + 1));
+        }
         SetVariable(e.var, next);
         m_eventTrace.push_back({ m_currentNodeId, e.op, e.var, cur, GetVariable(e.var) });
         Log("Event: " + e.op + " '" + e.var + "' " + std::to_string(cur) + " -> " + std::to_string(GetVariable(e.var)));
@@ -723,7 +773,7 @@ ValidationResult DialogEngine::ValidateProject(const DialogProject& p) {
         if (node.next_id && *node.next_id != "dialog_end" && !node.next_id->empty() && !p.nodes.count(*node.next_id))
             errors.push_back({nodeId, "next_id", "next_id '" + *node.next_id + "' does not exist."});
         for (const auto& e : node.events)
-            if (e.op != "shake" && !e.var.empty() && !p.variables.count(e.var))
+            if (e.op != "shake" && e.op != "play_sfx" && e.op != "jump" && e.op != "delay" && !e.var.empty() && !p.variables.count(e.var))
                 errors.push_back({nodeId, "events", "Event references undeclared variable '" + e.var + "'."});
         for (const auto& opt : node.options) {
             if (!opt.next_id.empty() && opt.next_id != "dialog_end" && !p.nodes.count(opt.next_id))
@@ -732,7 +782,7 @@ ValidationResult DialogEngine::ValidateProject(const DialogProject& p) {
                 if (!p.variables.count(c.var))
                     errors.push_back({nodeId, "options.conditions", "Condition references undeclared variable '" + c.var + "'."});
             for (const auto& e : opt.events)
-                if (e.op != "shake" && !e.var.empty() && !p.variables.count(e.var))
+                if (e.op != "shake" && e.op != "play_sfx" && e.op != "jump" && e.op != "delay" && !e.var.empty() && !p.variables.count(e.var))
                     errors.push_back({nodeId, "options.events", "Option event references undeclared variable '" + e.var + "'."});
         }
     }

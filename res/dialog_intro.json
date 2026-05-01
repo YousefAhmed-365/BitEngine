@@ -26,9 +26,37 @@
                     { "op": "sub", "var": "trust_akira", "value": 1 },
                     { "op": "shake", "var": "", "value": 10 }
                 ]
+            },
+            {
+                "content": "I'm feeling lucky.",
+                "next_id": "alley_lucky",
+                "events": [
+                    { "op": "play_sfx", "var": "confirm" }
+                ],
+                "style": "premium"
             }
         ],
         "events": []
+    },
+    "alley_lucky": {
+        "entity": "system",
+        "metadata": { "bg": "alley_bg" },
+        "content": "[color=YELLOW]Rolling the dice... wait for it...[/color]",
+        "next_id": null,
+        "options": [],
+        "events": [
+            { "op": "random", "var": "credits", "value": 100, "value_max": 500 },
+            { "op": "delay", "value": 1500 },
+            { "op": "jump", "var": "alley_lucky_result" }
+        ]
+    },
+    "alley_lucky_result": {
+        "entity": "akira",
+        "metadata": { "expression": "neutral" },
+        "content": "[wave]Jackpot![/wave] You just rolled {credits} credits out of thin air. Enjoy the wealth.",
+        "next_id": "alley_to_market",
+        "options": [],
+        "events": [ { "op": "play_sfx", "var": "confirm" } ]
     },
     "alley_work": {
         "entity": "akira",
