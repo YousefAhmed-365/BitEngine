@@ -535,11 +535,25 @@ void BitRenderer::DrawDebugOverlay() {
 
     DrawText("Load Failures:", px, dy, 11, RED); dy += 15;
     int errCount = 0;
+    
+    // Check Music
     for (auto const& [path, mus] : m_musicCache) if (mus.frameCount == 0) {
-        DrawText(TextFormat(" ! %s", GetFileName(path.c_str())), px, dy, 9, PINK);
-        dy += 11; errCount++;
+        DrawText(TextFormat(" ! [MUS] %s", GetFileName(path.c_str())), px, dy, 9, PINK);
+        dy += 11; errCount++; if (errCount > 8) break;
     }
+    // Check SFX
+    for (auto const& [path, sfx] : m_sfxCache) if (sfx.frameCount == 0) {
+        DrawText(TextFormat(" ! [SFX] %s", GetFileName(path.c_str())), px, dy, 9, ORANGE);
+        dy += 11; errCount++; if (errCount > 8) break;
+    }
+    // Check Textures
+    for (auto const& [path, tex] : m_textureCache) if (tex.id == 0) {
+        DrawText(TextFormat(" ! [TEX] %s", GetFileName(path.c_str())), px, dy, 9, RED);
+        dy += 11; errCount++; if (errCount > 8) break;
+    }
+
     if (errCount == 0) DrawText("(none)", px, dy, 10, Fade(RAYWHITE, 0.4f)); 
+    else if (errCount > 8) DrawText("...", px, dy, 9, RED);
 
     // Error log stays at far bottom
     if (!errors.empty()) {
@@ -613,10 +627,16 @@ void BitRenderer::DrawRichText(const std::vector<RichChar>& content, int limit, 
 Texture2D BitRenderer::GetTexture(const std::string& path) {
     if (path.empty()) return m_fallbackTexture;
     auto it = m_textureCache.find(path);
-    if (it != m_textureCache.end()) return it->second;
+    if (it != m_textureCache.end()) {
+        if (it->second.id == 0) return m_fallbackTexture;
+        return it->second;
+    }
     if (FileExists(path.c_str())) {
         Texture2D tex = LoadTexture(path.c_str());
-        if (tex.id > 0) { m_textureCache[path] = tex; return tex; }
+        m_textureCache[path] = tex;
+        if (tex.id > 0) return tex;
+    } else {
+        m_textureCache[path] = {0}; // Failed
     }
     return m_fallbackTexture;
 }
@@ -630,13 +650,13 @@ void BitRenderer::PreloadAssets() {
     for (auto const& [id, path] : proj.music) {
         if (path.empty() || m_musicCache.count(path)) continue;
         Music m = LoadMusicStream(path.c_str());
-        if (m.frameCount > 0) m_musicCache[path] = m;
+        m_musicCache[path] = m; // Even if it fails (frameCount=0)
     }
 
     for (auto const& [id, path] : proj.sfx) {
         if (path.empty() || m_sfxCache.count(path)) continue;
         Sound s = LoadSound(path.c_str());
-        if (s.frameCount > 0) m_sfxCache[path] = s;
+        m_sfxCache[path] = s; // Even if it fails (frameCount=0)
     }
 
     for (auto const& [id, ent] : proj.entities) {
