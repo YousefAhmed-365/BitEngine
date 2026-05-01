@@ -9,11 +9,13 @@ obj/
 *.exe
 *.out
 *.app
+*.png
 
 # Save and logs
 save/
 assets/
 **/save/
+**/assets/
 debug.log
 *.log
 
