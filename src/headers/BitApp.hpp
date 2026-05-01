@@ -6,7 +6,7 @@
 
 class BitApp {
 public:
-    BitApp();
+    BitApp(const std::string& projectPath = "res/configs.json");
     ~BitApp();
 
     void Run();
@@ -14,7 +14,8 @@ public:
 private:
     void LoadConfig(const std::string& path);
 
-    std::string m_title       = "BitEngine";
+    std::string m_projectPath;
+    std::string m_title       = "BitEngine Core v2.0";
     int         m_width       = 1280;
     int         m_height      = 720;
     int         m_minWidth    = 800;

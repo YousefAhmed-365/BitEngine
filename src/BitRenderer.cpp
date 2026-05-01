@@ -324,8 +324,8 @@ void BitRenderer::Draw() {
 
     BeginMode2D(cam);
         DrawBackground();
-        DrawVFX(); // Vignette shakes with the camera now for more impact
         DrawEntitySprites();
+        DrawVFX(); // Screen fade and vignette draw OVER entities
         if (!m_engine.IsUiHidden()) {
             DrawMainBox();
             if (!m_engine.IsTextRevealing()) DrawChoiceBox();

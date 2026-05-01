@@ -1,4 +1,6 @@
-#include "BitEngine.hpp"
+#include "headers/BitEngine.hpp"
+#include "headers/BitJsonInterpreter.hpp"
+#include "headers/BitScriptInterpreter.hpp"
 #include "json.hpp"
 #include <fstream>
 #include <iostream>
@@ -110,231 +112,30 @@ std::vector<RichChar> RichTextParser::Parse(const std::string& rawText) {
     return result;
 }
 
-// DialogParser
-DialogProject DialogParser::ParseConfig(const std::string& path) {
-    DialogProject p;
-    std::ifstream f(path); if (!f) return p;
-    try {
-        json j; f >> j;
-        if (j.contains("configs")) {
-            auto& c = j["configs"];
-            p.configs.start_node = c.value("start_node", "dialog_start");
-            p.configs.reveal_speed = c.value("reveal_speed", 30.0f);
-            p.configs.auto_play_delay = c.value("auto_play_delay", 2000.0f) / 1000.0f;
-            p.configs.debug_mode = c.value("debug_mode", "none");
-            p.configs.auto_save = c.value("auto_save", false);
-            p.configs.encrypt_save = c.value("encrypt_save", false);
-            p.configs.enable_floating = c.value("enable_floating", true);
-            p.configs.enable_shadows = c.value("enable_shadows", true);
-            p.configs.enable_vignette = c.value("enable_vignette", true);
-            p.configs.save_prefix = c.value("save_prefix", "save_slot_");
-            p.configs.max_slots = c.value("max_slots", 5);
-            p.configs.mode = c.value("mode", "typewriter");
-        }
-        
-        // Support for modular file paths
-        if (j.contains("entities")) {
-            if (j["entities"].is_array()) for (auto& f : j["entities"]) p.configs.entity_files.push_back(f.get<std::string>());
-            else if (j["entities"].is_object()) {
-                // Legacy inline support
-                for (auto& [id, ent] : j["entities"].items()) {
-                    Entity entity;
-                    entity.id = id;
-                    entity.name = ent.value("name", id);
-                    entity.type = ent.value("type", "char");
-                    if (ent.contains("sprites")) {
-                        for (auto& [expr, s] : ent["sprites"].items()) 
-                            entity.sprites[expr] = { s.value("path", ""), s.value("frames", 1), s.value("speed", 5.0f), s.value("scale", 1.0f) };
-                    }
-                    p.entities[id] = entity;
-                }
-            }
-        }
-        
-        if (j.contains("variables")) {
-            if (j["variables"].is_array()) for (auto& f : j["variables"]) p.configs.variable_files.push_back(f.get<std::string>());
-            else if (j["variables"].is_object()) {
-                // Legacy inline support
-                for (auto& [id, v] : j["variables"].items()) {
-                    VariableDef def;
-                    def.id = id;
-                    def.initial_value = v.value("initial", 0);
-                    if (v.contains("min")) def.min = v["min"].get<int>();
-                    if (v.contains("max")) def.max = v["max"].get<int>();
-                    p.variables[id] = def;
-                }
-            }
-        }
-        
-        if (j.contains("dialogs") && j["dialogs"].is_array())
-            for (auto& d : j["dialogs"]) p.configs.dialog_files.push_back(d.get<std::string>());
-            
-        if (j.contains("assets") && j["assets"].is_array())
-            for (auto& a : j["assets"]) p.configs.asset_files.push_back(a.get<std::string>());
-            
-    } catch (...) {}
-    return p;
-}
-
-bool DialogParser::LoadEntitiesFile(const std::string& path, DialogProject& p) {
-    std::ifstream f(path); if (!f) return false;
-    try {
-        json j; f >> j;
-        auto& root = j.contains("entities") ? j["entities"] : j;
-        for (auto& [id, ent] : root.items()) {
-            Entity entity;
-            entity.id = id;
-            entity.name = ent.value("name", id);
-            entity.type = ent.value("type", "char");
-            
-            std::string dpos = ent.value("default_pos", "center");
-            if (dpos == "left") entity.default_pos_x = 0.2f;
-            else if (dpos == "right") entity.default_pos_x = 0.8f;
-            else if (dpos == "center") entity.default_pos_x = 0.5f;
-            else try { entity.default_pos_x = std::stof(dpos); } catch(...) { entity.default_pos_x = 0.5f; }
-
-            if (ent.contains("sprites")) {
-                for (auto& [expr, s] : ent["sprites"].items()) 
-                    entity.sprites[expr] = { s.value("path", ""), s.value("frames", 1), s.value("speed", 5.0f), s.value("scale", 1.0f) };
-            }
-            p.entities[id] = entity;
-        }
-    } catch (...) { return false; }
-    return true;
-}
-
-bool DialogParser::LoadVariablesFile(const std::string& path, DialogProject& p) {
-    std::ifstream f(path); if (!f) return false;
-    try {
-        json j; f >> j;
-        auto& root = j.contains("variables") ? j["variables"] : j;
-        for (auto& [id, v] : root.items()) {
-            VariableDef def;
-            def.id = id;
-            def.initial_value = v.value("initial", 0);
-            if (v.contains("min")) def.min = v["min"].get<int>();
-            if (v.contains("max")) def.max = v["max"].get<int>();
-            p.variables[id] = def;
-        }
-    } catch (...) { return false; }
-    return true;
-}
-
-bool DialogParser::LoadDialogFile(const std::string& path, DialogProject& p) {
-    std::ifstream f(path); if (!f) return false;
-    try {
-        json j; f >> j;
-        
-        // Helpers
-        // Parse an Event from a JSON object
-        auto parseEvent = [](const json& e) -> Event {
-            return { e.value("op", ""), e };
-        };
-
-        // Recursively parse a ConditionNode from a JSON object.
-        // Objects with "var" key are leaves; "or"/"and" key are groups.
-        std::function<ConditionNode(const json&)> parseCondNode = [&](const json& c) -> ConditionNode {
-            ConditionNode node;
-            if (c.contains("or") && c["or"].is_array()) {
-                node.isGroup = true; node.groupLogic = "or";
-                for (auto& child : c["or"]) node.children.push_back(parseCondNode(child));
-            } else if (c.contains("and") && c["and"].is_array()) {
-                node.isGroup = true; node.groupLogic = "and";
-                for (auto& child : c["and"]) node.children.push_back(parseCondNode(child));
-            } else {
-                // Leaf
-                std::string op = c.value("op", "==");
-                if (op == "=") op = "==";
-                node.leaf = { c.value("var", ""), op, c.value("value", 0) };
-            }
-            return node;
-        };
-
-        for (auto& [id, n] : j.items()) {
-            DialogNode node;
-            node.entity  = n.value("entity", "unk");
-            node.content = n.value("content", "");
-            if (n.contains("next_id") && !n["next_id"].is_null())
-                node.next_id = n["next_id"].get<std::string>();
-
-            // Typed metadata (Phase 1)
-            if (n.contains("metadata")) {
-                auto& m = n["metadata"];
-                node.metadata.bg         = m.value("bg",         "");
-                node.metadata.bgm        = m.value("bgm",        "");
-                node.metadata.hide_ui    = m.value("hide_ui",    false);
-                node.metadata.auto_next  = m.value("auto_next",  false);
-                node.metadata.join       = m.value("join",       false);
-                node.metadata.pre_delay  = m.value("pre_delay",  0);
-                node.metadata.alpha      = m.value("alpha",      1.0f);
-                node.metadata.expression = m.value("expression", "");
-                node.metadata.pos        = m.value("pos",        "");
-                node.metadata.transition          = m.value("transition",          "");
-                node.metadata.transition_duration = m.value("transition_duration", 600);
-                node.metadata.transition_delay    = m.value("transition_delay",    0);
-            }
-
-            // Options with typed conditions & events (Phase 2 + 5)
-            if (n.contains("options")) {
-                for (auto& o : n["options"]) {
-                    DialogOption opt;
-                    opt.content = o.value("content", "");
-                    opt.style   = o.value("style",   "normal");
-                    if (o.contains("next_id") && !o["next_id"].is_null())
-                        opt.next_id = o["next_id"].get<std::string>();
-                    if (o.contains("conditions"))
-                        for (auto& c : o["conditions"]) opt.conditions.push_back(parseCondNode(c));
-                    if (o.contains("events"))
-                        for (auto& e : o["events"]) opt.events.push_back(parseEvent(e));
-                    node.options.push_back(opt);
-                }
-            }
-
-            // Node events (Phase 2)
-            if (n.contains("events"))
-                for (auto& e : n["events"]) node.events.push_back(parseEvent(e));
-
-            p.nodes[id] = node;
-        }
-    } catch (...) { return false; }
-    return true;
-}
-
-bool DialogParser::LoadAssetsFile(const std::string& path, DialogProject& p) {
-    std::ifstream f(path); if (!f) return false;
-    try {
-        json j; f >> j;
-        if (j.contains("backgrounds")) {
-            for (auto& [id, file] : j["backgrounds"].items()) p.backgrounds[id] = file.get<std::string>();
-        }
-        if (j.contains("music")) {
-            for (auto& [id, file] : j["music"].items()) p.music[id] = file.get<std::string>();
-        }
-        if (j.contains("sfx")) {
-            for (auto& [id, file] : j["sfx"].items()) p.sfx[id] = file.get<std::string>();
-        }
-        if (j.contains("fonts")) {
-            for (auto& [id, file] : j["fonts"].items()) p.fonts[id] = file.get<std::string>();
-        }
-    } catch (...) { return false; }
-    return true;
-}
+//// Implementation moved to BitJsonInterpreter.cpp
 
 // DialogEngine
 DialogEngine::DialogEngine() {}
 
 bool DialogEngine::LoadProject(const std::string& configFilePath) {
     Log("Loading project from: " + configFilePath);
-    m_project = DialogParser::ParseConfig(configFilePath);
+
+    if (configFilePath.size() > 10 && configFilePath.substr(configFilePath.size() - 10) == ".bitscript") {
+        if (!BitScriptInterpreter::LoadScriptFile(configFilePath, m_project)) return false;
+        for (auto const& [id, def] : m_project.variables) m_variables[id] = def.initial_value;
+        return true;
+    }
+
+    m_project = BitJsonInterpreter::ParseConfig(configFilePath);
     
     for (const auto& f : m_project.configs.entity_files)
-        if (!DialogParser::LoadEntitiesFile(f, m_project)) RecordError("LoadProject", "Could not load entities file: " + f);
+        if (!BitJsonInterpreter::LoadEntitiesFile(f, m_project)) RecordError("LoadProject", "Could not load entities file: " + f);
     for (const auto& f : m_project.configs.variable_files)
-        if (!DialogParser::LoadVariablesFile(f, m_project)) RecordError("LoadProject", "Could not load variables file: " + f);
+        if (!BitJsonInterpreter::LoadVariablesFile(f, m_project)) RecordError("LoadProject", "Could not load variables file: " + f);
     for (const auto& f : m_project.configs.asset_files)
-        if (!DialogParser::LoadAssetsFile(f, m_project)) RecordError("LoadProject", "Could not load assets file: " + f);
+        if (!BitJsonInterpreter::LoadAssetsFile(f, m_project)) RecordError("LoadProject", "Could not load assets file: " + f);
     for (const auto& f : m_project.configs.dialog_files)
-        if (!DialogParser::LoadDialogFile(f, m_project)) RecordError("LoadProject", "Could not load dialog file: " + f);
+        if (!BitJsonInterpreter::LoadDialogFile(f, m_project)) RecordError("LoadProject", "Could not load dialog file: " + f);
     
     if (m_project.nodes.empty()) {
         RecordError("LoadProject", "No dialog nodes loaded. Check your dialog files.");
@@ -411,7 +212,7 @@ void DialogEngine::CompileProject(const std::string& outputPath) {
             oj["style"]   = o.style;
             // Conditions stored as plain leaf JSON (groups handled recursively below if needed)
             for (auto const& c : o.conditions)
-                if (!c.isGroup) oj["conditions"].push_back({{ "var", c.leaf.var }, { "op", c.leaf.op }, { "value", c.leaf.value }});
+                if (!c.isGroup) oj["conditions"].push_back({{ "var", c.leaf.var }, { "op", c.leaf.op }, { "value", c.leaf.value }, { "ref", c.leaf.ref }});
             // Events: store params verbatim
             for (auto const& e : o.events) oj["events"].push_back(e.params);
             nj["options"].push_back(oj);
@@ -670,6 +471,22 @@ std::optional<SaveMetadata> DialogEngine::GetSaveMetadata(int slot) const {
 }
 
 void DialogEngine::StartDialog(const std::string& startId) {
+    if (!m_project.bytecode.empty()) {
+        m_isActive = true;
+        m_pc = 0;
+        m_vmWaiting = false;
+        // If a label was provided, find it
+        if (!startId.empty()) {
+            for (int i = 0; i < (int)m_project.bytecode.size(); ++i) {
+                if (m_project.bytecode[i].op == BitOp::LABEL && m_project.bytecode[i].args[0] == startId) {
+                    m_pc = i; break;
+                }
+            }
+        }
+        RunVM();
+        return;
+    }
+
     std::string id = startId.empty() ? m_project.configs.start_node : startId;
     Log("Starting dialog sequence: " + id);
     if (!m_project.nodes.count(id)) {
@@ -772,6 +589,20 @@ void DialogEngine::SelectOption(int index) {
     if (!m_pendingJumpId.empty() || IsEventDelaying()) return;
 
     std::string nextId = m_visibleOptions[index].next_id;
+    m_visibleOptions.clear();
+
+    if (!m_project.bytecode.empty()) {
+        m_vmWaiting = false;
+        // Jump to label
+        for (int i = 0; i < (int)m_project.bytecode.size(); ++i) {
+            if (m_project.bytecode[i].op == BitOp::LABEL && m_project.bytecode[i].args[0] == nextId) {
+                m_pc = i; break;
+            }
+        }
+        RunVM();
+        return;
+    }
+
     if (nextId.empty() || nextId == "dialog_end") { m_isActive = false; m_currentNode = nullptr; }
     else StartDialog(nextId);
 }
@@ -779,17 +610,20 @@ void DialogEngine::SelectOption(int index) {
 void DialogEngine::Next() {
     if (!m_isActive || IsEventDelaying() || !m_pendingJumpId.empty() || m_isTransitioning) return;
     if (IsTextRevealing()) { SkipReveal(); return; }
+    
+    m_isAutoNext = false; // Consume the auto-advance trigger
     if (!m_visibleOptions.empty()) return;
 
-    // Check for typed transition metadata (Phase 1)
+    // Check for transitions (shared between JSON and VM paths)
     if (m_currentNode && !m_currentNode->metadata.transition.empty() && !m_isTransitioning) {
         const auto& meta = m_currentNode->metadata;
         if (meta.transition == "fade_black") {
-            m_isTransitioning    = true;
-            m_transitionState    = 0;
-            m_transitionTargetNode = m_currentNode->next_id.value_or("dialog_end");
-            m_transitionDurationVal = meta.transition_duration / 1000.0f;
-            m_transitionPostDelay   = meta.transition_delay    / 1000.0f;
+            m_isTransitioning      = true;
+            m_transitionState      = 0;
+            m_transitionTargetNode = !m_project.bytecode.empty() ? "vm_resume"
+                                     : m_currentNode->next_id.value_or("dialog_end");
+            m_transitionDurationVal  = meta.transition_duration / 1000.0f;
+            m_transitionPostDelay    = meta.transition_delay    / 1000.0f;
             m_screenFadeTarget   = 1.0f;
             m_screenFadeStart    = m_screenFadeAlpha;
             m_screenFadeDuration = m_transitionDurationVal;
@@ -797,6 +631,12 @@ void DialogEngine::Next() {
             m_isUiHidden = true;
             return;
         }
+    }
+
+    if (!m_project.bytecode.empty()) {
+        m_vmWaiting = false;
+        RunVM();
+        return;
     }
 
     std::string nId = m_currentNode->next_id.value_or("dialog_end");
@@ -807,33 +647,52 @@ void DialogEngine::Next() {
 void DialogEngine::Update(float dt) {
     if (!m_isActive || !m_currentNode || m_project.configs.mode == "instant") return;
     
-    // 1. Transition and Screen Fade updates (These must always run)
+    // 1. Transition and Screen Fade updates (must always run, even mid-transition)
     if (m_isTransitioning) {
         if (m_transitionState == 0) {
+            // Fading to black — wait until fully dark
             if (m_screenFadeAlpha >= 0.98f) {
                 m_transitionState = 1;
+                m_screenFadeTarget   = 0.0f;
+                m_screenFadeStart    = 1.0f;
+                m_screenFadeDuration = m_transitionDurationVal;
+                m_screenFadeTimer    = 0.0f;
                 if (m_transitionTargetNode == "dialog_end") {
                     m_isActive = false; m_currentNode = nullptr; m_isTransitioning = false;
-                } else {
+                } else if (m_transitionTargetNode != "vm_resume") {
+                    // JSON path: load the next node while the screen is black
                     StartDialog(m_transitionTargetNode);
-                    m_screenFadeTarget = 0.0f; m_screenFadeStart = 1.0f;
-                    m_screenFadeDuration = m_transitionDurationVal; 
-                    m_screenFadeTimer = 0.0f;
                 }
+                // vm_resume: the VM will continue once the fade-out is done
             }
         } else if (m_transitionState == 1) {
+            // Fading back in — wait until visible again
             if (m_screenFadeAlpha <= 0.02f) {
+                m_screenFadeAlpha = 0.0f;
                 if (m_transitionPostDelay > 0.0f) {
                     m_transitionState = 2;
                     m_transitionTimer = 0.0f;
                 } else {
                     m_isTransitioning = false;
+                    m_isUiHidden = false;
+                    if (m_transitionTargetNode == "vm_resume") {
+                        m_vmWaiting = false;
+                        m_vmDelayed = false;
+                        RunVM();
+                    }
                 }
             }
         } else if (m_transitionState == 2) {
+            // Post-delay before revealing UI
             m_transitionTimer += dt;
             if (m_transitionTimer >= m_transitionPostDelay) {
                 m_isTransitioning = false;
+                m_isUiHidden = false;
+                if (m_transitionTargetNode == "vm_resume") {
+                    m_vmWaiting = false;
+                    m_vmDelayed = false;
+                    RunVM();
+                }
             }
         }
     }
@@ -854,7 +713,7 @@ void DialogEngine::Update(float dt) {
             m_waitTimer -= dt;
         } else {
             int currentIdx = (int)m_revealedCount;
-            if (currentIdx < (int)m_cachedParsedContent.size()) {
+            if (currentIdx >= 0 && currentIdx < (int)m_cachedParsedContent.size()) {
                 if (m_cachedParsedContent[currentIdx].waitBefore > 0.0f) {
                     m_waitTimer = m_cachedParsedContent[currentIdx].waitBefore;
                     m_cachedParsedContent[currentIdx].waitBefore = 0.0f;
@@ -869,7 +728,7 @@ void DialogEngine::Update(float dt) {
     
     if (m_shakeIntensity > 0) m_shakeIntensity = std::max(0.0f, m_shakeIntensity - dt * 20.0f);
 
-    if (!IsTextRevealing() && m_isAutoNext && m_waitTimer <= 0.0f) {
+    if (!IsTextRevealing() && m_isAutoNext && m_waitTimer <= 0.0f && m_visibleOptions.empty() && !m_isTransitioning && !IsEventDelaying()) {
         Next();
     }
 
@@ -914,16 +773,30 @@ void DialogEngine::Update(float dt) {
         m_engineDelayTimer -= dt;
         if (m_engineDelayTimer <= 0.0f) {
             m_engineDelayTimer = 0.0f;
+
+            // If this was a pre_delay guard for a SAY, start the reveal now
+            if (m_revealedCount < 0.0f) {
+                m_revealedCount = 0.0f;
+                // Don't return — let auto_next fire this frame if applicable
+            }
+
             if (!m_pendingJumpId.empty()) {
                 std::string jumpId = m_pendingJumpId;
                 m_pendingJumpId = "";
                 StartDialog(jumpId);
-            } else {
-                // If it was just a delay with no jump, we just let the engine unpause.
-                // We should also clear any option states or force a Next if we had no options.
+                return;
             }
+
+            if (m_vmWaiting && m_vmDelayed && !m_project.bytecode.empty()) {
+                m_vmWaiting = false;
+                m_vmDelayed = false;
+                RunVM();
+                return;
+            }
+        } else {
+            // Still counting down — block narrative processing
+            return;
         }
-        return; // Pause the engine processing while delayed
     }
 
     if (!m_pendingJumpId.empty()) {
@@ -1174,7 +1047,7 @@ bool DialogEngine::EvalConditionNode(const ConditionNode& node) const {
         // Leaf: evaluate single condition
         int v = GetVariable(node.leaf.var);
         const auto& op = node.leaf.op;
-        int val = node.leaf.value;
+        int val = (!node.leaf.ref.empty()) ? GetVariable(node.leaf.ref) : node.leaf.value;
         if (op == "==" || op == "=") return v == val;
         if (op == "!=")              return v != val;
         if (op == ">")               return v >  val;
@@ -1231,4 +1104,219 @@ float DialogEngine::ParsePosition(const std::string& pos) const {
     if (pos == "right") return 0.8f;
     if (pos == "center") return 0.5f;
     try { return std::stof(pos); } catch(...) { return 0.5f; }
+}
+
+void DialogEngine::RunVM() {
+    while (m_isActive && !m_vmWaiting && m_pc < (int)m_project.bytecode.size()) {
+        ExecuteInstruction(m_project.bytecode[m_pc++]);
+    }
+}
+
+void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
+    auto& args = ins.args;
+    switch (ins.op) {
+        case BitOp::SAY: {
+            static DialogNode vmNode;
+            vmNode.entity  = args[0];
+            vmNode.content = args[1];
+            vmNode.metadata = NodeMetadata();
+
+            // ── 1. Parse ALL metadata out of the instruction, regardless of entity ────
+            if (!ins.metadata.empty()) {
+                if (ins.metadata.contains("join"))
+                    vmNode.metadata.join = (ins.metadata["join"].get<std::string>() == "true");
+                if (ins.metadata.contains("bg")) {
+                    vmNode.metadata.bg = ins.metadata["bg"];
+                    if (m_activeBg != vmNode.metadata.bg) {
+                        m_prevBg = m_activeBg;
+                        m_activeBg = vmNode.metadata.bg;
+                        m_bgFadeAlpha = 0.0f; m_bgFadeTimer = 0.0f; m_bgFadeDuration = 0.8f;
+                    }
+                }
+                if (ins.metadata.contains("bgm")) {
+                    vmNode.metadata.bgm = ins.metadata["bgm"];
+                    m_activeBgm = vmNode.metadata.bgm;
+                }
+                if (ins.metadata.contains("auto_next"))
+                    vmNode.metadata.auto_next = (ins.metadata["auto_next"].get<std::string>() == "true");
+                if (ins.metadata.contains("hide_ui"))
+                    vmNode.metadata.hide_ui = (ins.metadata["hide_ui"].get<std::string>() == "true");
+                if (ins.metadata.contains("pre_delay"))
+                    vmNode.metadata.pre_delay = std::stoi(ins.metadata["pre_delay"].get<std::string>());
+                if (ins.metadata.contains("transition"))
+                    vmNode.metadata.transition = ins.metadata["transition"];
+                if (ins.metadata.contains("transition_duration"))
+                    vmNode.metadata.transition_duration = std::stoi(ins.metadata["transition_duration"].get<std::string>());
+                if (ins.metadata.contains("transition_delay"))
+                    vmNode.metadata.transition_delay = std::stoi(ins.metadata["transition_delay"].get<std::string>());
+            }
+
+            // ── 2. Apply entity-specific visual metadata ──────────────────────────────
+            if (!vmNode.entity.empty() && vmNode.entity != "system") {
+                bool isNew = (m_activeEntities.find(vmNode.entity) == m_activeEntities.end());
+                auto& state = m_activeEntities[vmNode.entity];
+                if (isNew) {
+                    auto it = m_project.entities.find(vmNode.entity);
+                    if (it != m_project.entities.end()) {
+                        state.targetNormX  = it->second.default_pos_x;
+                        state.currentNormX = state.targetNormX;
+                    }
+                }
+                if (!ins.metadata.empty()) {
+                    if (ins.metadata.contains("sprite")) {
+                        vmNode.metadata.expression = ins.metadata["sprite"];
+                        state.expression = vmNode.metadata.expression;
+                    }
+                    if (ins.metadata.contains("pos")) {
+                        vmNode.metadata.pos  = ins.metadata["pos"];
+                        state.pos            = vmNode.metadata.pos;
+                        state.targetNormX    = ParsePosition(state.pos);
+                        state.currentNormX   = state.targetNormX;
+                    }
+                    if (ins.metadata.contains("alpha")) {
+                        vmNode.metadata.alpha = std::stof(ins.metadata["alpha"].get<std::string>());
+                        state.alpha       = vmNode.metadata.alpha;
+                        state.targetAlpha = state.alpha;
+                        state.startAlpha  = state.alpha;
+                    }
+                }
+            }
+
+            // ── 3. Apply node-level flags to engine state ─────────────────────────────
+            m_isAutoNext = vmNode.metadata.auto_next;
+            m_isUiHidden = vmNode.metadata.hide_ui;
+
+            // ── 4. Scene management: smart joining ────────────────────────────────────
+            {
+                bool isJoining = vmNode.metadata.join;
+                if (!isJoining) {
+                    // system entity always joins (no wipe); already-active entities join too
+                    if (vmNode.entity == "system") isJoining = true;
+                    else if (m_activeEntities.count(vmNode.entity)) isJoining = true;
+                }
+                if (!isJoining) {
+                    ActiveEntityState saved;
+                    bool hasSaved = false;
+                    if (m_activeEntities.count(vmNode.entity)) {
+                        saved    = m_activeEntities[vmNode.entity];
+                        hasSaved = true;
+                    }
+                    m_activeEntities.clear();
+                    if (hasSaved) m_activeEntities[vmNode.entity] = saved;
+                }
+            }
+
+            m_currentNode   = &vmNode;
+            m_currentNodeId = "vm_active";
+
+            // ── 5. History ────────────────────────────────────────────────────────────
+            if (!vmNode.content.empty()) {
+                std::string speakerName = "SYSTEM";
+                if (!vmNode.entity.empty() && vmNode.entity != "system") {
+                    if (m_project.entities.count(vmNode.entity))
+                        speakerName = m_project.entities.at(vmNode.entity).name;
+                    else speakerName = "???";
+                }
+                std::string finalContent = InterpolateVariables(vmNode.content);
+                if (m_history.empty() || m_history.back().content != finalContent) {
+                    HistoryEntry entry;
+                    entry.speaker     = speakerName;
+                    entry.content     = finalContent;
+                    entry.richContent = RichTextParser::Parse(finalContent);
+                    m_history.push_back(entry);
+                    if (m_history.size() > 100) m_history.erase(m_history.begin());
+                }
+            }
+
+            // ── 6. Set up typewriter reveal ───────────────────────────────────────────
+            m_cachedInterpolatedContent = InterpolateVariables(vmNode.content);
+            m_cachedParsedContent       = RichTextParser::Parse(m_cachedInterpolatedContent);
+            m_cachedTotalChars          = m_cachedParsedContent.size();
+            m_waitTimer     = 0.0f;
+
+            // pre_delay: blocks auto_next via IsEventDelaying() but text reveals normally
+            if (vmNode.metadata.pre_delay > 0) {
+                m_engineDelayTimer = vmNode.metadata.pre_delay / 1000.0f;
+                // Do NOT set m_vmDelayed — this is a SAY-level delay, not a standalone delay
+            }
+            m_revealedCount = 0.0f;
+
+            // Block the VM loop until the player advances (or auto_next fires)
+            m_vmWaiting = !vmNode.content.empty();
+            break;
+        }
+        case BitOp::SET:     SetVariable(args[0], std::stoi(args[1])); break;
+        case BitOp::SET_REF: SetVariable(args[0], GetVariable(args[1])); break;
+        case BitOp::ADD:     SetVariable(args[0], GetVariable(args[0]) + std::stoi(args[1])); break;
+        case BitOp::ADD_REF: SetVariable(args[0], GetVariable(args[0]) + GetVariable(args[1])); break;
+        case BitOp::SUB:     SetVariable(args[0], GetVariable(args[0]) - std::stoi(args[1])); break;
+        case BitOp::SUB_REF: SetVariable(args[0], GetVariable(args[0]) - GetVariable(args[1])); break;
+        case BitOp::MUL:     SetVariable(args[0], GetVariable(args[0]) * std::stoi(args[1])); break;
+        case BitOp::MUL_REF: SetVariable(args[0], GetVariable(args[0]) * GetVariable(args[1])); break;
+        case BitOp::DIV:     SetVariable(args[0], GetVariable(args[0]) / std::stoi(args[1])); break;
+        case BitOp::DIV_REF: SetVariable(args[0], GetVariable(args[0]) / GetVariable(args[1])); break;
+        case BitOp::GOTO: {
+            for (int i = 0; i < (int)m_project.bytecode.size(); ++i) {
+                if (m_project.bytecode[i].op == BitOp::LABEL && m_project.bytecode[i].args[0] == args[0]) {
+                    m_pc = i; break;
+                }
+            }
+            break;
+        }
+        case BitOp::IF:
+        case BitOp::IF_REF: {
+            int v = GetVariable(args[0]);
+            int val = (ins.op == BitOp::IF_REF) ? GetVariable(args[2]) : std::stoi(args[2]);
+            std::string op = args[1];
+            bool pass = false;
+            if      (op == "==" || op == "=") pass = (v == val);
+            else if (op == "!=")              pass = (v != val);
+            else if (op == ">")               pass = (v > val);
+            else if (op == "<")               pass = (v < val);
+            else if (op == ">=")              pass = (v >= val);
+            else if (op == "<=")              pass = (v <= val);
+            
+            if (pass) {
+                for (int i = 0; i < (int)m_project.bytecode.size(); ++i) {
+                    if (m_project.bytecode[i].op == BitOp::LABEL && m_project.bytecode[i].args[0] == args[3]) {
+                        m_pc = i; break;
+                    }
+                }
+            }
+            break;
+        }
+        case BitOp::CHOICE: {
+            DialogOption opt;
+            opt.content = args[0];
+            opt.next_id = args[1];
+            if (!ins.metadata.empty() && ins.metadata.contains("style")) {
+                opt.style = ins.metadata["style"].get<std::string>();
+            }
+            m_visibleOptions.push_back(opt);
+            break;
+        }
+        case BitOp::BG: {
+            m_prevBg = m_activeBg;
+            m_activeBg = args[0];
+            m_bgFadeAlpha = 0.0f;
+            m_bgFadeTimer = 0.0f;
+            m_bgFadeDuration = 0.8f;
+            break;
+        }
+        case BitOp::BGM: {
+            m_activeBgm = args[0];
+            break;
+        }
+        case BitOp::EVENT: {
+            std::vector<Event> evs = { {args[0], ins.metadata} };
+            ProcessEvents(evs);
+            if (args[0] == "delay") {
+                m_vmWaiting = true;
+                m_vmDelayed = true;
+            }
+            break;
+        }
+        case BitOp::HALT: m_isActive = false; break;
+        default: break;
+    }
 }

@@ -1,0 +1,144 @@
+config {
+    start_node = scene_alley_start;
+    mode = typewriter;
+    reveal_speed = 45;
+};
+
+var trust_akira = 0;
+var trust_kael = 0;
+var credits = 50;
+var knows_about_target = 0;
+
+assets {
+    backgrounds {
+        alley_bg = "assets/alley_bg.png";
+        market_bg = "assets/market_bg.png";
+    };
+    music {
+        neon_noir = "assets/neon_noir.mp3";
+        market_theme = "assets/market_theme.mp3";
+    };
+    sfx {
+        glitch = "assets/glitch.wav";
+        confirm = "assets/confirm.wav";
+    };
+    fonts {
+        dream = "assets/fonts/dream.ttf";
+    };
+};
+
+entities {
+    akira {
+        name = "Akira";
+        type = Fixer;
+        default_pos = right;
+        sprite idle { path = "assets/akira_idle.png"; frames = 2; speed = 4.0; scale = 3.0; };
+        sprite serious { path = "assets/akira_serious.png"; frames = 1; speed = 1.0; scale = 3.0; };
+        sprite neutral { path = "assets/akira_neutral.png"; frames = 1; speed = 1.0; scale = 3.0; };
+    };
+    kael {
+        name = "Kael";
+        type = Merchant;
+        default_pos = left;
+        sprite idle { path = "assets/kael_idle.png"; frames = 1; speed = 1.0; scale = 3.0; };
+    };
+    system {
+        name = "Log";
+        type = System;
+        default_pos = center;
+    };
+};
+
+scene scene_alley_start {
+    bg = "alley_bg";
+    bgm = "neon_noir";
+    fade_screen 1.0, 0;
+    fade_screen 0.0, 2000;
+    system [auto_next = true, pre_delay = 1000]: "[speed=0.3]Connecting to neural uplink...[wait=0.8] established.";
+    jump intro_cinematic;
+};
+
+scene intro_cinematic {
+    shake 10;
+    system [auto_next = true]: "[shake]WARNING:[wait=0.5] System integrity compromised.";
+    delay 1500;
+    jump alley_start_real;
+};
+
+scene alley_start_real {
+    akira [sprite = serious, pos = left, alpha = 0.0];
+    fade akira, 1.0, 1000;
+    akira: "Kael! Stay back! Something is [font=dream]wrong[/font] with the uplink.";
+    jump kael_enters;
+};
+
+scene kael_enters {
+    kael [sprite = idle, pos = right, alpha = 0.0, join = true];
+    fade kael, 1.0, 800;
+    kael [join = true]: "I can feel it too... it's like a [color=#ff00ff]glitch[/color] in the air.";
+    jump alley_move_demo;
+};
+
+scene alley_move_demo {
+    move akira, center, 500;
+    move kael, 0.9, 400;
+    akira [join = true]: "Wait, I'm detecting a signature nearby. Let's move in.";
+    jump alley_to_market;
+};
+
+scene alley_to_market {
+    fade bg, market_bg, 2000;
+    fade akira, 0.0, 1500;
+    fade kael, 0.0, 1500;
+    system [join = true, auto_next = true, pre_delay = 1500, transition = fade_black, transition_duration = 1000, transition_delay = 500]: "Moving to the Market District...";
+    jump scene_market_start;
+};
+
+scene scene_market_start {
+    akira [sprite = idle, pos = left, alpha = 0.0];
+    fade akira, 1.0, 500;
+    akira: "The market is unusually quiet today. [font=dream]Eerily quiet.[/font]";
+    jump market_options;
+};
+
+scene market_options {
+    akira [join = true]: "What's our next move?";
+    choice {
+        "Search the stalls" -> market_browsing;
+        "Check the terminal" [style = premium] -> market_terminal;
+    };
+};
+
+scene market_browsing {
+    kael [pos = right, join = true]: "Nothing but scrap metal and rusted parts.";
+    jump check_ending;
+};
+
+scene market_terminal {
+    trust_akira = trust_akira + 1;
+    akira [join = true]: "Accessing the main terminal... [wait=0.5] [font=dream]ACCESS GRANTED[/font].";
+    jump check_ending;
+};
+
+scene check_ending {
+    system [join = true]: "Calculating outcome based on neural synchronization...";
+    choice {
+        "Continue (Synchronization High)" -> ending_good if (trust_akira >= 1);
+        "Continue (Synchronization Low)" -> ending_bad if (trust_akira < 1);
+    };
+};
+
+scene ending_good {
+    akira [join = true]: "Synchronization complete. We're in. Good work.";
+    jump dialog_end_final;
+};
+
+scene ending_bad {
+    akira [join = true]: "Synchronization failed. We're locked out. This is a disaster.";
+    jump dialog_end_final;
+};
+
+scene dialog_end_final {
+    system [join = true]: "End of Demonstration.";
+    halt;
+};

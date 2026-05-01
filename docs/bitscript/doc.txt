@@ -1,0 +1,109 @@
+🧩 SUMMARY DOCUMENTATION
+🎮 BIT SCRIPT LANGUAGE OVERVIEW
+
+BIT SCRIPT is a lightweight narrative scripting language designed for visual novel engines. It combines:
+
+declarative entity definitions
+linear + branching storytelling
+real expressions (math + logic)
+event-driven scene scripting
+simple but powerful state system
+🧠 CORE DESIGN PHILOSOPHY
+
+The language is built around:
+
+1. Scene-first execution
+
+Everything runs inside scene {} blocks.
+
+2. Entity-driven dialogue
+
+Characters are predefined objects with sprites and metadata.
+
+3. Minimal syntax overhead
+
+No strict typing, no verbose JSON structures.
+
+4. Expression-native logic
+
+Conditions and math are built into the language, not external scripts.
+
+🎭 ENTITIES
+
+Entities define characters or system actors.
+
+They include:
+
+identity (name, type)
+position (default_pos)
+multiple sprites (expressions)
+
+Sprites are switchable at runtime using:
+
+sprite = serious;
+🎬 SCENES
+
+Scenes are directed graph nodes containing:
+
+dialogue
+choices
+jumps
+conditions
+variable operations
+
+Execution flows using:
+
+jump scene_name;
+🎮 CHOICES
+
+Choices support:
+
+unconditional branching
+conditional availability
+
+Example logic:
+
+visible only if expression evaluates true
+otherwise hidden or disabled (engine-defined behavior)
+🧠 VARIABLES
+
+Variables are global by default:
+
+var trust = 0;
+trust = trust + 1;
+
+They support:
+
+arithmetic
+boolean logic
+comparisons
+🧮 EXPRESSIONS
+
+Supports full expression evaluation:
+
+Math:
++ - * /
+Logic:
+and
+or
+!
+Comparisons:
+== != < > <= >=
+
+Example:
+
+if (trust >= 1 and visited == true) { }
+🔁 CONTROL FLOW
+Jump system:
+jump scene_next;
+Conditional execution:
+if (condition) { ... };
+💬 DIALOGUE SYSTEM
+
+Dialogue is bound to entities:
+
+akira [sprite = neutral; pos = left;]: "Hello.";
+
+Modifiers control runtime presentation.
+
+The language should compile to bytecode and run on the BitEngine VM.

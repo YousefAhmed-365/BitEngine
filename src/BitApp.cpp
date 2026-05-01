@@ -7,7 +7,7 @@
 
 using json = nlohmann::json;
 
-BitApp::BitApp() {
+BitApp::BitApp(const std::string& projectPath) : m_projectPath(projectPath) {
     LoadConfig("res/app.json");
 
     if (m_resizable) {
@@ -51,7 +51,7 @@ void BitApp::Run() {
     if (FileExists("data.bin")) {
         loaded = dialogSystem.LoadCompiledProject("data.bin");
     } else {
-        loaded = dialogSystem.LoadProject("res/configs.json");
+        loaded = dialogSystem.LoadProject(m_projectPath);
     }
 
     uiBridge.GetStyleManager().LoadStyle("res/style.json");

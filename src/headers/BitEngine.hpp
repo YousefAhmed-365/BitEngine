@@ -16,6 +16,36 @@ struct BitColor {
     static BitColor Blank() { return {0, 0, 0, 0}; }
 };
 
+enum class BitOp {
+    TEXT,       // entity, content (non-blocking)
+    SAY,        // entity, content (blocking)
+    CHOICE,     // text, target_label
+    IF,         // var, op, value, target_label
+    IF_REF,     // var, op, ref_var, target_label
+    GOTO,       // target_label
+    SET,        // var, val
+    SET_REF,    // var, ref_var
+    ADD,        // var, val
+    ADD_REF,    // var, ref_var
+    SUB,        // ...
+    SUB_REF,
+    MUL,
+    MUL_REF,
+    DIV,
+    DIV_REF,
+    EVENT,      // op, params_json
+    BG,         // id
+    BGM,        // id
+    LABEL,      // marker (no-op)
+    HALT
+};
+
+struct BitInstruction {
+    BitOp op;
+    std::vector<std::string> args;
+    nlohmann::json metadata;
+};
+
 struct RichChar {
     char ch[5]; // UTF-8 character (max 4 bytes + null)
     BitColor color = BitColor::Blank(); 
@@ -37,7 +67,7 @@ public:
 // Condition system: recursive tree
 // A ConditionNode is either a leaf {var, op, value} or a group {"and":[...]} / {"or":[...]}.
 // The top-level conditions list is implicitly AND-ed.
-struct ConditionLeaf { std::string var, op; int value = 0; };
+struct ConditionLeaf { std::string var, op; int value = 0; std::string ref = ""; };
 struct ConditionNode {
     bool        isGroup    = false;
     std::string groupLogic = "and";     // "and" | "or"
@@ -165,6 +195,9 @@ struct DialogProject {
     std::unordered_map<std::string, std::string> music;
     std::unordered_map<std::string, std::string> sfx;
     std::unordered_map<std::string, std::string> fonts; // New: font name -> path mapping
+    
+    // Bytecode
+    std::vector<BitInstruction> bytecode;
 };
 
 // Validation Result
@@ -340,15 +373,13 @@ private:
     std::string GetTimestamp() const;
     float ParsePosition(const std::string& pos) const;
     float ParseXParam(const nlohmann::json& params, const std::string& key = "x") const;
-};
 
-class DialogParser {
-public:
-    static DialogProject ParseConfig(const std::string& path);
-    static bool LoadDialogFile(const std::string& path, DialogProject& p);
-    static bool LoadEntitiesFile(const std::string& path, DialogProject& p);
-    static bool LoadVariablesFile(const std::string& path, DialogProject& p);
-    static bool LoadAssetsFile(const std::string& path, DialogProject& p);
+    // VM State
+    int m_pc = 0;
+    bool m_vmWaiting = false;
+    bool m_vmDelayed = false;
+    void RunVM();
+    void ExecuteInstruction(const BitInstruction& ins);
 };
 
 #endif
