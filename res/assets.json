@@ -10,5 +10,8 @@
     "sfx": {
         "glitch": "assets/glitch.wav",
         "confirm": "assets/confirm.wav"
+    },
+    "fonts": {
+        "dream": "assets/fonts/dream.ttf"
     }
 }

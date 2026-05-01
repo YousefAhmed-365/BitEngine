@@ -1,124 +1,123 @@
 {
     "scene_alley_start": {
-        "entity": "akira",
+        "entity": "system",
+        "content": "[speed=0.3]Connecting to neural uplink...[wait=0.8] established.",
+        "next_id": "intro_cinematic",
         "metadata": {
             "bg": "alley_bg",
             "bgm": "neon_noir",
-            "sfx": "glitch",
-            "expression": "neutral",
-            "pos": "right",
-            "clear_sprites": "true"
-        },
-        "content": "Still walking these shadows? [wait=0.3][speed=0.5]You're either [color=RED]brave[/color] or very [shake]lost[/shake][/speed]. Current Credits: {credits}",
-        "next_id": null,
-        "options": [
-            {
-                "content": "Looking for work.",
-                "next_id": "alley_work",
-                "conditions": [
-                    { "op": ">=", "var": "credits", "value": 0 }
-                ],
-                "style": "neutral"
-            },
-            {
-                "content": "Just passing through.",
-                "next_id": "alley_passing",
-                "events": [
-                    { "op": "sub", "var": "trust_akira", "value": 1 },
-                    { "op": "shake", "var": "", "value": 10 }
-                ]
-            },
-            {
-                "content": "I'm feeling lucky.",
-                "next_id": "alley_lucky",
-                "events": [
-                    { "op": "play_sfx", "var": "confirm" }
-                ],
-                "style": "premium"
-            }
-        ],
-        "events": []
+            "hide_ui": "false",
+            "auto_next": "true"
+        }
     },
-    "alley_lucky": {
+
+    "intro_cinematic": {
         "entity": "system",
-        "metadata": { "bg": "alley_bg" },
-        "content": "[color=YELLOW]Rolling the dice... wait for it...[/color]",
-        "next_id": null,
-        "options": [],
-        "events": [
-            { "op": "random", "var": "credits", "value": 100, "value_max": 500 },
-            { "op": "delay", "value": 1500 },
-            { "op": "jump", "var": "alley_lucky_result" }
-        ]
-    },
-    "alley_lucky_result": {
-        "entity": "akira",
-        "metadata": { "expression": "neutral" },
-        "content": "[wave]Jackpot![/wave] You just rolled {credits} credits out of thin air. Enjoy the wealth.",
-        "next_id": "alley_to_market",
-        "options": [],
-        "events": [ { "op": "play_sfx", "var": "confirm" } ]
-    },
-    "alley_work": {
-        "entity": "akira",
+        "content": "[shake]WARNING:[wait=0.5] System integrity compromised.",
+        "next_id": "alley_start_real",
         "metadata": {
-            "expression": "idle",
-            "pos": "left"
+            "hide_ui": "false",
+            "auto_next": "true"
         },
-        "content": "Work is a polite word for what I do. [wait=0.5]But you look like you can handle a blade. [wait=0.3]Wait, [color=SKYBLUE]Kael[/color]! Get over here.",
-        "next_id": "alley_work_kael_enters",
-        "options": [],
         "events": [
-            { "op": "add", "var": "trust_akira", "value": 1 },
-            { "op": "set", "var": "knows_about_target", "value": 1 }
+            { "op": "shake", "value": 10 },
+            { "op": "delay", "value": 1500 }
         ]
     },
-    "alley_work_kael_enters": {
-        "entity": "kael",
-        "metadata": { "join": "true" },
-        "content": "You called, Akira? [wait=0.5]Who's this fresh face?",
-        "next_id": "alley_work_akira_responds",
-        "options": [],
-        "events": [
-            { "op": "expression", "var": "kael", "value_str": "idle" },
-            { "op": "pos", "var": "kael", "value_str": "right" }
-        ]
-    },
-    "alley_work_akira_responds": {
+
+    "alley_start_real": {
         "entity": "akira",
-        "metadata": { "expression": "serious", "join": "true" },
-        "content": "Just a freelancer with [shake]potential[/shake]. [wait=0.3]Be useful for once and show them the ropes.",
-        "next_id": "alley_to_market",
-        "options": [],
-        "events": [
-            { "op": "pos", "var": "akira", "value_str": "left" }
-        ]
-    },
-    "alley_passing": {
-        "entity": "akira",
+        "content": "Kael! Stay back! Something is [font=dream]wrong[/font] with the uplink.",
+        "next_id": "kael_enters",
         "metadata": {
             "expression": "serious",
-            "pos": "center",
-            "pos_y": "0.4"
+            "pos": "left"
         },
-        "content": "Is that so? [wait=0.5][speed=2.0]Well, keep moving.[/speed] [wave]Characters like you[/wave] don't last long in the rain.",
-        "next_id": "alley_to_market",
-        "options": [],
         "events": [
-            { "op": "shake", "var": "", "value": 15 }
+            { "op": "fade", "var": "akira", "value_str": "1.0", "value": 1000 }
         ]
     },
+
+    "kael_enters": {
+        "entity": "kael",
+        "content": "I can feel it too... it's like a [color=#ff00ff]glitch[/color] in the air.",
+        "next_id": "alley_move_demo",
+        "metadata": {
+            "join": "true",
+            "expression": "idle",
+            "pos": "right"
+        },
+        "events": [
+            { "op": "fade", "var": "kael", "value_str": "1.0", "value": 800 }
+        ]
+    },
+
+    "alley_move_demo": {
+        "entity": "akira",
+        "content": "Wait, I'm detecting a signature nearby. Let's move in.",
+        "next_id": "alley_to_market",
+        "metadata": { "join": "true" },
+        "events": [
+            { "op": "move", "var": "akira", "value_str": "center", "value": 500 },
+            { "op": "move", "var": "kael", "value_str": "0.9", "value": 400 }
+        ]
+    },
+
     "alley_to_market": {
         "entity": "system",
-        "metadata": {
-            "bg": "market_bg",
-            "bgm": "market_theme"
-        },
-        "content": "[color=GRAY]You leave the damp alley and head towards the glow of the Neon Market.[/color]",
+        "content": "Moving to the Market District...",
         "next_id": "scene_market_start",
-        "options": [],
+        "metadata": {
+            "auto_next": "true",
+            "join": "true"
+        },
         "events": [
-            { "op": "clear_sprites" }
+            { "op": "fade", "var": "bg", "value_str": "market_bg", "value": 2000 },
+            { "op": "fade", "var": "akira", "value_str": "0.0", "value": 1500 },
+            { "op": "fade", "var": "kael", "value_str": "0.0", "value": 1500 },
+            { "op": "delay", "value": 1500 }
         ]
+    },
+
+    "scene_market_start": {
+        "entity": "akira",
+        "content": "The market is unusually quiet today. [font=dream]Eerily quiet.[/font]",
+        "next_id": "market_options",
+        "metadata": {
+            "expression": "idle",
+            "pos": "left",
+            "alpha": "0"
+        },
+        "events": [
+            { "op": "fade", "var": "akira", "value_str": "1.0", "value": 500 }
+        ]
+    },
+
+    "market_options": {
+        "entity": "akira",
+        "content": "What's our next move?",
+        "options": [
+            { "content": "Search the stalls", "next_id": "market_browsing" },
+            { "content": "Check the terminal", "next_id": "market_terminal", "style": "premium" }
+        ]
+    },
+
+    "market_browsing": {
+        "entity": "kael",
+        "content": "Nothing but scrap metal and rusted parts.",
+        "next_id": "dialog_end_final",
+        "metadata": { "join": "true", "pos": "right" }
+    },
+
+    "market_terminal": {
+        "entity": "akira",
+        "content": "Accessing the main terminal... [wait=0.5] [font=dream]ACCESS GRANTED[/font].",
+        "next_id": "dialog_end_final"
+    },
+
+    "dialog_end_final": {
+        "entity": "system",
+        "content": "End of Demonstration.",
+        "next_id": "dialog_end"
     }
 }

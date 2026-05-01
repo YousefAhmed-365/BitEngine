@@ -22,7 +22,6 @@
         "res/assets.json"
     ],
     "dialogs": [
-        "res/dialog_intro.json",
-        "res/dialog_market.json"
+        "res/dialog_intro.json"
     ]
 }

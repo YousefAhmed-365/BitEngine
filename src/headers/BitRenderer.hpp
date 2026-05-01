@@ -139,6 +139,7 @@ public:
 
     // Returns the loaded Font for the active style, or Raylib's default if none is configured.
     Font GetCurrentFont() const;
+    Font GetFont(const std::string& path); // Expose cache access
 
 private:
     UIStyle m_activeStyle;
@@ -175,6 +176,7 @@ protected:
 
     void DrawRichText(const std::vector<RichChar>& content, int limit, int x, int y, int fontSize, int maxWidth, Color defaultColor, int lineSpacing);
     Texture2D GetTexture(const std::string& path);
+    Font GetFont(const std::string& path) { return m_styleManager.GetFont(path); }
     void PlaySFX(const std::string& path);
     void CreateFallbackTexture();
     void CreateVignetteTexture();

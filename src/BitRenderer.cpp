@@ -212,6 +212,19 @@ Font StyleManager::GetCurrentFont() const {
     return GetFontDefault();
 }
 
+Font StyleManager::GetFont(const std::string& path) {
+    if (path.empty()) return GetFontDefault();
+    auto it = m_fontCache.find(path);
+    if (it != m_fontCache.end()) return it->second;
+    
+    if (FileExists(path.c_str())) {
+        Font f = LoadFont(path.c_str());
+        m_fontCache[path] = f;
+        return f;
+    }
+    return GetFontDefault();
+}
+
 void StyleManager::Update() {
     m_hotReloadTimer += GetFrameTime();
     if (m_hotReloadTimer >= 0.5f) {
@@ -289,8 +302,10 @@ void BitRenderer::Draw() {
         DrawBackground();
         DrawVFX(); // Vignette shakes with the camera now for more impact
         DrawEntitySprites();
-        DrawMainBox();
-        if (!m_engine.IsTextRevealing()) DrawChoiceBox();
+        if (!m_engine.IsUiHidden()) {
+            DrawMainBox();
+            if (!m_engine.IsTextRevealing()) DrawChoiceBox();
+        }
     EndMode2D();
     
     if (m_engine.IsDebugOverlayVisible()) DrawDebugOverlay();
@@ -415,17 +430,29 @@ void BitRenderer::HandleInput() {
 // ============================================================
 void BitRenderer::DrawBackground() {
     auto& style = m_styleManager.GetStyle();
-    // Feature 5: Always paint the clear color first to prevent ghosting
     DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), style.clearColor);
 
     std::string activeBg = m_engine.GetActiveBg();
-    if (!activeBg.empty()) {
-        std::string req  = activeBg;
-        std::string path = m_engine.GetBackground(req);
-        if (path.empty()) path = req;
-        Texture2D bg = GetTexture(path);
-        DrawTexturePro(bg, {0,0,(float)bg.width,(float)bg.height},
+    std::string prevBg = m_engine.GetPrevBg();
+    float fade = m_engine.GetBgFadeAlpha();
+
+    // Draw previous background if we are fading
+    if (fade < 1.0f && !prevBg.empty()) {
+        std::string path = m_engine.GetBackground(prevBg);
+        if (path.empty()) path = prevBg;
+        Texture2D tex = GetTexture(path);
+        DrawTexturePro(tex, {0,0,(float)tex.width,(float)tex.height},
                        {0,0,(float)GetScreenWidth(),(float)GetScreenHeight()}, {0,0}, 0, WHITE);
+    }
+
+    if (!activeBg.empty()) {
+        std::string path = m_engine.GetBackground(activeBg);
+        if (path.empty()) path = activeBg;
+        Texture2D tex = GetTexture(path);
+        Color tint = WHITE;
+        if (fade < 1.0f) tint.a = (unsigned char)(fade * 255.0f);
+        DrawTexturePro(tex, {0,0,(float)tex.width,(float)tex.height},
+                       {0,0,(float)GetScreenWidth(),(float)GetScreenHeight()}, {0,0}, 0, tint);
     }
 }
 
@@ -434,6 +461,7 @@ void BitRenderer::DrawEntitySprites() {
     const auto& activeEntities = m_engine.GetActiveEntities();
     int sw = GetScreenWidth(), sh = GetScreenHeight();
 
+    int i = 0;
     for (const auto& [entityId, state] : activeEntities) {
         const auto* entity = m_engine.GetEntity(entityId);
         if (!entity) continue;
@@ -456,35 +484,29 @@ void BitRenderer::DrawEntitySprites() {
         // Calculate animation frame
         int currentFrame = (int)(GetTime() * speed) % finalFrames;
 
-        float normX = 0.5f; // Default to center if no position is specified
+        float normX = state.currentNormX;
         float normY = 0.45f;
         
-        std::string p = state.pos;
-        if (!p.empty()) {
-            if      (p == "left")   normX = 0.2f;
-            else if (p == "right")  normX = 0.8f;
-            else if (p == "center") normX = 0.5f;
-            else {
-                try { normX = std::stof(p); } catch (...) {}
-            }
-        }
-
         int fw = tex.width / finalFrames;
         Rectangle src = { (float)(currentFrame * fw), 0, (float)fw, (float)tex.height };
 
         m_floatOffset = m_engine.GetConfigs().enable_floating
-            ? sinf((float)GetTime() * style.entityFloatSpeed) * style.entityFloatAmplitude
+            ? sinf((float)GetTime() * style.entityFloatSpeed + i * 2.0f) * style.entityFloatAmplitude
             : 0.0f;
 
         Vector2 pos = { (sw * normX) - (fw * scale) / 2.0f,
                         (sh * normY) - (tex.height * scale) / 2.0f + m_floatOffset };
 
+        Color tint = WHITE;
+        tint.a = (unsigned char)(state.alpha * 255.0f);
+
         if (m_engine.GetConfigs().enable_shadows) {
             DrawEllipse((int)pos.x + (int)(fw*scale/2), (int)pos.y + (int)(tex.height*scale),
-                        (int)(fw*scale/3), 10, Fade(BLACK, style.entityShadowOpacity));
+                        (int)(fw*scale/3), 10, Fade(BLACK, style.entityShadowOpacity * state.alpha));
         }
 
-        DrawTexturePro(tex, src, {pos.x, pos.y, fw * scale, tex.height * scale}, {0,0}, 0, WHITE);
+        DrawTexturePro(tex, src, {pos.x, pos.y, fw * scale, tex.height * scale}, {0,0}, 0, tint);
+        i++;
     }
 }
 
@@ -697,30 +719,25 @@ void BitRenderer::DrawDebugOverlay() {
         dy += 25;
     }
 
-    // Panel 4: Asset Monitor
+    // Panel 4: Cinematic State
     Rectangle r4 = GetPanelRect(3);
     px = r4.x; py = r4.y; dy = py;
-    DrawText("ASSET MONITOR", px, dy, 13, PURPLE); dy += 20;
+    DrawText("CINEMATIC STATE", px, dy, 13, GOLD); dy += 22;
     
-    DrawText("Audio Engine:", px, dy, 11, LIGHTGRAY); dy += 15;
-    DrawText(TextFormat(" BGM: %s", m_currentMusicPath.empty() ? "(none)" : GetFileName(m_currentMusicPath.c_str())), px, dy, 10, m_isMusicPlaying ? GOLD : GRAY); dy += 13;
-    DrawText(TextFormat(" State: %s", m_isMusicPlaying ? "PLAYING" : "STOPPED"), px, dy, 10, m_isMusicPlaying ? LIME : RED); dy += 18;
+    DrawText(TextFormat("UI Hidden: %s", m_engine.IsUiHidden() ? "TRUE" : "FALSE"), px, dy, 10, m_engine.IsUiHidden() ? YELLOW : GRAY); dy += 14;
+    DrawText(TextFormat("BG Fade:   %.2f", m_engine.GetBgFadeAlpha()), px, dy, 10, RAYWHITE); dy += 18;
 
-    DrawText("Cache Stats:", px, dy, 11, LIGHTGRAY); dy += 15;
-    DrawText(TextFormat(" Text: %d  Mus: %d  SFX: %d", (int)m_textureCache.size(), (int)m_musicCache.size(), (int)m_sfxCache.size()), px, dy, 9, RAYWHITE); dy += 20;
-
-    DrawText("Load Failures:", px, dy, 11, RED); dy += 15;
-    int errCount = 0;
-    for (auto const& [path, mus] : m_musicCache) if (mus.frameCount == 0) {
-        if (dy < r4.y + r4.height - 10) DrawText(TextFormat(" ! [MUS] %s", GetFileName(path.c_str())), px, dy, 9, PINK);
-        dy += 11; errCount++; if (errCount > 5) break;
-    }
-    for (auto const& [path, tex] : m_textureCache) if (tex.id == 0) {
-        if (dy < r4.y + r4.height - 10) DrawText(TextFormat(" ! [TEX] %s", GetFileName(path.c_str())), px, dy, 9, RED);
-        dy += 11; errCount++; if (errCount > 5) break;
+    DrawText("Entities:", px, dy, 11, SKYBLUE); dy += 15;
+    const auto& entities = m_engine.GetActiveEntities();
+    for (const auto& [id, s] : entities) {
+        if (dy > r4.y + r4.height - 20) break;
+        DrawText(TextFormat("[%s] X:%.2f->%.2f A:%.2f->%.2f", 
+                 id.substr(0, 6).c_str(), s.currentNormX, s.targetNormX, s.alpha, s.targetAlpha), 
+                 px, dy, 9, (s.moveTimer < s.moveDuration || s.fadeTimer < s.fadeDuration) ? LIME : GRAY);
+        dy += 12;
     }
 
-    if (errCount == 0) DrawText("(none)", px, dy, 10, Fade(RAYWHITE, 0.4f)); 
+    if (entities.empty()) DrawText("(none)", px, dy, 10, Fade(RAYWHITE, 0.4f)); 
 
     // Error log stays at far bottom
     if (!errors.empty()) {
@@ -770,6 +787,14 @@ void BitRenderer::DrawRichText(const std::vector<RichChar>& content, int limit, 
 
         for (int j = i; j < wordEnd; j++) {
             const auto& rc = content[j];
+            
+            // Per-character font override
+            Font f = font;
+            if (!rc.font.empty()) {
+                std::string fontPath = m_engine.GetProject().fonts.count(rc.font) ? m_engine.GetProject().fonts.at(rc.font) : "";
+                if (!fontPath.empty()) f = GetFont(fontPath);
+            }
+
             Color c = (rc.color.a == 0 && rc.color.r == 0 && rc.color.g == 0 && rc.color.b == 0) 
                       ? defaultColor 
                       : Color{ rc.color.r, rc.color.g, rc.color.b, rc.color.a };
@@ -779,8 +804,8 @@ void BitRenderer::DrawRichText(const std::vector<RichChar>& content, int limit, 
             if (rc.wave)  { oy += sinf(time * 6.0f + curX * 0.05f) * 4.0f; }
 
             Vector2 pos = { (float)curX + ox, (float)curY + oy };
-            float charW = MeasureTextEx(font, rc.ch, (float)fontSize, spacing).x;
-            DrawTextEx(font, rc.ch, pos, (float)fontSize, spacing, c);
+            float charW = MeasureTextEx(f, rc.ch, (float)fontSize, spacing).x;
+            DrawTextEx(f, rc.ch, pos, (float)fontSize, spacing, c);
             curX += (int)(charW + spacing);
         }
         
@@ -826,6 +851,7 @@ void BitRenderer::PreloadAssets() {
     for (auto const& [id, ent] : proj.entities) {
         for (auto const& [s_id, s_def] : ent.sprites) GetTexture(s_def.path);
     }
+    for (auto const& [id, path] : proj.fonts) GetFont(path);
 }
 
 void BitRenderer::PlaySFX(const std::string& path) {

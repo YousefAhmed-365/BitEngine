@@ -23,6 +23,7 @@ struct RichChar {
     float speedMod = 1.0f;
     bool shake = false;
     bool wave = false;
+    std::string font = ""; // New: font override per character
 
     RichChar() { std::memset(ch, 0, 5); }
 };
@@ -60,6 +61,20 @@ struct VariableDef { std::string id = ""; int initial_value = 0; std::optional<i
 struct ActiveEntityState {
     std::string expression = "idle";
     std::string pos = "";
+    
+    // Smooth movement
+    float currentNormX = 0.5f;
+    float startNormX = 0.5f;
+    float targetNormX = 0.5f;
+    float moveTimer = 0.0f;
+    float moveDuration = 0.0f;
+
+    // Fading
+    float alpha = 1.0f;
+    float startAlpha = 1.0f;
+    float targetAlpha = 1.0f;
+    float fadeTimer = 0.0f;
+    float fadeDuration = 0.0f;
 };
 
 struct DialogNode {
@@ -110,6 +125,7 @@ struct DialogProject {
     std::unordered_map<std::string, std::string> backgrounds;
     std::unordered_map<std::string, std::string> music;
     std::unordered_map<std::string, std::string> sfx;
+    std::unordered_map<std::string, std::string> fonts; // New: font name -> path mapping
 };
 
 // --- Validation Result ---
@@ -176,8 +192,13 @@ public:
     std::string GetSFX(const std::string& id) const { return m_project.sfx.count(id) ? m_project.sfx.at(id) : ""; }
 
     // Active Persistent States (Retained across nodes and saves)
-    std::string GetActiveBg() const { return m_activeBg; }
-    std::string GetActiveBgm() const { return m_activeBgm; }
+    const std::string& GetActiveBg() const { return m_activeBg; }
+    const std::string& GetPrevBg() const { return m_prevBg; }
+    float GetBgFadeAlpha() const { return m_bgFadeAlpha; }
+    const std::string& GetActiveBgm() const { return m_activeBgm; }
+    
+    bool IsUiHidden() const { return m_isUiHidden; }
+    bool IsAutoNext() const { return m_isAutoNext; }
     const std::unordered_map<std::string, ActiveEntityState>& GetActiveEntities() const { return m_activeEntities; }
 
     // Conditional Audio Playback (Event-driven)
@@ -220,7 +241,14 @@ private:
     std::vector<std::string> m_pendingSFX;
 
     std::string m_activeBg = "";
+    std::string m_prevBg = "";
+    float m_bgFadeAlpha = 1.0f; // 1.0 = fully current, 0.0 = fully previous
+    float m_bgFadeTimer = 0.0f;
+    float m_bgFadeDuration = 0.0f;
+
     std::string m_activeBgm = "";
+    bool m_isUiHidden = false;
+    bool m_isAutoNext = false;
     std::unordered_map<std::string, ActiveEntityState> m_activeEntities;
 
     // Debug state
@@ -235,6 +263,7 @@ private:
     std::string XORBuffer(const std::string& data) const;
     std::string GetSlotPath(int slot) const;
     std::string GetTimestamp() const;
+    float ParsePosition(const std::string& pos) const;
 };
 
 class DialogParser {

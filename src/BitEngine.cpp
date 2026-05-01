@@ -44,6 +44,7 @@ std::vector<RichChar> RichTextParser::Parse(const std::string& rawText) {
     float currentSpeedMod = 1.0f;
     bool currentShake = false;
     bool currentWave = false;
+    std::string currentFont = "";
     float accumulatedWait = 0.0f;
 
     size_t i = 0;
@@ -70,6 +71,10 @@ std::vector<RichChar> RichTextParser::Parse(const std::string& rawText) {
                     currentWave = true;
                 } else if (tag == "/wave") {
                     currentWave = false;
+                } else if (tag.find("font=") == 0) {
+                    currentFont = tag.substr(5);
+                } else if (tag == "/font") {
+                    currentFont = "";
                 } else if (tag.find("wait=") == 0) {
                     try { accumulatedWait += std::stof(tag.substr(5)); } catch (...) {}
                 } else {
@@ -96,6 +101,7 @@ std::vector<RichChar> RichTextParser::Parse(const std::string& rawText) {
         rc.speedMod = currentSpeedMod;
         rc.shake = currentShake;
         rc.wave = currentWave;
+        rc.font = currentFont;
         rc.waitBefore = accumulatedWait;
         
         accumulatedWait = 0.0f; // Reset wait after applying to this character
@@ -265,6 +271,9 @@ bool DialogParser::LoadAssetsFile(const std::string& path, DialogProject& p) {
         }
         if (j.contains("sfx")) {
             for (auto& [id, file] : j["sfx"].items()) p.sfx[id] = file.get<std::string>();
+        }
+        if (j.contains("fonts")) {
+            for (auto& [id, file] : j["fonts"].items()) p.fonts[id] = file.get<std::string>();
         }
     } catch (...) { return false; }
     return true;
@@ -481,9 +490,15 @@ void DialogEngine::SaveGame(int slot) {
         j["active_bgm"] = m_activeBgm;
         json entities = json::object();
         for (const auto& [id, state] : m_activeEntities) {
-            entities[id] = { {"expression", state.expression}, {"pos", state.pos} };
+            entities[id] = { 
+                {"expression", state.expression}, 
+                {"pos", state.pos},
+                {"normX", state.currentNormX},
+                {"alpha", state.alpha}
+            };
         }
         j["active_entities"] = entities;
+        j["ui_hidden"] = m_isUiHidden;
         j["meta"] = { {"time", sd.meta.timestamp}, {"node", sd.meta.node_id}, {"char", sd.meta.entity_name}, {"text", sd.meta.summary} };
         std::string data = j.dump(4);
         if (m_project.configs.encrypt_save) data = XORBuffer(data);
@@ -509,10 +524,20 @@ bool DialogEngine::LoadGame(int slot) {
             
             if (j.contains("active_entities") && j["active_entities"].is_object()) {
                 m_activeEntities.clear();
-                for (auto& [id, state] : j["active_entities"].items()) {
-                    m_activeEntities[id] = { state.value("expression", "idle"), state.value("pos", "") };
+                for (auto& [id, s] : j["active_entities"].items()) {
+                    ActiveEntityState state;
+                    state.expression = s.value("expression", "idle");
+                    state.pos = s.value("pos", "center");
+                    state.currentNormX = s.value("normX", 0.5f);
+                    state.targetNormX = state.currentNormX;
+                    state.startNormX = state.currentNormX;
+                    state.alpha = s.value("alpha", 1.0f);
+                    state.targetAlpha = state.alpha;
+                    state.startAlpha = state.alpha;
+                    m_activeEntities[id] = state;
                 }
             }
+            if (j.contains("ui_hidden")) m_isUiHidden = j["ui_hidden"].get<bool>();
             if (j.contains("variables") && j["variables"].is_object()) {
                 for (auto& [id, val] : j["variables"].items()) {
                     if (m_project.variables.count(id)) m_variables[id] = val.get<int>();
@@ -567,8 +592,20 @@ void DialogEngine::StartDialog(const std::string& startId) {
     m_currentNodeId = id;
     m_isActive = true;
     
-    if (m_currentNode->metadata.count("bg")) m_activeBg = m_currentNode->metadata.at("bg");
+    if (m_currentNode->metadata.count("bg")) {
+        if (m_activeBg != m_currentNode->metadata.at("bg")) {
+            m_prevBg = m_activeBg;
+            m_activeBg = m_currentNode->metadata.at("bg");
+            m_bgFadeAlpha = 0.0f; // Start fading from previous
+            m_bgFadeTimer = 0.0f;
+            m_bgFadeDuration = 0.8f; // Default 0.8s fade
+        }
+    }
     if (m_currentNode->metadata.count("bgm")) m_activeBgm = m_currentNode->metadata.at("bgm");
+    
+    // UI visibility and flow
+    m_isUiHidden = m_currentNode->metadata.count("hide_ui") && m_currentNode->metadata.at("hide_ui") == "true";
+    m_isAutoNext = m_currentNode->metadata.count("auto_next") && m_currentNode->metadata.at("auto_next") == "true";
     
     // Scene management: Clear sprites unless this node is explicitly "joining" the current setup
     bool isJoining = m_currentNode->metadata.count("join") && m_currentNode->metadata.at("join") == "true";
@@ -578,8 +615,25 @@ void DialogEngine::StartDialog(const std::string& startId) {
     if (!m_currentNode->entity.empty() && m_currentNode->entity != "system") {
         auto& state = m_activeEntities[m_currentNode->entity];
         if (m_currentNode->metadata.count("expression")) state.expression = m_currentNode->metadata.at("expression");
-        if (m_currentNode->metadata.count("pos")) state.pos = m_currentNode->metadata.at("pos");
-        if (m_currentNode->metadata.count("pos_x")) state.pos = m_currentNode->metadata.at("pos_x");
+        
+        std::string posStr = "";
+        if (m_currentNode->metadata.count("pos")) posStr = m_currentNode->metadata.at("pos");
+        if (m_currentNode->metadata.count("pos_x")) posStr = m_currentNode->metadata.at("pos_x");
+        
+        if (!posStr.empty()) {
+            state.pos = posStr;
+            state.targetNormX = ParsePosition(posStr);
+            if (state.moveDuration <= 0.0f) state.currentNormX = state.targetNormX;
+        }
+
+        if (m_currentNode->metadata.count("alpha")) {
+            try { 
+                float a = std::stof(m_currentNode->metadata.at("alpha"));
+                state.alpha = a;
+                state.targetAlpha = a;
+                state.startAlpha = a;
+            } catch(...) {}
+        }
     }
 
     m_cachedInterpolatedContent = InterpolateVariables(m_currentNode->content);
@@ -587,6 +641,19 @@ void DialogEngine::StartDialog(const std::string& startId) {
     m_cachedTotalChars = m_cachedParsedContent.size();
     m_revealedCount = (m_project.configs.mode == "instant") ? (float)m_cachedTotalChars : 0.0f;
     m_waitTimer = 0.0f;
+
+    // Reset alpha/pos for new entities if they weren't already active
+    for (auto& [id, state] : m_activeEntities) {
+        if (state.moveDuration <= 0.0f) {
+            state.currentNormX = state.targetNormX;
+            state.startNormX = state.targetNormX;
+        }
+        if (state.fadeDuration <= 0.0f) {
+            state.alpha = state.targetAlpha;
+            state.startAlpha = state.targetAlpha;
+        }
+    }
+
     ProcessEvents(m_currentNode->events);
     RefreshVisibleOptions();
     if (m_project.configs.auto_save) SaveGame(0);
@@ -639,6 +706,38 @@ void DialogEngine::Update(float dt) {
     
     // Decay shake effect
     if (m_shakeIntensity > 0) m_shakeIntensity = std::max(0.0f, m_shakeIntensity - dt * 20.0f);
+
+    // Auto-advance if text is done and auto_next is set
+    if (!IsTextRevealing() && m_isAutoNext && m_waitTimer <= 0.0f) {
+        Next();
+    }
+
+    // Background fading
+    if (m_bgFadeAlpha < 1.0f) {
+        m_bgFadeTimer += dt;
+        m_bgFadeAlpha = std::min(1.0f, m_bgFadeTimer / m_bgFadeDuration);
+    }
+
+    // Entity Interpolation
+    for (auto& [id, state] : m_activeEntities) {
+        // Movement
+        if (state.moveTimer < state.moveDuration) {
+            state.moveTimer += dt;
+            float t = std::min(1.0f, state.moveTimer / state.moveDuration);
+            // Cubic Ease-out
+            t = 1.0f - powf(1.0f - t, 3.0f); 
+            state.currentNormX = state.startNormX + (state.targetNormX - state.startNormX) * t;
+            if (state.moveTimer >= state.moveDuration) state.currentNormX = state.targetNormX;
+        }
+
+        // Fading
+        if (state.fadeTimer < state.fadeDuration) {
+            state.fadeTimer += dt;
+            float t = std::min(1.0f, state.fadeTimer / state.fadeDuration);
+            state.alpha = state.startAlpha + (state.targetAlpha - state.startAlpha) * t;
+            if (state.fadeTimer >= state.fadeDuration) state.alpha = state.targetAlpha;
+        }
+    }
 
     if (m_engineDelayTimer > 0.0f) {
         m_engineDelayTimer -= dt;
@@ -741,7 +840,8 @@ void DialogEngine::ProcessEvents(const std::vector<Event>& events) {
     static const std::unordered_set<std::string> VALID_OPS = {
         "set", "add", "sub", "mul", "shake", "random", "play_sfx", "jump", "delay", 
         "show_sprite", "hide_sprite", "pos_sprite", "clear_sprites",
-        "expression", "pos", "hide" // Unified names
+        "expression", "pos", "hide", // Unified names
+        "move", "fade" // New cinematic ops
     };
     for (const auto& e : events) {
         if (!VALID_OPS.count(e.op)) { RecordError("ProcessEvents", "Unknown op '" + e.op + "' — skipping."); continue; }
@@ -763,7 +863,45 @@ void DialogEngine::ProcessEvents(const std::vector<Event>& events) {
             continue;
         }
         if (e.op == "pos_sprite" || e.op == "pos") {
-            m_activeEntities[e.var].pos = e.value_str;
+            auto& state = m_activeEntities[e.var];
+            state.pos = e.value_str;
+            state.targetNormX = ParsePosition(e.value_str);
+            
+            // If not currently moving, jump to it
+            if (state.moveDuration <= 0.0f) state.currentNormX = state.targetNormX;
+            continue;
+        }
+
+        if (e.op == "move") {
+            auto& state = m_activeEntities[e.var];
+            state.pos = e.value_str;
+            state.targetNormX = ParsePosition(e.value_str);
+            state.startNormX = state.currentNormX; // Start from where we are
+            
+            state.moveDuration = (float)e.value / 1000.0f;
+            state.moveTimer = 0.0f;
+            if (state.moveDuration <= 0.0f) state.currentNormX = state.targetNormX;
+            continue;
+        }
+
+        if (e.op == "fade") {
+            float duration = (float)e.value / 1000.0f;
+            if (e.var == "bg") {
+                if (m_activeBg != e.value_str) {
+                    m_prevBg = m_activeBg;
+                    m_activeBg = e.value_str;
+                    m_bgFadeAlpha = 0.0f;
+                    m_bgFadeTimer = 0.0f;
+                    m_bgFadeDuration = std::max(0.01f, duration);
+                }
+            } else {
+                auto& state = m_activeEntities[e.var];
+                try { state.targetAlpha = std::stof(e.value_str); } catch(...) { state.targetAlpha = 1.0f; }
+                state.startAlpha = state.alpha; // Start from where we are
+                state.fadeDuration = std::max(0.01f, duration);
+                state.fadeTimer = 0.0f;
+                if (state.fadeDuration <= 0.0f) state.alpha = state.targetAlpha;
+            }
             continue;
         }
 
@@ -829,6 +967,7 @@ ValidationResult DialogEngine::ValidateProject(const DialogProject& p) {
             if (e.op != "shake" && e.op != "play_sfx" && e.op != "jump" && e.op != "delay" && 
                 e.op != "show_sprite" && e.op != "hide_sprite" && e.op != "pos_sprite" && e.op != "clear_sprites" &&
                 e.op != "expression" && e.op != "pos" && e.op != "hide" &&
+                e.op != "move" && e.op != "fade" &&
                 !e.var.empty() && !p.variables.count(e.var))
                 errors.push_back({nodeId, "events", "Event references undeclared variable '" + e.var + "'."});
         for (const auto& opt : node.options) {
@@ -841,6 +980,7 @@ ValidationResult DialogEngine::ValidateProject(const DialogProject& p) {
                 if (e.op != "shake" && e.op != "play_sfx" && e.op != "jump" && e.op != "delay" && 
                     e.op != "show_sprite" && e.op != "hide_sprite" && e.op != "pos_sprite" && e.op != "clear_sprites" &&
                     e.op != "expression" && e.op != "pos" && e.op != "hide" &&
+                    e.op != "move" && e.op != "fade" &&
                     !e.var.empty() && !p.variables.count(e.var))
                     errors.push_back({nodeId, "options.events", "Option event references undeclared variable '" + e.var + "'."});
         }
@@ -881,4 +1021,11 @@ std::string DialogEngine::GetSlotPath(int s) const { return "save/" + m_project.
 std::string DialogEngine::GetTimestamp() const {
     std::time_t t = std::time(nullptr); std::tm tm = *std::localtime(&t);
     std::stringstream ss; ss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S"); return ss.str();
+}
+
+float DialogEngine::ParsePosition(const std::string& pos) const {
+    if (pos == "left") return 0.2f;
+    if (pos == "right") return 0.8f;
+    if (pos == "center") return 0.5f;
+    try { return std::stof(pos); } catch(...) { return 0.5f; }
 }
