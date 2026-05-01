@@ -35,8 +35,8 @@ if(MSVC)
     set(CMAKE_CXX_FLAGS_RELEASE "/O2 /Ob2 /DNDEBUG /GL")
     set(CMAKE_CXX_FLAGS_DEBUG "/Od /Zi /Ob0 /RTC1")
 else()
-    # High-performance optimizations for Release
-    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -flto -DNDEBUG")
+    # Cross-platform friendly optimizations for Release
+    set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
     set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
 endif()
 
