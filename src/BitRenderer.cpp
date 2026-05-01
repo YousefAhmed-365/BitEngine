@@ -175,7 +175,8 @@ void StyleManager::PrevStyle() {
 }
 
 static float saveToastTimer = 0.0f;
-static std::string saveToastMsg = "";
+static std::string saveToastMsg;
+
 BitRenderer::BitRenderer(DialogEngine& engine) : m_engine(engine) {
     InitAudioDevice();
     CreateFallbackTexture();
@@ -292,9 +293,8 @@ void BitRenderer::HandleAudio() {
 void BitRenderer::HandleInput() {
     if (!m_engine.IsActive()) return;
     
-    // Debug Scroll
-    std::string dmode = m_engine.GetDebugMode();
-    if (dmode == "debug_overlay" || dmode == "debug_all") {
+    // Allow scrolling the debug overlay whenever it's visible
+    if (m_engine.IsDebugOverlayVisible()) {
         m_debugScroll -= GetMouseWheelMove() * 20.0f;
         if (m_debugScroll < 0) m_debugScroll = 0;
     }
@@ -365,8 +365,13 @@ void BitRenderer::DrawEntitySprite() {
         else if (p == "right")  normX = 0.8f;
         else if (p == "center") normX = 0.5f;
     }
-    if (node->metadata.count("pos_x")) normX = std::stof(node->metadata.at("pos_x"));
-    float normY = node->metadata.count("pos_y") ? std::stof(node->metadata.at("pos_y")) : 0.45f;
+    if (node->metadata.count("pos_x")) {
+        try { normX = std::stof(node->metadata.at("pos_x")); } catch (...) {}
+    }
+    float normY = 0.45f;
+    if (node->metadata.count("pos_y")) {
+        try { normY = std::stof(node->metadata.at("pos_y")); } catch (...) {}
+    }
 
     int fw = tex.width / finalFrames;
     Rectangle src = { (float)(m_animFrame * fw), 0, (float)fw, (float)tex.height };
@@ -635,20 +640,15 @@ void BitRenderer::DrawRichText(const std::vector<RichChar>& content, int limit, 
                       ? defaultColor 
                       : Color{ rc.color.r, rc.color.g, rc.color.b, rc.color.a };
             
-            float ox = 0.0f;
-            float oy = 0.0f;
-
-            if (rc.shake) {
-                ox = GetRandomValue(-2, 2);
-                oy = GetRandomValue(-2, 2);
-            }
-            if (rc.wave) {
-                oy += sin(time * 6.0f + curX * 0.05f) * 4.0f;
-            }
+            float ox = 0.0f, oy = 0.0f;
+            if (rc.shake) { ox = GetRandomValue(-2, 2); oy = GetRandomValue(-2, 2); }
+            if (rc.wave)  { oy += sinf(time * 6.0f + curX * 0.05f) * 4.0f; }
 
             Vector2 pos = { (float)curX + ox, (float)curY + oy };
+            // Cache the advance width so we don't call MeasureTextEx twice per character
+            float charW = MeasureTextEx(GetFontDefault(), rc.ch, (float)fontSize, spacing).x;
             DrawTextEx(GetFontDefault(), rc.ch, pos, (float)fontSize, spacing, c);
-            curX += MeasureTextEx(GetFontDefault(), rc.ch, (float)fontSize, spacing).x + spacing;
+            curX += (int)(charW + spacing);
         }
         
         i = wordEnd;
@@ -667,7 +667,7 @@ Texture2D BitRenderer::GetTexture(const std::string& path) {
         m_textureCache[path] = tex;
         if (tex.id > 0) return tex;
     } else {
-        m_textureCache[path] = {0}; // Failed
+        m_textureCache[path] = Texture2D{}; // Mark as failed (all fields zeroed)
     }
     return m_fallbackTexture;
 }
@@ -696,9 +696,11 @@ void BitRenderer::PreloadAssets() {
 }
 
 void BitRenderer::PlaySFX(const std::string& path) {
-    if (!FileExists(path.c_str())) return;
-    if (!m_sfxCache.count(path)) m_sfxCache[path] = LoadSound(path.c_str());
-    PlaySound(m_sfxCache[path]);
+    // Trust the preloaded cache; avoid redundant filesystem calls at playback time
+    auto it = m_sfxCache.find(path);
+    if (it != m_sfxCache.end() && it->second.frameCount > 0) {
+        PlaySound(it->second);
+    }
 }
 
 void BitRenderer::CreateFallbackTexture() {

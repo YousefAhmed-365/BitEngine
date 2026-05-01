@@ -2,16 +2,15 @@
 #include "json.hpp"
 #include <fstream>
 #include <iostream>
-#include <regex>
 #include <iomanip>
+#include <sstream>
+#include <algorithm>
+#include <unordered_set>
 #include <ctime>
 #include <sys/stat.h>
 
 using json = nlohmann::json;
 static const std::string KEY = BITENGINE_KEY;
-
-#include <sstream>
-#include <algorithm>
 
 BitColor RichTextParser::StringToColor(const std::string& str) {
     std::string s = str;
@@ -467,7 +466,7 @@ void DialogEngine::SaveGame(int slot) {
     if (!m_currentNode) return;
     try {
         SaveData sd;
-        for (auto const& [id, node] : m_project.nodes) { if (&node == m_currentNode) { sd.current_node_id = id; break; } }
+        sd.current_node_id = m_currentNodeId; // ID is already cached — no need to search all nodes
         sd.variables = m_variables;
         sd.meta.timestamp = GetTimestamp();
         sd.meta.node_id = sd.current_node_id;
@@ -667,11 +666,9 @@ void DialogEngine::SetVariable(const std::string& name, int value) {
 }
 
 void DialogEngine::ProcessEvents(const std::vector<Event>& events) {
-    static const std::vector<std::string> VALID_OPS = {"set", "add", "sub", "mul", "shake"};
+    static const std::unordered_set<std::string> VALID_OPS = {"set", "add", "sub", "mul", "shake"};
     for (const auto& e : events) {
-        bool validOp = false;
-        for (const auto& op : VALID_OPS) if (e.op == op) { validOp = true; break; }
-        if (!validOp) { RecordError("ProcessEvents", "Unknown op '" + e.op + "' — skipping."); continue; }
+        if (!VALID_OPS.count(e.op)) { RecordError("ProcessEvents", "Unknown op '" + e.op + "' — skipping."); continue; }
         if (e.op == "shake") { TriggerShake((float)e.value); continue; }
         if (!e.var.empty() && !m_project.variables.count(e.var)) {
             RecordError("ProcessEvents", "Event op '" + e.op + "' references undeclared variable '" + e.var + "' — skipping.");
@@ -697,7 +694,6 @@ void DialogEngine::RecordError(const std::string& context, const std::string& ms
 
 void DialogEngine::Log(const std::string& msg, const std::string& level) {
     std::string mode = m_project.configs.debug_mode;
-    // Always print ERRORs regardless of mode
     bool isError = (level == "ERROR");
     if (mode == "none" && !isError) return;
 
@@ -707,10 +703,12 @@ void DialogEngine::Log(const std::string& msg, const std::string& level) {
         std::cout << tag << msg << std::endl;
     }
     if (isError || mode == "debug_file" || mode == "debug_all") {
+        // Open once per call — not a hot path since this only runs in debug modes
         std::ofstream logFile("debug.log", std::ios_base::app);
-        if (logFile.is_open()) {
+        if (logFile) {
             auto t = std::time(nullptr);
-            logFile << std::put_time(std::localtime(&t), "%Y-%m-%d %H:%M:%S") << " | " << tag << msg << std::endl;
+            logFile << std::put_time(std::localtime(&t), "%Y-%m-%d %H:%M:%S")
+                    << " | " << tag << msg << "\n";
         }
     }
 }
