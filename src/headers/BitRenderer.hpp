@@ -88,8 +88,20 @@ struct UIStyle {
     // --- Vignette ---
     float vignetteOpacity  = 0.4f;
 
-    // --- Font (Feature 1) ---
-    // Path to a TTF/OTF font file. Empty = Raylib built-in default font.
+    // Feature: Message History
+    float historyPadding = 40.0f;
+    float historySpacing = 20.0f;
+    float historySpeakerFontSize = 14.0f;
+    float historyContentFontSize = 18.0f;
+    Color historyBg = {0, 0, 0, 200};
+    Color historySpeakerColor = SKYBLUE;
+    Color historyContentColor = RAYWHITE;
+
+    // Feature: Custom Cursor
+    std::string cursorPath = "";
+    float cursorScale = 1.0f;
+
+    // Feature 1: Custom Font
     std::string fontPath   = "";
 
     // --- Entity Display (Feature 2) ---
@@ -174,7 +186,9 @@ protected:
     virtual void DrawDebugOverlay();
     virtual void HandleAudio();
 
-    void DrawRichText(const std::vector<RichChar>& content, int limit, int x, int y, int fontSize, int maxWidth, Color defaultColor, int lineSpacing);
+    int DrawRichText(const std::vector<RichChar>& content, int limit, int x, int y, int fontSize, int maxWidth, Color defaultColor = RAYWHITE, int lineSpacing = 6);
+    void DrawHistory();
+    void DrawCustomCursor();
     Texture2D GetTexture(const std::string& path);
     Font GetFont(const std::string& path) { return m_styleManager.GetFont(path); }
     void PlaySFX(const std::string& path);
@@ -198,6 +212,9 @@ protected:
 
     Texture2D m_fallbackTexture;
     Texture2D m_vignette;
+    Texture2D m_customCursor;
+    std::string m_currentCursorPath = "";
+    bool m_showHistory = false;
 
     float m_animTimer    = 0.0f;
     int   m_animFrame    = 0;

@@ -120,6 +120,7 @@ DialogProject DialogParser::ParseConfig(const std::string& path) {
             auto& c = j["configs"];
             p.configs.start_node = c.value("start_node", "dialog_start");
             p.configs.reveal_speed = c.value("reveal_speed", 30.0f);
+            p.configs.auto_play_delay = c.value("auto_play_delay", 2000.0f) / 1000.0f;
             p.configs.debug_mode = c.value("debug_mode", "none");
             p.configs.auto_save = c.value("auto_save", false);
             p.configs.encrypt_save = c.value("encrypt_save", false);
@@ -622,6 +623,22 @@ void DialogEngine::StartDialog(const std::string& startId) {
     
     if (!isJoining) m_activeEntities.clear();
     
+    if (m_currentNode && !m_currentNode->content.empty()) {
+        std::string speakerName = (m_currentNode->entity == "system") ? "SYSTEM" : "???";
+        if (m_project.entities.count(m_currentNode->entity)) 
+            speakerName = m_project.entities.at(m_currentNode->entity).name;
+        
+        // Don't add duplicate back-to-back entries if the content is the same
+        if (m_history.empty() || m_history.back().content != m_currentNode->content) {
+            HistoryEntry entry;
+            entry.speaker = speakerName;
+            entry.content = m_currentNode->content;
+            entry.richContent = RichTextParser::Parse(entry.content);
+            m_history.push_back(entry);
+            if (m_history.size() > 100) m_history.erase(m_history.begin());
+        }
+    }
+
     // Auto-show/update speaker for backward compatibility or convenience
     if (!m_currentNode->entity.empty() && m_currentNode->entity != "system") {
         auto& state = m_activeEntities[m_currentNode->entity];
@@ -788,6 +805,17 @@ void DialogEngine::Update(float dt) {
 
     if (!IsTextRevealing() && m_isAutoNext && m_waitTimer <= 0.0f) {
         Next();
+    }
+
+    // Feature: Auto-Play logic
+    if (m_isAutoPlaying && !IsTextRevealing() && m_visibleOptions.empty() && !m_isTransitioning && m_waitTimer <= 0.0f) {
+        m_autoPlayTimer += dt;
+        if (m_autoPlayTimer >= m_project.configs.auto_play_delay) {
+            m_autoPlayTimer = 0.0f;
+            Next();
+        }
+    } else {
+        m_autoPlayTimer = 0.0f;
     }
 
     if (m_bgFadeAlpha < 1.0f) {

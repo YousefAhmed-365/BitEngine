@@ -59,22 +59,25 @@ struct Entity {
 struct VariableDef { std::string id = ""; int initial_value = 0; std::optional<int> min = std::nullopt, max = std::nullopt; };
 
 struct ActiveEntityState {
+    std::string pos = "center";
     std::string expression = "idle";
-    std::string pos = "";
-    
-    // Smooth movement
     float currentNormX = 0.5f;
-    float startNormX = 0.5f;
     float targetNormX = 0.5f;
+    float startNormX = 0.5f;
     float moveTimer = 0.0f;
     float moveDuration = 0.0f;
 
-    // Fading
     float alpha = 1.0f;
-    float startAlpha = 1.0f;
     float targetAlpha = 1.0f;
+    float startAlpha = 1.0f;
     float fadeTimer = 0.0f;
     float fadeDuration = 0.0f;
+};
+
+struct HistoryEntry {
+    std::string speaker;
+    std::string content;
+    std::vector<RichChar> richContent;
 };
 
 struct DialogNode {
@@ -106,6 +109,7 @@ struct DialogConfigs {
     std::string start_node = "dialog_start", save_prefix = "save_slot_", mode = "typewriter";
     std::string debug_mode = "none";
     float reveal_speed = 45.0f;
+    float auto_play_delay = 2.0f;
     bool auto_save = false, encrypt_save = false; 
     bool enable_floating = true, enable_shadows = true, enable_vignette = true;
     int max_slots = 5;
@@ -210,6 +214,16 @@ public:
     // Conditional Audio Playback (Event-driven)
     const std::vector<std::string>& ConsumePendingSFX();
 
+    // History
+    const std::vector<HistoryEntry>& GetHistory() const { return m_history; }
+    void ClearHistory() { m_history.clear(); }
+
+    // Auto-play
+    bool IsAutoPlaying() const { return m_isAutoPlaying; }
+    void ToggleAutoPlay() { m_isAutoPlaying = !m_isAutoPlaying; }
+
+    bool IsChoiceVisible() const { return !m_visibleOptions.empty(); }
+
     // Delay State
     bool IsEventDelaying() const { return m_engineDelayTimer > 0.0f; }
 
@@ -271,6 +285,9 @@ private:
     std::string m_activeBgm = "";
     bool m_isUiHidden = false;
     bool m_isAutoNext = false;
+    bool m_isAutoPlaying = false;
+    float m_autoPlayTimer = 0.0f;
+    std::vector<HistoryEntry> m_history;
     std::map<std::string, ActiveEntityState> m_activeEntities;
 
     // Debug state

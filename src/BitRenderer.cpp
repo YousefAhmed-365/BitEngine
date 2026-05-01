@@ -94,6 +94,23 @@ static UIStyle ParseStyleBlock(const json& j) {
     if (j.contains("vignette_opacity"))
         s.vignetteOpacity = j["vignette_opacity"].get<float>();
 
+    if (j.contains("history")) {
+        auto& h = j["history"];
+        s.historyPadding = h.value("padding", s.historyPadding);
+        s.historySpacing = h.value("spacing", s.historySpacing);
+        s.historySpeakerFontSize = h.value("speaker_font_size", s.historySpeakerFontSize);
+        s.historyContentFontSize = h.value("content_font_size", s.historyContentFontSize);
+        if (h.contains("bg_color"))      s.historyBg = ParseColor(h["bg_color"], s.historyBg);
+        if (h.contains("speaker_color")) s.historySpeakerColor = ParseColor(h["speaker_color"], s.historySpeakerColor);
+        if (h.contains("content_color")) s.historyContentColor = ParseColor(h["content_color"], s.historyContentColor);
+    }
+
+    if (j.contains("cursor")) {
+        auto& c = j["cursor"];
+        s.cursorPath = c.value("path", s.cursorPath);
+        s.cursorScale = c.value("scale", s.cursorScale);
+    }
+
     // Feature 1: Custom Font
     if (j.contains("font")) s.fontPath = j["font"].get<std::string>();
 
@@ -308,6 +325,10 @@ void BitRenderer::Draw() {
         }
     EndMode2D();
     
+    if (m_showHistory) DrawHistory();
+    
+    DrawCustomCursor();
+
     if (m_engine.IsDebugOverlayVisible()) DrawDebugOverlay();
 
     // Toast notification
@@ -394,8 +415,22 @@ void BitRenderer::HandleAudio() {
 void BitRenderer::HandleInput() {
     if (!m_engine.IsActive()) return;
     
-    // Allow scrolling the debug overlay whenever it's visible
-    if (m_engine.IsDebugOverlayVisible()) {
+    // Feature: Auto-Play toggle
+    if (IsKeyPressed(KEY_A)) {
+        m_engine.ToggleAutoPlay();
+    }
+
+    // Feature: Message History toggle
+    if (IsKeyPressed(KEY_H)) {
+        m_showHistory = !m_showHistory;
+    }
+
+    if (m_showHistory) {
+        if (IsKeyPressed(KEY_ESCAPE)) m_showHistory = false;
+        return; // Block other inputs while history is open
+    }
+
+    if (m_engine.IsChoiceVisible()) {
         m_debugScroll -= GetMouseWheelMove() * 20.0f;
         if (m_debugScroll < 0) m_debugScroll = 0;
     }
@@ -756,7 +791,7 @@ void BitRenderer::DrawDebugOverlay() {
 }
 
 // ============================================================
-void BitRenderer::DrawRichText(const std::vector<RichChar>& content, int limit, int x, int y, int fontSize, int maxWidth, Color defaultColor, int lineSpacing) {
+int BitRenderer::DrawRichText(const std::vector<RichChar>& content, int limit, int x, int y, int fontSize, int maxWidth, Color defaultColor, int lineSpacing) {
     // Feature 1: Use the active style's custom font
     Font font = m_styleManager.GetCurrentFont();
     int curX = x;
@@ -819,6 +854,7 @@ void BitRenderer::DrawRichText(const std::vector<RichChar>& content, int limit, 
         
         i = wordEnd;
     }
+    return curY + lineOffset;
 }
 
 Texture2D BitRenderer::GetTexture(const std::string& path) {
@@ -908,4 +944,61 @@ void BitRenderer::DrawStyledRect(Rectangle rect, const StyleTexture& stex,
     DrawRectangleRounded(rect, roundness, segments, fallbackBg);
     if (borderThick > 0.0f)
         DrawRectangleRoundedLinesEx(rect, roundness, segments, borderThick, fallbackBorder);
+}
+
+void BitRenderer::DrawHistory() {
+    UIStyle style = m_styleManager.GetStyle();
+    int sw = GetScreenWidth();
+    int sh = GetScreenHeight();
+
+    // Semi-transparent background overlay
+    DrawRectangle(0, 0, sw, sh, style.historyBg);
+
+    float py = style.historyPadding;
+    const auto& history = m_engine.GetHistory();
+    Font font = m_styleManager.GetCurrentFont();
+
+    DrawTextEx(font, "MESSAGE HISTORY", {style.historyPadding, py}, style.historySpeakerFontSize + 10, 1.0f, style.historySpeakerColor);
+    py += style.historySpeakerFontSize + 30;
+
+    // Draw from newest to oldest
+    for (int i = (int)history.size() - 1; i >= 0; --i) {
+        const auto& entry = history[i];
+        
+        // Speaker
+        DrawTextEx(font, entry.speaker.c_str(), {style.historyPadding, py}, style.historySpeakerFontSize, 1.0f, style.historySpeakerColor);
+        py += style.historySpeakerFontSize + 4;
+        
+        // Content (Rich)
+        py = DrawRichText(entry.richContent, (int)entry.richContent.size(), 
+                          (int)(style.historyPadding + 10), (int)py, 
+                          (int)style.historyContentFontSize, (int)(sw - style.historyPadding * 2), 
+                          style.historyContentColor);
+        
+        py += style.historySpacing;
+        
+        if (py > sh - style.historyPadding) break; // Simple culling
+    }
+
+    DrawText("ESC / H to close", sw - 120, sh - 30, 10, Fade(GRAY, 0.5f));
+}
+
+void BitRenderer::DrawCustomCursor() {
+    UIStyle style = m_styleManager.GetStyle();
+    if (style.cursorPath.empty()) {
+        ShowCursor();
+        return;
+    }
+
+    if (m_currentCursorPath != style.cursorPath) {
+        m_currentCursorPath = style.cursorPath;
+        m_customCursor = GetTexture(m_currentCursorPath);
+        if (m_customCursor.id != 0) HideCursor();
+    }
+
+    if (m_customCursor.id != 0) {
+        Vector2 mpos = GetMousePosition();
+        float scale = style.cursorScale;
+        DrawTextureEx(m_customCursor, {mpos.x, mpos.y}, 0.0f, scale, WHITE);
+    }
 }

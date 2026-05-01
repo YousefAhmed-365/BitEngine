@@ -38,7 +38,19 @@
             "vignette_opacity": 0.45,
             "clear_color": [8, 8, 20, 255],
             "entity": { "scale": 3.0, "float_amplitude": 10.0, "float_speed": 2.0, "shadow_opacity": 0.35 },
-            "cursor": { "shape": "dot", "color": [0, 210, 255, 255], "size": 6.0, "anim_speed": 8.0 }
+            "history": {
+                "padding": 50.0,
+                "spacing": 25.0,
+                "speaker_font_size": 16,
+                "content_font_size": 20,
+                "bg_color": [5, 5, 12, 230],
+                "speaker_color": [0, 210, 255, 255],
+                "content_color": [220, 230, 255, 255]
+            },
+            "cursor": {
+                "path": "assets/ui/cursor_hand.png",
+                "scale": 1.0
+            }
         },
         
         "vertical_left": {

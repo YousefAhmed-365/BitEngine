@@ -2,6 +2,7 @@
     "configs": {
         "start_node": "scene_alley_start",
         "reveal_speed": 45.0,
+        "auto_play_delay": 2000.0,
         "debug_mode": "debug_all",
         "auto_save": true,
         "encrypt_save": false,
