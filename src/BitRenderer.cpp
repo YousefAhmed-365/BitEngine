@@ -100,9 +100,14 @@ static UIStyle ParseStyleBlock(const json& j) {
         s.historySpacing = h.value("spacing", s.historySpacing);
         s.historySpeakerFontSize = h.value("speaker_font_size", s.historySpeakerFontSize);
         s.historyContentFontSize = h.value("content_font_size", s.historyContentFontSize);
+        s.historyHeaderHeight    = h.value("header_height", s.historyHeaderHeight);
+        s.historyFooterHeight    = h.value("footer_height", s.historyFooterHeight);
+        s.historySidebarWidth    = h.value("sidebar_width", s.historySidebarWidth);
+        s.historyEntryGap        = h.value("entry_gap", s.historyEntryGap);
         if (h.contains("bg_color"))      s.historyBg = ParseColor(h["bg_color"], s.historyBg);
         if (h.contains("speaker_color")) s.historySpeakerColor = ParseColor(h["speaker_color"], s.historySpeakerColor);
         if (h.contains("content_color")) s.historyContentColor = ParseColor(h["content_color"], s.historyContentColor);
+        if (h.contains("dim_color"))     s.historyDimColor = ParseColor(h["dim_color"], s.historyDimColor);
     }
 
     if (j.contains("cursor")) {
@@ -136,11 +141,13 @@ static UIStyle ParseStyleBlock(const json& j) {
     if (j.contains("clear_color")) s.clearColor = ParseColor(j["clear_color"], s.clearColor);
 
     // Texture Overrides — parsed last so they can appear anywhere in the JSON block
-    if (j.contains("box_texture"))    s.boxTexture    = ParseStyleTexture(j["box_texture"]);
-    if (j.contains("label_texture"))  s.labelTexture  = ParseStyleTexture(j["label_texture"]);
-    if (j.contains("choice_texture")) s.choiceTexture = ParseStyleTexture(j["choice_texture"]);
-    if (j.contains("toast_texture"))  s.toastTexture  = ParseStyleTexture(j["toast_texture"]);
-    if (j.contains("cursor_texture")) s.cursorTexture = ParseStyleTexture(j["cursor_texture"]);
+    if (j.contains("box_texture"))          s.boxTexture          = ParseStyleTexture(j["box_texture"]);
+    if (j.contains("label_texture"))        s.labelTexture        = ParseStyleTexture(j["label_texture"]);
+    if (j.contains("choice_texture"))       s.choiceTexture       = ParseStyleTexture(j["choice_texture"]);
+    if (j.contains("toast_texture"))        s.toastTexture        = ParseStyleTexture(j["toast_texture"]);
+    if (j.contains("cursor_texture"))       s.cursorTexture       = ParseStyleTexture(j["cursor_texture"]);
+    if (j.contains("history_bg_texture"))   s.historyBgTexture    = ParseStyleTexture(j["history_bg_texture"]);
+    if (j.contains("history_pill_texture")) s.historyPillTexture  = ParseStyleTexture(j["history_pill_texture"]);
 
     return s;
 }
@@ -957,18 +964,19 @@ void BitRenderer::DrawHistory() {
     Font font = m_styleManager.GetCurrentFont();
 
     // --- Backdrop ---
-    DrawRectangle(0, 0, sw, sh, ColorAlpha(BLACK, 0.82f));
+    DrawStyledRect({ 0, 0, (float)sw, (float)sh }, style.historyBgTexture,
+                   style.historyBg, BLANK, 0.0f, 0.0f, 0);
 
     // --- Layout constants ---
-    const int HEADER_H   = 56;
-    const int FOOTER_H   = 36;
-    const int SIDE_W     = 130;
+    const int HEADER_H   = style.historyHeaderHeight;
+    const int FOOTER_H   = style.historyFooterHeight;
+    const int SIDE_W     = style.historySidebarWidth;
     const int CONTENT_X  = SIDE_W + 20;
     const int CONTENT_W  = sw - CONTENT_X - 24;
-    const int ENTRY_GAP  = 14;
+    const int ENTRY_GAP  = style.historyEntryGap;
     const float SP_SIZE  = style.historySpeakerFontSize;
     const float CT_SIZE  = style.historyContentFontSize;
-    const Color DIM      = ColorAlpha(RAYWHITE, 0.12f);
+    const Color DIM      = style.historyDimColor;
     const Color ACCENT   = style.historySpeakerColor;
 
     const auto& history = m_engine.GetHistory();
@@ -976,13 +984,13 @@ void BitRenderer::DrawHistory() {
     // --- Measure total height (needed for scroll clamp + progress bar) ---
     float totalContentH = (float)HEADER_H + 10.0f;
     for (size_t i = 0; i < history.size(); ++i) {
-        totalContentH += SP_SIZE + 6;
-        // Estimate wrapped lines
         float charW = CT_SIZE * 0.55f;
         int charsPerLine = std::max(1, (int)(CONTENT_W / charW));
         int chars = (int)history[i].richContent.size();
         int lines = std::max(1, (chars + charsPerLine - 1) / charsPerLine);
-        totalContentH += lines * (CT_SIZE + 4) + ENTRY_GAP + 12;
+        float contentH = lines * (CT_SIZE + 4);
+        float pillH = SP_SIZE + 8;
+        totalContentH += std::max(contentH, pillH) + ENTRY_GAP + 12;
     }
 
     float viewH      = (float)(sh - HEADER_H - FOOTER_H);
@@ -1000,26 +1008,36 @@ void BitRenderer::DrawHistory() {
 
         // Only draw if at least partially visible
         if (py < (float)(sh - FOOTER_H) && py + 80 > (float)HEADER_H) {
-            // Entry number (far left, dimmed)
-            DrawText(TextFormat("#%d", (int)(i + 1)), 8, (int)py, 9, ColorAlpha(RAYWHITE, 0.25f));
-
-            // Speaker sidebar pill
-            float spW = MeasureTextEx(font, entry.speaker.c_str(), SP_SIZE, 1).x + 16;
-            float spX = (float)SIDE_W - spW - 4;
-            DrawRectangleRounded({ spX, py - 2, spW, SP_SIZE + 8 }, 0.4f, 6,
-                                  ColorAlpha(ACCENT, 0.18f));
-            DrawTextEx(font, entry.speaker.c_str(), { spX + 8, py }, SP_SIZE, 1, ACCENT);
-
-            // Vertical sidebar accent line
-            DrawRectangle(SIDE_W - 2, (int)py - 2, 2, 200, ColorAlpha(ACCENT, 0.25f));
-
-            py += SP_SIZE + 6;
-
-            // Rich content
+            
+            // Draw Rich Content first to get exact height
             int newY = DrawRichText(entry.richContent, (int)entry.richContent.size(),
                                     CONTENT_X, (int)py, (int)CT_SIZE, CONTENT_W,
                                     style.historyContentColor);
-            py = (float)newY + ENTRY_GAP;
+                                    
+            float contentH = (float)newY - py;
+            float pillH = SP_SIZE + 8;
+            float entryH = std::max(contentH, pillH);
+
+            // Vertically center pill relative to content height
+            float pillY = py + (entryH - pillH) * 0.5f;
+
+            // Entry number (far left, dimmed)
+            DrawText(TextFormat("#%d", (int)(i + 1)), 8, (int)pillY + 2, 9, ColorAlpha(RAYWHITE, 0.25f));
+
+            // Speaker sidebar pill
+            float spW = MeasureTextEx(font, entry.speaker.c_str(), SP_SIZE, 1).x + 16;
+            
+            // Center horizontally within the sidebar
+            float spX = ((float)SIDE_W - spW) * 0.5f;
+            
+            DrawStyledRect({ spX, pillY - 2, spW, pillH }, style.historyPillTexture,
+                           ColorAlpha(ACCENT, 0.18f), BLANK, 0.4f, 0.0f, 6);
+            DrawTextEx(font, entry.speaker.c_str(), { spX + 8, pillY }, SP_SIZE, 1, ACCENT);
+
+            // Vertical sidebar accent line
+            DrawRectangle(SIDE_W - 2, (int)py, 2, (int)entryH, ColorAlpha(ACCENT, 0.25f));
+
+            py += entryH + ENTRY_GAP;
 
             // Divider between entries
             if (i + 1 < history.size()) {
@@ -1027,12 +1045,14 @@ void BitRenderer::DrawHistory() {
                 py += 12;
             }
         } else {
-            // Off-screen: still advance py by estimated height
+            // Off-screen estimate
             float charW = CT_SIZE * 0.55f;
             int charsPerLine = std::max(1, (int)(CONTENT_W / charW));
             int chars = (int)entry.richContent.size();
             int lines = std::max(1, (chars + charsPerLine - 1) / charsPerLine);
-            py += SP_SIZE + 6 + lines * (CT_SIZE + 4) + ENTRY_GAP + 12;
+            float contentH = lines * (CT_SIZE + 4);
+            float pillH = SP_SIZE + 8;
+            py += std::max(contentH, pillH) + ENTRY_GAP + 12;
         }
     }
 

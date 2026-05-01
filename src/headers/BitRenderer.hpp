@@ -89,13 +89,18 @@ struct UIStyle {
     float vignetteOpacity  = 0.4f;
 
     // Feature: Message History
-    float historyPadding = 40.0f;
-    float historySpacing = 20.0f;
+    float historyPadding         = 40.0f;
+    float historySpacing         = 20.0f;
     float historySpeakerFontSize = 14.0f;
     float historyContentFontSize = 18.0f;
-    Color historyBg = {0, 0, 0, 200};
-    Color historySpeakerColor = SKYBLUE;
-    Color historyContentColor = RAYWHITE;
+    int   historyHeaderHeight    = 56;
+    int   historyFooterHeight    = 36;
+    int   historySidebarWidth    = 130;
+    int   historyEntryGap        = 14;
+    Color historyBg              = {0, 0, 0, 200};
+    Color historySpeakerColor    = SKYBLUE;
+    Color historyContentColor    = RAYWHITE;
+    Color historyDimColor        = {245, 245, 255, 30};
 
     // Feature: Custom Cursor
     std::string cursorPath = "";
@@ -125,11 +130,13 @@ struct UIStyle {
     // For each element: if path is non-empty the texture is used instead of the
     // default solid/rounded-rect rendering. Nine-slice is recommended for panels
     // so borders scale correctly at any dialog box size.
-    StyleTexture boxTexture;     // Dialog box panel
-    StyleTexture labelTexture;   // Character name label
-    StyleTexture choiceTexture;  // Choice/options panel
-    StyleTexture toastTexture;   // Toast notification panel
-    StyleTexture cursorTexture;  // Waiting-for-input cursor sprite
+    StyleTexture boxTexture;        // Dialog box panel
+    StyleTexture labelTexture;      // Character name label
+    StyleTexture choiceTexture;     // Choice/options panel
+    StyleTexture toastTexture;      // Toast notification panel
+    StyleTexture cursorTexture;     // Waiting-for-input cursor sprite
+    StyleTexture historyBgTexture;  // History background
+    StyleTexture historyPillTexture;// History speaker pill
 };
 
 class StyleManager {

@@ -43,9 +43,22 @@
                 "spacing": 25.0,
                 "speaker_font_size": 16,
                 "content_font_size": 20,
+                "header_height": 56,
+                "footer_height": 36,
+                "sidebar_width": 140,
+                "entry_gap": 16,
                 "bg_color": [5, 5, 12, 230],
                 "speaker_color": [0, 210, 255, 255],
-                "content_color": [220, 230, 255, 255]
+                "content_color": [220, 230, 255, 255],
+                "dim_color": [245, 245, 255, 30],
+                "history_bg_texture": {
+                    "path": "",
+                    "nine_slice": true, "slice_left": 10, "slice_right": 10, "slice_top": 10, "slice_bottom": 10
+                },
+                "history_pill_texture": {
+                    "path": "",
+                    "nine_slice": true, "slice_left": 5, "slice_right": 5, "slice_top": 5, "slice_bottom": 5
+                }
             },
             "cursor": {
                 "path": "assets/ui/cursor_hand.png",
