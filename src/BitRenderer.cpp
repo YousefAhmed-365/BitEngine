@@ -82,6 +82,30 @@ static UIStyle ParseStyleBlock(const json& j) {
     if (j.contains("vignette_opacity"))
         s.vignetteOpacity = j["vignette_opacity"].get<float>();
 
+    // Feature 1: Custom Font
+    if (j.contains("font")) s.fontPath = j["font"].get<std::string>();
+
+    // Feature 2: Entity Display
+    if (j.contains("entity")) {
+        auto& e = j["entity"];
+        s.entityScale          = e.value("scale",           s.entityScale);
+        s.entityFloatAmplitude = e.value("float_amplitude", s.entityFloatAmplitude);
+        s.entityFloatSpeed     = e.value("float_speed",     s.entityFloatSpeed);
+        s.entityShadowOpacity  = e.value("shadow_opacity",  s.entityShadowOpacity);
+    }
+
+    // Feature 3: Cursor Style
+    if (j.contains("cursor")) {
+        auto& c = j["cursor"];
+        s.cursorShape     = c.value("shape",      s.cursorShape);
+        s.cursorSize      = c.value("size",       s.cursorSize);
+        s.cursorAnimSpeed = c.value("anim_speed", s.cursorAnimSpeed);
+        if (c.contains("color")) s.cursorColor = ParseColor(c["color"], s.cursorColor);
+    }
+
+    // Feature 5: Background Clear Color
+    if (j.contains("clear_color")) s.clearColor = ParseColor(j["clear_color"], s.clearColor);
+
     return s;
 }
 
@@ -132,9 +156,41 @@ void StyleManager::LoadStyle(const std::string& path) {
             m_activeStyle = m_styleLibrary[m_currentStyleName];
         }
 
+        // Feature 1: Load any new fonts referenced by styles
+        for (auto& [name, style] : m_styleLibrary) {
+            if (style.fontPath.empty() || m_fontCache.count(style.fontPath)) continue;
+            if (FileExists(style.fontPath.c_str())) {
+                Font f = LoadFontEx(style.fontPath.c_str(), 96, nullptr, 0);
+                if (f.texture.id > 0) {
+                    SetTextureFilter(f.texture, TEXTURE_FILTER_BILINEAR);
+                    m_fontCache[style.fontPath] = f;
+                }
+            } else {
+                std::cerr << "[StyleManager] Font not found: " << style.fontPath << std::endl;
+            }
+        }
+
     } catch (const std::exception& ex) {
         std::cerr << "[StyleManager] Failed to parse style.json: " << ex.what() << std::endl;
     }
+}
+
+StyleManager::~StyleManager() {
+    // Fonts may already be unloaded via Shutdown(); guard against double-free
+    Shutdown();
+}
+
+void StyleManager::Shutdown() {
+    for (auto& [path, font] : m_fontCache) UnloadFont(font);
+    m_fontCache.clear();
+}
+
+Font StyleManager::GetCurrentFont() const {
+    if (!m_activeStyle.fontPath.empty()) {
+        auto it = m_fontCache.find(m_activeStyle.fontPath);
+        if (it != m_fontCache.end()) return it->second;
+    }
+    return GetFontDefault();
 }
 
 void StyleManager::Update() {
@@ -184,10 +240,11 @@ BitRenderer::BitRenderer(DialogEngine& engine) : m_engine(engine) {
 }
 
 BitRenderer::~BitRenderer() {
+    // Unload fonts first — they are GPU resources that must be freed before CloseWindow
+    m_styleManager.Shutdown();
     for (auto& [path, tex] : m_textureCache) UnloadTexture(tex);
     for (auto& [path, sfx] : m_sfxCache) UnloadSound(sfx);
     for (auto& [path, mus] : m_musicCache) UnloadMusicStream(mus);
-    
     UnloadTexture(m_fallbackTexture);
     UnloadTexture(m_vignette);
     CloseAudioDevice();
@@ -328,6 +385,10 @@ void BitRenderer::HandleInput() {
 
 // ============================================================
 void BitRenderer::DrawBackground() {
+    auto& style = m_styleManager.GetStyle();
+    // Feature 5: Always paint the clear color first to prevent ghosting
+    DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), style.clearColor);
+
     const auto* node = m_engine.GetCurrentNode();
     if (node && node->metadata.count("bg")) {
         std::string req  = node->metadata.at("bg");
@@ -344,13 +405,20 @@ void BitRenderer::DrawEntitySprite() {
     const auto* node   = m_engine.GetCurrentNode();
     if (!entity || !node) return;
 
+    // Feature 2: Read entity display properties from active style
+    auto& style = m_styleManager.GetStyle();
+
     std::string expr = node->metadata.count("expression") ? node->metadata.at("expression") : "idle";
-    std::string path = ""; int frames = 1; float speed = 1.0f; float scale = 3.0f;
+    std::string path = ""; int frames = 1; float speed = 1.0f;
+    float scale = style.entityScale;
 
     if (entity->sprites.count(expr)) {
-        auto& s = entity->sprites.at(expr); path = s.path; frames = s.frames; speed = s.speed; scale = s.scale;
+        auto& s = entity->sprites.at(expr); path = s.path; frames = s.frames; speed = s.speed;
+        // Sprite-level scale is a multiplier on top of the style scale
+        scale = s.scale * style.entityScale / 3.0f;
     } else if (entity->sprites.count("idle")) {
-        auto& s = entity->sprites.at("idle"); path = s.path; frames = s.frames; speed = s.speed; scale = s.scale;
+        auto& s = entity->sprites.at("idle"); path = s.path; frames = s.frames; speed = s.speed;
+        scale = s.scale * style.entityScale / 3.0f;
     }
 
     Texture2D tex = path.empty() ? m_fallbackTexture : GetTexture(path);
@@ -377,13 +445,18 @@ void BitRenderer::DrawEntitySprite() {
     Rectangle src = { (float)(m_animFrame * fw), 0, (float)fw, (float)tex.height };
     int sw = GetScreenWidth(), sh = GetScreenHeight();
 
-    m_floatOffset = m_engine.GetConfigs().enable_floating ? (float)sin(GetTime() * 2.0f) * 10.0f : 0.0f;
+    // Feature 2: Use style-driven float amplitude and speed
+    m_floatOffset = m_engine.GetConfigs().enable_floating
+        ? sinf((float)GetTime() * style.entityFloatSpeed) * style.entityFloatAmplitude
+        : 0.0f;
+
     Vector2 pos = { (sw * normX) - (fw * scale) / 2.0f,
                     (sh * normY) - (tex.height * scale) / 2.0f + m_floatOffset };
 
+    // Feature 2: Style-driven shadow opacity
     if (m_engine.GetConfigs().enable_shadows)
         DrawEllipse((int)pos.x + (int)(fw*scale/2), (int)pos.y + (int)(tex.height*scale),
-                    (int)(fw*scale/3), 10, Fade(BLACK, 0.4f));
+                    (int)(fw*scale/3), 10, Fade(BLACK, style.entityShadowOpacity));
 
     DrawTexturePro(tex, src, { pos.x, pos.y, fw * scale, tex.height * scale }, {0,0}, 0, WHITE);
 }
@@ -413,7 +486,8 @@ void BitRenderer::DrawMainBox() {
     DrawRectangleRoundedLinesEx(box, style.boxRoundness, 10, style.boxBorderThick, style.boxBorder);
 
     if (e) {
-        float tw = MeasureTextEx(GetFontDefault(), e->name.c_str(), (float)style.labelFontSize, 2).x;
+        Font font = m_styleManager.GetCurrentFont();
+        float tw = MeasureTextEx(font, e->name.c_str(), (float)style.labelFontSize, 2).x;
         float lw = tw + style.labelPadding * 2;
         
         float lx = box.x + style.labelOffsetX;
@@ -424,22 +498,36 @@ void BitRenderer::DrawMainBox() {
         
         DrawRectangle((int)lx, (int)ly, (int)lw, style.labelHeight, style.labelBg);
         DrawRectangleLinesEx({ lx, ly, lw, (float)style.labelHeight }, 1.5f, style.labelBorder);
-        DrawText(e->name.c_str(), (int)lx + style.labelPadding,
-                 (int)ly + style.labelHeight / 2 - style.labelFontSize / 2,
-                 style.labelFontSize, style.labelTextColor);
+        // Feature 1: Use custom font for the character name label
+        float nameY = ly + style.labelHeight / 2.0f - style.labelFontSize / 2.0f;
+        DrawTextEx(font, e->name.c_str(), { lx + style.labelPadding, nameY },
+                   (float)style.labelFontSize, 2.0f, style.labelTextColor);
     }
 
     DrawRichText(m_engine.GetParsedContent(), m_engine.GetRevealedCount(),
                  (int)(box.x + style.boxPadding), (int)(box.y + 40),
                  style.textFontSize, (int)bw - style.boxPadding * 2, style.textColor, style.textLineSpacing);
-                 
-    // Waiting for input animation (Completion Cursor)
+
+    // Feature 3: Style-driven waiting cursor
     if (!m_engine.IsTextRevealing()) {
-        float anim = sin(GetTime() * 10.0f) * 3.0f;
-        Color arrowCol = Fade(style.boxBorder, 0.8f);
-        DrawTriangle({ box.x + box.width - 30, box.y + box.height - 20 + anim },
-                     { box.x + box.width - 20, box.y + box.height - 30 + anim },
-                     { box.x + box.width - 40, box.y + box.height - 30 + anim }, arrowCol);
+        float anim  = sinf((float)GetTime() * style.cursorAnimSpeed);
+        Color col   = Fade(style.cursorColor, 0.9f);
+        float bR    = box.x + box.width  - 18.0f;
+        float bB    = box.y + box.height - 14.0f;
+        float sz    = style.cursorSize;
+
+        if (style.cursorShape == "dot") {
+            float radius = sz * (0.8f + anim * 0.2f);
+            DrawCircle((int)bR, (int)bB, radius, col);
+        } else if (style.cursorShape == "bar") {
+            float alpha = (anim + 1.0f) * 0.5f;
+            DrawRectangle((int)(bR - sz * 2.0f), (int)bB, (int)(sz * 2.0f), (int)(sz * 0.45f), Fade(col, alpha));
+        } else { // default: triangle
+            float pulse = anim * 3.0f;
+            DrawTriangle({ bR - sz * 1.25f, bB + pulse },
+                         { bR,              bB - sz * 1.25f + pulse },
+                         { bR - sz * 2.5f,  bB - sz * 1.25f + pulse }, col);
+        }
     }
 }
 
@@ -460,6 +548,7 @@ void BitRenderer::DrawChoiceBox() {
     DrawRectangleRounded(r, style.choiceRoundness, 10, Fade(style.choiceBg, 0.95f));
     DrawRectangleRoundedLinesEx(r, style.choiceRoundness, 10, style.choiceBorderThick, style.choiceBorder);
 
+    Font font = m_styleManager.GetCurrentFont();
     for (int i = 0; i < (int)opts.size(); ++i) {
         Rectangle oRect = { r.x + 20, r.y + pad + (i * itemH), r.width - 40, (float)style.optionHeight };
         Color col = (opts[i].style == "premium") ? style.optionPremium : style.optionColor;
@@ -468,9 +557,10 @@ void BitRenderer::DrawChoiceBox() {
             DrawRectangleLinesEx(oRect, 1.0f, col);
             col = style.optionHover;
         }
-        DrawText(opts[i].content.c_str(), (int)oRect.x + 40,
-                 (int)oRect.y + style.optionHeight / 2 - style.optionFontSize / 2,
-                 style.optionFontSize, col);
+        // Feature 1: Use custom font for option text
+        float textY = oRect.y + style.optionHeight / 2.0f - style.optionFontSize / 2.0f;
+        DrawTextEx(font, opts[i].content.c_str(), { oRect.x + 40, textY },
+                   (float)style.optionFontSize, 2.0f, col);
         DrawCircle((int)oRect.x + 20, (int)oRect.y + style.optionHeight / 2, 4, col);
     }
 }
@@ -600,13 +690,15 @@ void BitRenderer::DrawDebugOverlay() {
 
 // ============================================================
 void BitRenderer::DrawRichText(const std::vector<RichChar>& content, int limit, int x, int y, int fontSize, int maxWidth, Color defaultColor, int lineSpacing) {
+    // Feature 1: Use the active style's custom font
+    Font font = m_styleManager.GetCurrentFont();
     int curX = x;
     int curY = y;
     float time = (float)GetTime();
-    float spacing = 2.0f; // Default Raylib letter spacing
+    float spacing = 2.0f;
     int lineOffset = fontSize + lineSpacing;
 
-    float spaceWidth = MeasureTextEx(GetFontDefault(), " ", (float)fontSize, spacing).x;
+    float spaceWidth = MeasureTextEx(font, " ", (float)fontSize, spacing).x;
 
     int i = 0;
     while (i < limit && i < (int)content.size()) {
@@ -625,7 +717,7 @@ void BitRenderer::DrawRichText(const std::vector<RichChar>& content, int limit, 
         int wordEnd = i;
         float wordWidth = 0.0f;
         while (wordEnd < limit && wordEnd < (int)content.size() && content[wordEnd].ch[0] != ' ' && content[wordEnd].ch[0] != '\n') {
-            wordWidth += MeasureTextEx(GetFontDefault(), content[wordEnd].ch, (float)fontSize, spacing).x + spacing;
+            wordWidth += MeasureTextEx(font, content[wordEnd].ch, (float)fontSize, spacing).x + spacing;
             wordEnd++;
         }
 
@@ -645,9 +737,8 @@ void BitRenderer::DrawRichText(const std::vector<RichChar>& content, int limit, 
             if (rc.wave)  { oy += sinf(time * 6.0f + curX * 0.05f) * 4.0f; }
 
             Vector2 pos = { (float)curX + ox, (float)curY + oy };
-            // Cache the advance width so we don't call MeasureTextEx twice per character
-            float charW = MeasureTextEx(GetFontDefault(), rc.ch, (float)fontSize, spacing).x;
-            DrawTextEx(GetFontDefault(), rc.ch, pos, (float)fontSize, spacing, c);
+            float charW = MeasureTextEx(font, rc.ch, (float)fontSize, spacing).x;
+            DrawTextEx(font, rc.ch, pos, (float)fontSize, spacing, c);
             curX += (int)(charW + spacing);
         }
         

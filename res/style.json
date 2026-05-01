@@ -35,7 +35,10 @@
                 "text_color":   [240, 245, 255, 255],
                 "font_size": 16
             },
-            "vignette_opacity": 0.45
+            "vignette_opacity": 0.45,
+            "clear_color": [8, 8, 20, 255],
+            "entity": { "scale": 3.0, "float_amplitude": 10.0, "float_speed": 2.0, "shadow_opacity": 0.35 },
+            "cursor": { "shape": "dot", "color": [0, 210, 255, 255], "size": 6.0, "anim_speed": 8.0 }
         },
         
         "neon_noir_alt": {
@@ -119,7 +122,10 @@
                 "text_color":   [255, 245, 220, 255],
                 "font_size": 17
             },
-            "vignette_opacity": 0.6
+            "vignette_opacity": 0.6,
+            "clear_color": [20, 15, 5, 255],
+            "entity": { "scale": 3.5, "float_amplitude": 6.0, "float_speed": 1.2, "shadow_opacity": 0.5 },
+            "cursor": { "shape": "bar", "color": [255, 215, 100, 255], "size": 10.0, "anim_speed": 3.0 }
         },
 
         "minimal": {
@@ -157,7 +163,20 @@
                 "text_color":   [255, 255, 255, 200],
                 "font_size": 14
             },
-            "vignette_opacity": 0.1
+            "vignette_opacity": 0.1,
+            "clear_color": [12, 12, 12, 255],
+            "cursor": { "shape": "bar", "color": [255, 255, 255, 180], "size": 7.0, "anim_speed": 4.0 }
+        },
+
+        "dream": {
+            "extends": "neon_noir",
+            "font": "assets/fonts/dream.ttf",
+            "clear_color": [5, 2, 15, 255],
+            "vignette_opacity": 0.65,
+            "dialog_text": { "color": [200, 180, 255, 255], "font_size": 26 },
+            "name_label": { "text_color": [180, 140, 255, 255], "font_size": 30 },
+            "entity": { "scale": 3.2, "float_amplitude": 18.0, "float_speed": 0.8, "shadow_opacity": 0.2 },
+            "cursor": { "shape": "dot", "color": [180, 120, 255, 255], "size": 5.0, "anim_speed": 5.0 }
         },
 
         "blood_red": {

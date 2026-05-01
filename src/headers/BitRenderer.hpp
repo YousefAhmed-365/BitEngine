@@ -73,32 +73,59 @@ struct UIStyle {
 
     // --- Vignette ---
     float vignetteOpacity  = 0.4f;
+
+    // --- Font (Feature 1) ---
+    // Path to a TTF/OTF font file. Empty = Raylib built-in default font.
+    std::string fontPath   = "";
+
+    // --- Entity Display (Feature 2) ---
+    float entityScale          = 3.0f;   // Sprite render scale multiplier
+    float entityFloatAmplitude = 10.0f;  // Pixels of vertical floating movement
+    float entityFloatSpeed     = 2.0f;   // Hz of the floating sine wave
+    float entityShadowOpacity  = 0.4f;   // Alpha of the ellipse shadow beneath sprites
+
+    // --- Cursor / Waiting Indicator (Feature 3) ---
+    // shape: "triangle" | "dot" | "bar"
+    std::string cursorShape     = "triangle";
+    Color       cursorColor     = {  0, 210, 255, 255 };
+    float       cursorSize      = 8.0f;
+    float       cursorAnimSpeed = 10.0f;
+
+    // --- Background Clear Color (Feature 5) ---
+    // Drawn as the very first layer of each frame — eliminates ghosting when no bg image is set.
+    Color clearColor            = { 18, 18, 30, 255 };
 };
 
 class StyleManager {
 public:
     StyleManager() = default;
+    ~StyleManager();  // Unloads cached fonts
 
-    void LoadStyle(const std::string& path);             // Load all named styles from file; enables hot-reload
-    void Update();                                       // Hot-reload check (should be called every frame)
-    
-    void SetStyle(const std::string& name);              // Switch to a named style block
-    void NextStyle();                                    // Cycle forward through loaded styles
-    void PrevStyle();                                    // Cycle backward through loaded styles
-    
+    void LoadStyle(const std::string& path);  // Load all named styles from file; enables hot-reload
+    void Update();                            // Hot-reload check (call every frame)
+    void Shutdown();                          // Explicitly unload GPU resources (call before CloseWindow)
+
+    void SetStyle(const std::string& name);   // Switch to a named style block
+    void NextStyle();                         // Cycle forward through loaded styles
+    void PrevStyle();                         // Cycle backward through loaded styles
+
     std::string GetCurrentStyleName() const { return m_currentStyleName; }
     std::vector<std::string> GetStyleNames() const { return m_styleOrder; }
     UIStyle& GetStyle() { return m_activeStyle; }
 
+    // Returns the loaded Font for the active style, or Raylib's default if none is configured.
+    Font GetCurrentFont() const;
+
 private:
     UIStyle m_activeStyle;
-    
+
     std::unordered_map<std::string, UIStyle> m_styleLibrary;
-    std::vector<std::string>       m_styleOrder;
-    std::string                    m_currentStyleName;
-    std::string                    m_stylePath;
-    long                           m_styleLastModTime = 0;
-    float                          m_hotReloadTimer   = 0.0f;
+    std::unordered_map<std::string, Font>    m_fontCache;  // Owns all loaded Font GPU resources
+    std::vector<std::string>  m_styleOrder;
+    std::string               m_currentStyleName;
+    std::string               m_stylePath;
+    long                      m_styleLastModTime = 0;
+    float                     m_hotReloadTimer   = 0.0f;
 };
 
 class BitRenderer {
@@ -108,12 +135,10 @@ public:
 
     void Draw();
     void HandleInput();
-    void PreloadAssets(); // Eagerly load all assets from engine registries
+    void PreloadAssets();  // Eagerly load all assets from engine registries
 
-    // Expose StyleManager for external configuration / inputs
+    // Expose StyleManager for external configuration / input handling
     StyleManager& GetStyleManager() { return m_styleManager; }
-
-
 
 protected:
     virtual void DrawBackground();
@@ -137,19 +162,19 @@ protected:
     std::unordered_map<std::string, Music>     m_musicCache;
     std::unordered_map<std::string, Sound>     m_sfxCache;
     std::string m_currentMusicPath = "";
-    Music m_currentMusic;
-    bool m_isMusicPlaying = false;
+    Music       m_currentMusic;
+    bool        m_isMusicPlaying = false;
 
     Texture2D m_fallbackTexture;
     Texture2D m_vignette;
 
-    float m_animTimer   = 0.0f;
-    int   m_animFrame   = 0;
-    float m_debugScroll = 0.0f;
-    std::string m_lastSFX = "";
+    float m_animTimer    = 0.0f;
+    int   m_animFrame    = 0;
+    float m_debugScroll  = 0.0f;
+    std::string m_lastSFX       = "";
     std::string m_lastSFXNodeId = "";
-    std::string m_lastSpritePath = "";
-    float m_floatOffset = 0.0f;
+    std::string m_lastSpritePath= "";
+    float m_floatOffset  = 0.0f;
 };
 
 #endif
