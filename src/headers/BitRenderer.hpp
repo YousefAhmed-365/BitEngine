@@ -30,6 +30,7 @@ struct UIStyle {
     // --- Dialog Text ---
     Color textColor        = { 245, 245, 255, 255 };
     int   textFontSize     = 24;
+    int   textLineSpacing  = 5;
 
     // --- Name Label ---
     float labelOffsetX     = 30.0f;
@@ -123,7 +124,7 @@ protected:
     virtual void DrawDebugOverlay();
     virtual void HandleAudio();
 
-    void DrawRichText(const std::vector<RichChar>& content, int limit, int x, int y, int fontSize, int maxWidth, Color defaultColor);
+    void DrawRichText(const std::vector<RichChar>& content, int limit, int x, int y, int fontSize, int maxWidth, Color defaultColor, int lineSpacing);
     Texture2D GetTexture(const std::string& path);
     void PlaySFX(const std::string& path);
     void CreateFallbackTexture();
@@ -144,6 +145,8 @@ protected:
 
     float m_animTimer   = 0.0f;
     int   m_animFrame   = 0;
+    std::string m_lastSFX = "";
+    std::string m_lastSFXNodeId = "";
     std::string m_lastSpritePath = "";
     float m_floatOffset = 0.0f;
 };

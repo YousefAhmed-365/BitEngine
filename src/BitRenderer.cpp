@@ -210,11 +210,7 @@ void BitRenderer::Draw() {
 
     BeginMode2D(cam);
         DrawBackground();
-    EndMode2D();
-
-    DrawVFX(); // Vignette locked to screen above background
-
-    BeginMode2D(cam);
+        DrawVFX(); // Vignette shakes with the camera now for more impact
         DrawEntitySprite();
         DrawMainBox();
         if (!m_engine.IsTextRevealing()) DrawChoiceBox();
@@ -276,11 +272,20 @@ void BitRenderer::HandleAudio() {
     if (m_isMusicPlaying) UpdateMusicStream(m_currentMusic);
 
     if (node->metadata.count("sfx")) {
-        static std::string lastSFX = "";
         std::string req  = node->metadata.at("sfx");
         std::string path = m_engine.GetSFX(req);
         if (path.empty()) path = req;
-        if (lastSFX != path) { PlaySFX(path); lastSFX = path; }
+        
+        // Reset lastSFX if the node has changed to allow repetitions
+        if (m_lastSFXNodeId != m_engine.GetCurrentNodeId()) {
+            m_lastSFX = "";
+            m_lastSFXNodeId = m_engine.GetCurrentNodeId();
+        }
+
+        if (m_lastSFX != path) { 
+            PlaySFX(path); 
+            m_lastSFX = path; 
+        }
     }
 }
 
@@ -412,7 +417,7 @@ void BitRenderer::DrawMainBox() {
 
     DrawRichText(m_engine.GetParsedContent(), m_engine.GetRevealedCount(),
                  (int)(box.x + style.boxPadding), (int)(box.y + 40),
-                 style.textFontSize, (int)bw - style.boxPadding * 2, style.textColor);
+                 style.textFontSize, (int)bw - style.boxPadding * 2, style.textColor, style.textLineSpacing);
                  
     // Waiting for input animation (Completion Cursor)
     if (!m_engine.IsTextRevealing()) {
@@ -564,11 +569,12 @@ void BitRenderer::DrawDebugOverlay() {
 }
 
 // ============================================================
-void BitRenderer::DrawRichText(const std::vector<RichChar>& content, int limit, int x, int y, int fontSize, int maxWidth, Color defaultColor) {
+void BitRenderer::DrawRichText(const std::vector<RichChar>& content, int limit, int x, int y, int fontSize, int maxWidth, Color defaultColor, int lineSpacing) {
     int curX = x;
     int curY = y;
     float time = (float)GetTime();
     float spacing = 2.0f; // Default Raylib letter spacing
+    int lineOffset = fontSize + lineSpacing;
 
     float spaceWidth = MeasureTextEx(GetFontDefault(), " ", (float)fontSize, spacing).x;
 
@@ -578,7 +584,7 @@ void BitRenderer::DrawRichText(const std::vector<RichChar>& content, int limit, 
         if (charPtr[0] == ' ' || charPtr[0] == '\n') {
             if (charPtr[0] == '\n') {
                 curX = x;
-                curY += fontSize + 5;
+                curY += lineOffset;
             } else {
                 curX += spaceWidth + spacing;
             }
@@ -595,7 +601,7 @@ void BitRenderer::DrawRichText(const std::vector<RichChar>& content, int limit, 
 
         if (curX + wordWidth > x + maxWidth && curX > x) {
             curX = x;
-            curY += fontSize + 5;
+            curY += lineOffset;
         }
 
         for (int j = i; j < wordEnd; j++) {

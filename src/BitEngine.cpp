@@ -60,7 +60,7 @@ std::vector<RichChar> RichTextParser::Parse(const std::string& rawText) {
                 } else if (tag == "/color") {
                     currentColor = BitColor::Blank();
                 } else if (tag.find("speed=") == 0) {
-                    try { currentSpeedMod = std::stof(tag.substr(6)); } catch (...) {}
+                    try { currentSpeedMod = std::stof(tag.substr(6)); } catch (...) { currentSpeedMod = 1.0f; }
                 } else if (tag == "/speed") {
                     currentSpeedMod = 1.0f;
                 } else if (tag == "shake") {
@@ -185,7 +185,7 @@ bool DialogParser::LoadEntitiesFile(const std::string& path, DialogProject& p) {
             if (dpos == "left") entity.default_pos_x = 0.2f;
             else if (dpos == "right") entity.default_pos_x = 0.8f;
             else if (dpos == "center") entity.default_pos_x = 0.5f;
-            else try { entity.default_pos_x = std::stof(dpos); } catch(...) {}
+            else try { entity.default_pos_x = std::stof(dpos); } catch(...) { entity.default_pos_x = 0.5f; }
 
             if (ent.contains("sprites")) {
                 for (auto& [expr, s] : ent["sprites"].items()) 
@@ -232,8 +232,16 @@ bool DialogParser::LoadDialogFile(const std::string& path, DialogProject& p) {
                     if (o.contains("next_id") && !o["next_id"].is_null()) opt.next_id = o["next_id"].get<std::string>();
                     if (o.contains("conditions")) {
                         auto& conds = o["conditions"];
-                        if (conds.is_array()) for (auto& c : conds) opt.conditions.push_back({ c.value("op", "="), c.value("var", ""), c.value("value", 0) });
-                        else if (conds.is_object()) opt.conditions.push_back({ conds.value("op", "="), conds.value("var", ""), conds.value("value", 0) });
+                        if (conds.is_array()) for (auto& c : conds) {
+                             std::string op = c.value("op", "==");
+                             if (op == "=") op = "==";
+                             opt.conditions.push_back({ op, c.value("var", ""), c.value("value", 0) });
+                        }
+                        else if (conds.is_object()) {
+                            std::string op = conds.value("op", "==");
+                            if (op == "=") op = "==";
+                            opt.conditions.push_back({ op, conds.value("var", ""), conds.value("value", 0) });
+                        }
                     }
                     if (o.contains("events")) for (auto& e : o["events"]) opt.events.push_back({ e.value("op", "set"), e.value("var", ""), e.value("value", 0) });
                     node.options.push_back(opt);
@@ -625,7 +633,13 @@ std::string DialogEngine::InterpolateVariables(const std::string& text) const {
             size_t endIdx = text.find('}', i);
             if (endIdx != std::string::npos) {
                 std::string varName = text.substr(i + 1, endIdx - i - 1);
-                res += std::to_string(GetVariable(varName));
+                std::string val = std::to_string(GetVariable(varName));
+                // Escape brackets in variable values to prevent tag injection
+                for (char c : val) {
+                    if (c == '[') res += "\\[";
+                    else if (c == ']') res += "\\]";
+                    else res += c;
+                }
                 i = endIdx;
                 continue;
             }
@@ -731,12 +745,16 @@ void DialogEngine::RefreshVisibleOptions() {
         bool pass = true;
         for (const auto& c : o.conditions) {
             int v = GetVariable(c.var);
-            if (c.op == "=" && v != c.value) pass = false;
+            if ((c.op == "=" || c.op == "==") && v != c.value) pass = false;
             else if (c.op == "!=" && v == c.value) pass = false;
             else if (c.op == ">" && v <= c.value) pass = false;
             else if (c.op == "<" && v >= c.value) pass = false;
             else if (c.op == ">=" && v < c.value) pass = false;
             else if (c.op == "<=" && v > c.value) pass = false;
+            else if (c.op != "==" && c.op != "=" && c.op != "!=" && c.op != ">" && c.op != "<" && c.op != ">=" && c.op != "<=") {
+                // If operator is unknown, actually fail the condition rather than passing it.
+                pass = false;
+            }
             if (!pass) break;
         }
         if (pass) m_visibleOptions.push_back(o);
