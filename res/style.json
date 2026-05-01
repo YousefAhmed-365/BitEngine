@@ -37,6 +37,14 @@
             },
             "vignette_opacity": 0.45
         },
+        
+        "neon_noir_alt": {
+            "extends": "neon_noir",
+            "name_label": {
+                "text_color": [0, 255, 180, 255],
+                "font_size": 32
+            }
+        },
 
         "vertical_left": {
             "dialog_box": {

@@ -103,8 +103,20 @@ void StyleManager::LoadStyle(const std::string& path) {
         m_styleOrder.clear();
 
         if (j.contains("styles") && j["styles"].is_object()) {
-            for (auto& [name, block] : j["styles"].items()) {
-                m_styleLibrary[name] = ParseStyleBlock(block);
+            auto& stylesRoot = j["styles"];
+            for (auto& [name, block] : stylesRoot.items()) {
+                json finalBlock = block;
+                if (block.contains("extends") && block["extends"].is_string()) {
+                    std::string baseName = block["extends"];
+                    if (stylesRoot.contains(baseName)) {
+                        json merged = stylesRoot[baseName];
+                        merged.merge_patch(block);
+                        finalBlock = merged;
+                    } else {
+                        std::cerr << "[StyleManager] Error: style '" << name << "' extends unknown style '" << baseName << "'" << std::endl;
+                    }
+                }
+                m_styleLibrary[name] = ParseStyleBlock(finalBlock);
                 m_styleOrder.push_back(name);
             }
         } else {
