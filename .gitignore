@@ -14,8 +14,7 @@ obj/
 # Save and logs
 save/
 assets/
-**/save/
-**/assets/
+
 debug.log
 *.log
 
