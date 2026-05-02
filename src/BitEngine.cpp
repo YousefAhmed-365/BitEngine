@@ -738,6 +738,7 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
 
             // 1. Process metadata
             bool join = false;
+            m_isAutoNext = false; 
             if (!ins.metadata.empty()) {
                 if (ins.metadata.contains("join")) join = (ins.metadata["join"].get<std::string>() == "true");
                 if (ins.metadata.contains("bg")) {
