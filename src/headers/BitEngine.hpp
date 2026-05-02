@@ -42,6 +42,8 @@ enum class BitOp {
     CALL,
     RETURN,
     WAIT_INPUT,
+    WAIT_ACTION,
+    SET_LOCAL,
     HALT
 };
 
@@ -106,6 +108,7 @@ struct Entity {
     std::string id = "", name = "Unknown", type = "char"; 
     float default_pos_x = 0.5f;
     std::unordered_map<std::string, SpriteDef> sprites = {}; 
+    std::unordered_map<std::string, nlohmann::json> aliases = {};
 };
 
 struct VariableDef { std::string id = ""; int initial_value = 0; std::optional<int> min = std::nullopt, max = std::nullopt; };
@@ -353,6 +356,8 @@ private:
 
     // Narrative Stack
     std::vector<int> m_callStack;
+    std::vector<std::unordered_map<std::string, int>> m_localVariables;
+    std::string m_waitingForActionType = ""; // "sfx", "move", "fade", "all"
 
     void StartTransition(float duration, float postDelay);
     void RecordError(const std::string& context, const std::string& msg);

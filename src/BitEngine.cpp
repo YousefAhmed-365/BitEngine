@@ -391,6 +391,8 @@ std::optional<SaveMetadata> DialogEngine::GetSaveMetadata(int slot) const {
 void DialogEngine::StartDialog(const std::string& startId) {
     m_isActive = true;
     m_pc = 0;
+    m_localVariables.clear();
+    m_localVariables.push_back({}); // root scope
     
     std::string id = startId.empty() ? m_project.configs.start_node : startId;
     Log("Starting dialog sequence: " + id);
@@ -585,7 +587,28 @@ void DialogEngine::Update(float dt) {
     
     if (m_shakeIntensity > 0) m_shakeIntensity = std::max(0.0f, m_shakeIntensity - dt * 20.0f);
 
-    if (!IsTextRevealing() && m_isAutoNext && m_waitTimer <= 0.0f && m_visibleOptions.empty() && !m_isTransitioning && !IsEventDelaying()) {
+    if (m_vmWaiting && !m_waitingForActionType.empty()) {
+        bool done = false;
+        if (m_waitingForActionType == "sfx") done = m_pendingSFX.empty(); 
+        else if (m_waitingForActionType == "move") {
+            done = true;
+            for (auto& [id, s] : m_activeEntities) if (s.moveTimer < s.moveDuration) done = false;
+        }
+        else if (m_waitingForActionType == "fade") {
+            done = true;
+            for (auto& [id, s] : m_activeEntities) if (s.fadeTimer < s.fadeDuration) done = false;
+            if (m_bgFadeTimer < m_bgFadeDuration) done = false;
+        }
+        else if (m_waitingForActionType == "all") done = !IsVisualAnimating();
+
+        if (done) {
+            m_waitingForActionType = "";
+            m_vmWaiting = false;
+            RunVM();
+        }
+    }
+
+    if (!IsTextRevealing() && m_isAutoNext && m_waitTimer <= 0.0f && m_visibleOptions.empty() && !m_isTransitioning && !IsEventDelaying() && m_waitingForActionType.empty()) {
         Next();
     }
 
@@ -649,11 +672,18 @@ std::string DialogEngine::InterpolateVariables(const std::string& text) const {
     return res;
 }
 
-int DialogEngine::GetVariable(const std::string& name) const { auto it = m_variables.find(name); return (it != m_variables.end()) ? it->second : 0; }
+int DialogEngine::GetVariable(const std::string& name) const { 
+    if (!m_localVariables.empty() && m_localVariables.back().count(name)) return m_localVariables.back().at(name);
+    auto it = m_variables.find(name); return (it != m_variables.end()) ? it->second : 0; 
+}
 
 void DialogEngine::SetVariable(const std::string& name, int value) {
     if (name.substr(0, 5) == "__tmp") {
         m_variables[name] = value;
+        return;
+    }
+    if (!m_localVariables.empty() && m_localVariables.back().count(name)) {
+        m_localVariables.back()[name] = value;
         return;
     }
     auto it = m_project.variables.find(name);
@@ -765,6 +795,33 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
             // 2. Entity visuals
             if (!entityId.empty() && entityId != "system") {
                 auto& state = m_activeEntities[entityId];
+                
+                // Apply Aliases
+                if (ins.metadata.contains("alias")) {
+                    std::string aliasName = ins.metadata["alias"];
+                    const auto* entity = GetEntity(entityId);
+                    if (entity && entity->aliases.count(aliasName)) {
+                        auto aliasData = entity->aliases.at(aliasName);
+                        for (auto& [k, v] : aliasData.items()) {
+                            if (!ins.metadata.contains(k)) { // Don't override explicit mods
+                                if (k == "sprite") state.expression = v;
+                                else if (k == "pos") {
+                                    state.pos = v;
+                                    state.targetNormX = ParsePosition(state.pos);
+                                    state.currentNormX = state.targetNormX;
+                                }
+                                else if (k == "alpha") {
+                                    state.alpha = std::stof(v.get<std::string>());
+                                    state.targetAlpha = state.alpha;
+                                }
+                                else if (k == "shake") {
+                                    // Add shake logic if alias supports it (future-proof)
+                                }
+                            }
+                        }
+                    }
+                }
+
                 if (!ins.metadata.empty()) {
                     if (ins.metadata.contains("sprite")) state.expression = ins.metadata["sprite"];
                     if (ins.metadata.contains("pos")) {
@@ -899,6 +956,7 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
         }
         case BitOp::CALL: {
             m_callStack.push_back(m_pc);
+            m_localVariables.push_back({}); // New local scope
             for (int i = 0; i < (int)m_project.bytecode.size(); ++i) {
                 if (m_project.bytecode[i].op == BitOp::LABEL && m_project.bytecode[i].args[0] == args[0]) {
                     m_pc = i; break;
@@ -910,7 +968,19 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
             if (!m_callStack.empty()) {
                 m_pc = m_callStack.back();
                 m_callStack.pop_back();
+                m_localVariables.pop_back(); // Pop local scope
             }
+            break;
+        }
+        case BitOp::SET_LOCAL: {
+            if (!m_localVariables.empty()) {
+                m_localVariables.back()[args[0]] = std::stoi(args[1]);
+            }
+            break;
+        }
+        case BitOp::WAIT_ACTION: {
+            m_waitingForActionType = args[0];
+            m_vmWaiting = true;
             break;
         }
         case BitOp::WAIT_INPUT: {

@@ -15,7 +15,7 @@ bool BitScriptLexer::IsKeyword(const std::string& s) {
         "left", "right", "center", "bg", "bgm",
         "shake", "delay", "fade", "move", "fade_screen", "halt",
         "play_sfx", "expression", "hide", "pos", "clear", "random",
-        "transition", "ui", "narration", "call", "return"
+        "transition", "ui", "narration", "call", "return", "local", "wait", "alias"
     };
     for (const auto& k : kw) if (k == s) return true;
     return false;
@@ -177,7 +177,22 @@ void BitScriptParser::ParseEntities() {
                 }
                 ent.sprites[sName] = sd;
                 expect(TokenType::Symbol, ";");
-            } else {
+            }
+            else if (match(TokenType::Keyword, "alias")) {
+                std::string aliasName = consume().value;
+                expect(TokenType::Symbol, "{");
+                nlohmann::json aliasMeta;
+                while (!match(TokenType::Symbol, "}")) {
+                    std::string key = consume().value;
+                    expect(TokenType::Symbol, "=");
+                    std::string val = consume().value;
+                    aliasMeta[key] = val;
+                    match(TokenType::Symbol, ",");
+                }
+                ent.aliases[aliasName] = aliasMeta;
+                expect(TokenType::Symbol, ";");
+            }
+            else {
                 std::string k = consume().value;
                 expect(TokenType::Symbol, "=");
                 std::string v = consume().value;
@@ -286,24 +301,26 @@ void BitScriptParser::ParseScene() {
             expect(TokenType::Symbol, ";");
             p.bytecode.push_back({BitOp::SAY, {"narration", text}, meta});
         }
-        else if (peek().type == TokenType::Identifier && peekNext().value == ":") {
+        else if (peek().type == TokenType::Identifier && (peekNext().value == ":" || peekNext().value == "[" || peekNext().value == ".")) {
             std::string entity = consume().value;
-            consume(); // :
-            std::string text = consume().value;
-            expect(TokenType::Symbol, ";");
-            p.bytecode.push_back({BitOp::SAY, {entity, text}, {}});
-        }
-        else if (peek().type == TokenType::Identifier && peekNext().value == "[") {
-            std::string entity = consume().value;
-            consume(); // [
-            nlohmann::json meta;
-            while (!match(TokenType::Symbol, "]")) {
-                std::string k = consume().value;
-                expect(TokenType::Symbol, "=");
-                std::string v = consume().value;
-                meta[k] = v;
-                match(TokenType::Symbol, ",");
+            std::string alias = "";
+            if (match(TokenType::Symbol, ".")) {
+                alias = consume().value;
             }
+            
+            nlohmann::json meta;
+            if (!alias.empty()) meta["alias"] = alias;
+
+            if (match(TokenType::Symbol, "[")) {
+                while (!match(TokenType::Symbol, "]")) {
+                    std::string k = consume().value;
+                    expect(TokenType::Symbol, "=");
+                    std::string v = consume().value;
+                    meta[k] = v;
+                    match(TokenType::Symbol, ",");
+                }
+            }
+            
             std::string text = "";
             if (match(TokenType::Symbol, ":")) {
                 text = consume().value;
@@ -357,6 +374,18 @@ void BitScriptParser::ParseScene() {
         else if (match(TokenType::Keyword, "halt")) {
             expect(TokenType::Symbol, ";");
             p.bytecode.push_back({BitOp::HALT, {}, {}});
+        }
+        else if (match(TokenType::Keyword, "local")) {
+            std::string var = consume().value;
+            expect(TokenType::Symbol, "=");
+            Operand res = ParseExpression(p.bytecode);
+            expect(TokenType::Symbol, ";");
+            p.bytecode.push_back({BitOp::SET_LOCAL, {var, res.val}, {}});
+        }
+        else if (match(TokenType::Keyword, "wait")) {
+            std::string type = consume().value;
+            expect(TokenType::Symbol, ";");
+            p.bytecode.push_back({BitOp::WAIT_ACTION, {type}, {}});
         }
         else if (match(TokenType::Keyword, "shake")) {
             Operand intensity = ParseExpression(p.bytecode);

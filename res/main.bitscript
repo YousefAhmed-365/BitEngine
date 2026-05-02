@@ -35,6 +35,9 @@ entities {
         sprite idle { path = "assets/akira_idle.png"; frames = 2; speed = 4.0; scale = 3.0; };
         sprite serious { path = "assets/akira_serious.png"; frames = 1; speed = 1.0; scale = 3.0; };
         sprite neutral { path = "assets/akira_neutral.png"; frames = 1; speed = 1.0; scale = 3.0; };
+        
+        alias angry { sprite = serious, shake = true };
+        alias calm { sprite = neutral };
     };
     kael {
         name = "Kael";
@@ -54,7 +57,9 @@ scene scene_alley {
 
     > akira [sprite = serious, pos = left, alpha = 0.0];
     fade akira, 1.0, 1000;
-    akira: "Kael! Stay back! Something is [font=dream]wrong[/font] with the uplink.";
+    wait fade; # Explicit wait for character fade
+    
+    akira.angry: "Kael! Stay back! Something is [font=dream]wrong[/font] with the uplink.";
 
     > kael [sprite = idle, pos = right, alpha = 0.0];
     fade kael, 1.0, 800;
@@ -62,13 +67,16 @@ scene scene_alley {
 
     move akira, center, 500;
     move kael, 0.9, 400;
-    akira: "Wait, I'm detecting a signature nearby. Let's move in.";
+    wait move; # Ensure they stop moving before next dialogue
+    
+    akira.calm: "Wait, I'm detecting a signature nearby. Let's move in.";
     
     call routine_district_transition;
     jump scene_market;
 };
 
 scene routine_neural_sync {
+    local sync_status = 1; # Scoped local variable
     narration [auto_next = true, pre_delay = 1000]: "[speed=0.3]Connecting to neural uplink...[wait=0.8] established.";
     shake 10;
     narration [auto_next = true]: "[shake]WARNING:[wait=0.5] System integrity compromised.";
@@ -77,13 +85,16 @@ scene routine_neural_sync {
 };
 
 scene routine_district_transition {
+    ui hide;
     fade bg, market_bg, 2000;
     fade akira, 0.0, 1000;
     fade kael, 0.0, 1000;
+    wait fade; # Wait for cleanup
+    
     < akira;
     < kael;
     
-    transition fade_black, 1000, 500;
+    transition fade_black, 500, 500;
     narration: "Moving to the next district...";
     return;
 };
