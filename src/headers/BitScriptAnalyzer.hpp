@@ -22,6 +22,11 @@ private:
     static void CheckEntities(const DialogProject& project, std::vector<AnalysisMessage>& messages);
     static void CheckVariables(const DialogProject& project, std::vector<AnalysisMessage>& messages);
     static void CheckControlFlow(const DialogProject& project, std::vector<AnalysisMessage>& messages);
+    static void CheckAssets(const DialogProject& project, std::vector<AnalysisMessage>& messages);
+    static void CheckInstructions(const DialogProject& project, std::vector<AnalysisMessage>& messages);
+    static void CheckConfiguration(const DialogProject& project, std::vector<AnalysisMessage>& messages);
+    static void CheckTimelines(const DialogProject& project, std::vector<AnalysisMessage>& messages);
+    static void CheckSprites(const DialogProject& project, std::vector<AnalysisMessage>& messages);
 };
 
 #endif
