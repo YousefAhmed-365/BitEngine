@@ -39,6 +39,9 @@ enum class BitOp {
     LABEL,      // marker (no-op)
     TRANSITION,
     UI_VISIBLE,
+    CALL,
+    RETURN,
+    WAIT_INPUT,
     HALT
 };
 
@@ -347,6 +350,9 @@ private:
     // Debug state
     std::vector<EventTraceEntry> m_eventTrace;
     std::vector<std::string> m_errors;
+
+    // Narrative Stack
+    std::vector<int> m_callStack;
 
     void StartTransition(float duration, float postDelay);
     void RecordError(const std::string& context, const std::string& msg);

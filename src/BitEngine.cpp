@@ -897,6 +897,26 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
             }
             break;
         }
+        case BitOp::CALL: {
+            m_callStack.push_back(m_pc);
+            for (int i = 0; i < (int)m_project.bytecode.size(); ++i) {
+                if (m_project.bytecode[i].op == BitOp::LABEL && m_project.bytecode[i].args[0] == args[0]) {
+                    m_pc = i; break;
+                }
+            }
+            break;
+        }
+        case BitOp::RETURN: {
+            if (!m_callStack.empty()) {
+                m_pc = m_callStack.back();
+                m_callStack.pop_back();
+            }
+            break;
+        }
+        case BitOp::WAIT_INPUT: {
+            m_vmWaiting = true;
+            break;
+        }
         case BitOp::HALT: m_isActive = false; break;
         default: break;
     }

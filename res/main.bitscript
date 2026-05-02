@@ -49,13 +49,8 @@ scene scene_alley {
     bgm = "neon_noir";
     fade_screen 1.0, 0;
     fade_screen 0.0, 2000;
-    narration [auto_next = true, pre_delay = 1000]: "[speed=0.3]Connecting to neural uplink...[wait=0.8] established.";
-
-    scene intro_cinematic {
-        shake 10;
-        narration [auto_next = true]: "[shake]WARNING:[wait=0.5] System integrity compromised.";
-        delay 1500;
-    };
+    
+    call routine_neural_sync;
 
     > akira [sprite = serious, pos = left, alpha = 0.0];
     fade akira, 1.0, 1000;
@@ -69,6 +64,19 @@ scene scene_alley {
     move kael, 0.9, 400;
     akira: "Wait, I'm detecting a signature nearby. Let's move in.";
     
+    call routine_district_transition;
+    jump scene_market;
+};
+
+scene routine_neural_sync {
+    narration [auto_next = true, pre_delay = 1000]: "[speed=0.3]Connecting to neural uplink...[wait=0.8] established.";
+    shake 10;
+    narration [auto_next = true]: "[shake]WARNING:[wait=0.5] System integrity compromised.";
+    delay 1500;
+    return;
+};
+
+scene routine_district_transition {
     fade bg, market_bg, 2000;
     fade akira, 0.0, 1000;
     fade kael, 0.0, 1000;
@@ -76,13 +84,12 @@ scene scene_alley {
     < kael;
     
     transition fade_black, 1000, 500;
-    narration: "Moving to the Market District...";
-    
-    jump scene_market;
+    narration: "Moving to the next district...";
+    return;
 };
 
 scene scene_market {
-    > akira [sprite = idle, pos = left, alpha = 0.0];
+    akira [sprite = idle, pos = left, alpha = 0.0];
     fade akira, 1.0, 500;
     akira: "The market is unusually quiet today. [font=dream]Eerily quiet.[/font]";
 

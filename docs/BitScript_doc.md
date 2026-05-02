@@ -51,9 +51,21 @@ SceneStatement      = Dialogue
                     | Assignment
                     | IfStatement
                     | JumpStatement
+                    | JoinStatement
+                    | LeaveStatement
+                    | StackStatement
+                    | TransitionStatement
+                    | UiStatement
+                    | NarrationStatement
                     | ExpressionStatement ;
 
 Dialogue            = Identifier [ "[" { Modifier } "]" ] ":" String ";" ;
+NarrationStatement  = "narration" [ "[" { Modifier } "]" ] ":" String ";" ;
+JoinStatement       = ">" Identifier [ "[" { Modifier } "]" ] ";" ;
+LeaveStatement      = "<" Identifier ";" ;
+StackStatement      = "call" Identifier ";" | "return" ";" ;
+TransitionStatement = "transition" Identifier "," Number "," Number ";" ;
+UiStatement         = "ui" ("show" | "hide") ";" ;
 Modifier            = Identifier "=" Expression ;
 
 ChoiceBlock         = "choice" "{" { ChoiceOption } "}" ";" ;
@@ -131,12 +143,62 @@ choice {
 };
 ```
 
-### 5. Control Flow
-BitScript supports standard conditional logic and jumps.
-```bitscript
 if (trust >= 10 and visited_market == true) {
     jump good_ending;
 };
+```
+
+### 6. Narrative Stack
+The stack allows you to call scenes like sub-routines.
+- `call <scene_id>`: Saves the current position and jumps to the scene.
+- `return`: Returns to the position after the last `call`.
+
+```bitscript
+scene alley {
+    akira: "Let's check the terminal.";
+    call diagnostic_routine;
+    akira: "Diagnostics done.";
+}
+
+scene diagnostic_routine {
+    narration: "System scan in progress...";
+    return;
+}
+```
+
+### 7. Character Management
+Use symbols for high-level scene entry and exit.
+- `> <id> [modifiers]`: Adds character to scene (instantly visible).
+- `< <id>`: Removes character from scene state.
+
+```bitscript
+> akira [pos=left, sprite=serious];
+akira: "I'm in position.";
+< akira;
+```
+
+### 8. Cinematic Statements
+Standalone statements for managing visuals and narrative pace.
+- `transition <fade_type>, <duration>, <post_delay>;`
+- `ui <show/hide>;`
+- `narration: "Text";` (Dialogue without a speaker).
+
+```bitscript
+ui hide;
+transition fade_black, 1000, 500;
+narration: "Three days later...";
+ui show;
+```
+
+### 9. Comments
+BitScript supports both single and multi-line comments.
+```bitscript
+# This is a single line comment
+
+#-
+  This is a multi-line
+  comment block.
+-#
 ```
 
 ---

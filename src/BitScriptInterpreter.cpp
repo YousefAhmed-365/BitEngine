@@ -15,7 +15,7 @@ bool BitScriptLexer::IsKeyword(const std::string& s) {
         "left", "right", "center", "bg", "bgm",
         "shake", "delay", "fade", "move", "fade_screen", "halt",
         "play_sfx", "expression", "hide", "pos", "clear", "random",
-        "transition", "ui", "narration"
+        "transition", "ui", "narration", "call", "return"
     };
     for (const auto& k : kw) if (k == s) return true;
     return false;
@@ -239,6 +239,7 @@ void BitScriptParser::ParseScene() {
             }
             expect(TokenType::Symbol, ";");
             meta["join"] = "true";
+            if (!meta.contains("alpha")) meta["alpha"] = "1.0";
             p.bytecode.push_back({BitOp::EVENT, {"join"}, meta});
             // We use EVENT with op="join" but we should probably just use SAY with empty text
             p.bytecode.push_back({BitOp::SAY, {entityId, ""}, meta});
@@ -247,7 +248,7 @@ void BitScriptParser::ParseScene() {
             // Leave character: < akira;
             std::string entityId = consume().value;
             expect(TokenType::Symbol, ";");
-            nlohmann::json j; j["op"] = "hide"; j["id"] = entityId;
+            nlohmann::json j; j["op"] = "hide"; j["target"] = entityId;
             p.bytecode.push_back({BitOp::EVENT, {"hide"}, j});
         }
         else if (match(TokenType::Keyword, "transition")) {
@@ -351,6 +352,7 @@ void BitScriptParser::ParseScene() {
                 expect(TokenType::Symbol, ";");
             }
             expect(TokenType::Symbol, ";");
+            p.bytecode.push_back({BitOp::WAIT_INPUT, {}, {}});
         }
         else if (match(TokenType::Keyword, "halt")) {
             expect(TokenType::Symbol, ";");
@@ -454,11 +456,6 @@ void BitScriptParser::ParseScene() {
             nlohmann::json j; j["op"] = "fade_screen"; j["alpha"] = std::stof(alpha); j["duration"] = std::stoi(dur);
             p.bytecode.push_back({BitOp::EVENT, {"fade_screen"}, j});
         }
-        else if (match(TokenType::Keyword, "jump")) {
-            std::string target = consume().value;
-            expect(TokenType::Symbol, ";");
-            p.bytecode.push_back({BitOp::GOTO, {target}, {}});
-        }
         else if (match(TokenType::Keyword, "if")) {
             ParseIfStatement(p.bytecode);
         }
@@ -481,6 +478,24 @@ void BitScriptParser::ParseScene() {
             std::string val = consume().value;
             expect(TokenType::Symbol, ";");
             p.bytecode.push_back({BitOp::BGM, {val}, {}});
+        }
+        else if (match(TokenType::Keyword, "jump")) {
+            std::string target = consume().value;
+            expect(TokenType::Symbol, ";");
+            p.bytecode.push_back({BitOp::GOTO, {target}, {}});
+        }
+        else if (match(TokenType::Keyword, "call")) {
+            std::string target = consume().value;
+            expect(TokenType::Symbol, ";");
+            p.bytecode.push_back({BitOp::CALL, {target}, {}});
+        }
+        else if (match(TokenType::Keyword, "return")) {
+            expect(TokenType::Symbol, ";");
+            p.bytecode.push_back({BitOp::RETURN, {}, {}});
+        }
+        else if (match(TokenType::Keyword, "halt")) {
+            expect(TokenType::Symbol, ";");
+            p.bytecode.push_back({BitOp::HALT, {}, {}});
         }
         else consume();
     }
