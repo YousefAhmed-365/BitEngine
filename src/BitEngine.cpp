@@ -9,6 +9,8 @@
 #include <unordered_set>
 #include <ctime>
 #include <random>
+#include <unistd.h>
+#include <filesystem>
 
 using json = nlohmann::json;
 static const std::string KEY = BITENGINE_KEY;
@@ -301,48 +303,103 @@ bool DialogEngine::LoadBytecodeFile(const std::string& path) {
 
 void DialogEngine::SaveGame(int slot) {
     Log("Saving game to slot " + std::to_string(slot));
+    std::string path = GetSlotPath(slot);
+    std::string tmpPath = path + ".tmp";
+    
     try {
-        SaveData sd;
-        sd.current_pc = m_pc;
-        sd.variables = m_variables;
-        sd.meta.timestamp = GetTimestamp();
-        sd.meta.summary = "PC: " + std::to_string(m_pc);
-        
         json j;
-        j["version"] = sd.version;
-        j["pc"] = sd.current_pc;
-        j["variables"] = sd.variables;
+        j["version"] = 2; // v0.2 save format
+        j["pc"] = (m_vmWaiting && m_pc > 0) ? m_pc - 1 : m_pc;
+        j["variables"] = m_variables;
+        j["revealed_count"] = m_revealedCount;
+        j["screen_fade"] = m_screenFadeAlpha;
+        
+        // Narrative Stack
+        j["stack"] = m_callStack;
+        j["locals"] = m_localVariables;
+        
         j["active_bg"] = m_activeBg;
         j["active_bgm"] = m_activeBgm;
+        j["speaker"] = m_currentSpeakerId;
+        j["ui_hidden"] = m_isUiHidden;
         
         json entities = json::object();
         for (const auto& [id, state] : m_activeEntities) {
-            entities[id] = { {"expression", state.expression}, {"pos", state.pos}, {"normX", state.currentNormX}, {"alpha", state.alpha} };
+            entities[id] = { 
+                {"expression", state.expression}, 
+                {"pos", state.pos}, 
+                {"normX", state.currentNormX}, 
+                {"alpha", state.alpha} 
+            };
         }
         j["active_entities"] = entities;
-        j["ui_hidden"] = m_isUiHidden;
-        j["meta"] = { {"time", sd.meta.timestamp}, {"pc", sd.current_pc}, {"text", sd.meta.summary} };
+        
+        // Metadata for UI
+        std::string summary = m_currentSpeakerId.empty() ? "Narrative" : m_currentSpeakerId;
+        j["meta"] = { 
+            {"time", GetTimestamp()}, 
+            {"pc", m_pc}, 
+            {"text", "Scene: " + summary + " (PC:" + std::to_string(m_pc) + ")"} 
+        };
 
         std::string data = j.dump(4);
         if (m_project.configs.encrypt_save) data = XORBuffer(data);
-        std::ofstream f(GetSlotPath(slot), std::ios::binary);
-        if (f) f.write(data.c_str(), data.size());
-    } catch (...) {}
+        
+        {
+            // Ensure save directory exists using C++17 filesystem
+            std::filesystem::create_directories("save");
+            
+            std::ofstream f(tmpPath, std::ios::binary);
+            if (!f) throw std::runtime_error("Could not open temp save file: " + tmpPath);
+            f.write(data.c_str(), data.size());
+        }
+
+        // Atomic rename
+#ifdef _WIN32
+        _unlink(path.c_str());
+#else
+        unlink(path.c_str());
+#endif
+        rename(tmpPath.c_str(), path.c_str());
+        
+        Log("Save successful: " + path);
+    } catch (const std::exception& e) {
+        RecordError("SaveGame", std::string("Save failed: ") + e.what());
+    } catch (...) {
+        RecordError("SaveGame", "Save failed: Unknown error");
+    }
 }
 
 bool DialogEngine::LoadGame(int slot) {
-    std::ifstream f(GetSlotPath(slot), std::ios::binary | std::ios::ate);
+    std::string path = GetSlotPath(slot);
+    std::ifstream f(path, std::ios::binary | std::ios::ate);
     if (!f) return false;
-    std::streamsize sz = f.tellg(); f.seekg(0);
+    
+    std::streamsize sz = f.tellg(); 
+    f.seekg(0);
     std::string data(sz, '\0');
+    
     if (f.read(&data[0], sz)) {
         try {
             if (m_project.configs.encrypt_save) data = XORBuffer(data);
             json j = json::parse(data);
+            
             m_pc = j.value("pc", 0);
+            if (m_pc < 0) m_pc = 0;
+            
             m_variables = j["variables"].get<std::unordered_map<std::string, int>>();
+            float savedReveal = j.value("revealed_count", 0.0f);
+            m_revealedCount = savedReveal;
+            m_screenFadeAlpha = j.value("screen_fade", 0.0f);
+            
+            // Restore Stack
+            m_callStack = j.value("stack", std::vector<int>{});
+            m_localVariables = j.value("locals", std::vector<std::unordered_map<std::string, int>>{ {} });
+            if (m_localVariables.empty()) m_localVariables.push_back({});
+
             m_activeBg = j.value("active_bg", "");
             m_activeBgm = j.value("active_bgm", "");
+            m_currentSpeakerId = j.value("speaker", "");
             m_isUiHidden = j.value("ui_hidden", false);
             
             m_activeEntities.clear();
@@ -358,12 +415,22 @@ bool DialogEngine::LoadGame(int slot) {
                     m_activeEntities[id] = state;
                 }
             }
+            
             m_isActive = true;
             m_vmWaiting = false;
             m_vmDelayed = false;
+            m_waitingForActionType = "";
+            
+            Log("Load successful from slot " + std::to_string(slot));
             RunVM();
+            
+            // Post-RunVM restoration for state-sensitive variables
+            m_revealedCount = savedReveal;
+
             return true;
-        } catch (...) {}
+        } catch (const std::exception& e) {
+            RecordError("LoadGame", std::string("Load failed: ") + e.what());
+        }
     }
     return false;
 }
