@@ -78,13 +78,6 @@ int BitApp::ProcessArgs(int argc, char** argv) {
         std::string dst = (argc >= 4) ? argv[3] : defaultOutput(src);
         return DoCompile(src, dst);
     }
-    if (strcmp(arg1, "-p") == 0 || strcmp(arg1, "--pack") == 0) {
-        if (argc < 3) { std::cerr << "[ERROR] --pack requires a source file.\n"; return 1; }
-        std::string src = argv[2];
-        if (!endsWith(src, ".bitscript")) { std::cerr << "[ERROR] --pack only supports .bitscript source files.\n"; return 1; }
-        std::string dst = (argc >= 4) ? argv[3] : src.substr(0, src.find_last_of(".")) + ".bitp";
-        return DoCompile(src, dst);
-    }
 
     if (strcmp(arg1, "-d") == 0 || strcmp(arg1, "--dry-run") == 0) {
         if (argc < 3) { std::cerr << "[ERROR] --dry-run requires a file.\n"; return 1; }
@@ -136,7 +129,6 @@ void BitApp::PrintHelp(const char* argv0) {
         "  -v, --version              Print version information and exit\n\n"
         "  -r, --run <file>           Run a .bitscript or .bitc file\n"
         "  -c, --compile <src> [dst]  Compile a .bitscript to bytecode (.bitc)\n"
-        "  -p, --pack <src> [dst]     Compile a .bitscript to BitPack (.bitp)\n"
         "  -d, --dry-run <file>       Parse/validate a .bitscript without launching a window\n"
         "  -l, --list-scenes <file>   List all scene labels in a .bitscript file\n"
         "  -s, --stats <file>         Print instruction count and variable stats\n\n";

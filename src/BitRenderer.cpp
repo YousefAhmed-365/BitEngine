@@ -723,13 +723,7 @@ void BitRenderer::DrawDebugOverlay() {
     DrawText(TextFormat("PC:      %d", m_engine.GetCurrentPC()), px, dy, 10, RAYWHITE); dy += 14;
     DrawText(TextFormat("ACTIVE:  %s", m_engine.IsActive() ? "YES" : "NO"), px, dy, 10, RAYWHITE); dy += 14;
     DrawText(TextFormat("SPEAKER: %s", m_engine.GetCurrentEntity() ? m_engine.GetCurrentEntity()->id.c_str() : "NONE"), px, dy, 10, RAYWHITE); dy += 14;
-    
-    std::string waitType = "NONE";
-    if (m_engine.IsTextRevealing()) waitType = "REVEAL";
-    else if (m_engine.IsEventDelaying()) waitType = "DELAY";
-    else if (!m_engine.GetWaitActionType().empty()) waitType = m_engine.GetWaitActionType();
-    
-    DrawText(TextFormat("WAITING: %s", waitType.c_str()), px, dy, 10, (waitType == "NONE" ? RAYWHITE : GOLD)); dy += 14;
+    DrawText(TextFormat("WAITING: %s", m_engine.IsTextRevealing() ? "YES" : "NO"), px, dy, 10, RAYWHITE); dy += 14;
 
 
     // Panel 2: Variable Watcher
@@ -764,8 +758,8 @@ void BitRenderer::DrawDebugOverlay() {
     DrawText(TextFormat("UI Hidden:   %s", m_engine.IsUiHidden() ? "TRUE" : "FALSE"), px, dy, 10, m_engine.IsUiHidden() ? YELLOW : GRAY); dy += 14;
     DrawText(TextFormat("Auto-Play:   %s", m_engine.IsAutoPlaying() ? "ON" : "OFF"), px, dy, 10, m_engine.IsAutoPlaying() ? LIME : GRAY); dy += 14;
     DrawText(TextFormat("Transition:  %s", m_engine.IsTransitioning() ? "ACTIVE" : "FALSE"), px, dy, 10, m_engine.IsTransitioning() ? ORANGE : GRAY); dy += 14;
-    std::string cinematicWait = m_engine.GetWaitActionType();
-    DrawText(TextFormat("Wait Action: %s", cinematicWait.empty() ? "NONE" : cinematicWait.c_str()), px, dy, 10, !cinematicWait.empty() ? ORANGE : GRAY); dy += 14;
+    std::string waitType = m_engine.GetWaitActionType();
+    DrawText(TextFormat("Wait Action: %s", waitType.empty() ? "NONE" : waitType.c_str()), px, dy, 10, !waitType.empty() ? ORANGE : GRAY); dy += 14;
     DrawText(TextFormat("BG Fade:     %.2f", m_engine.GetBgFadeAlpha()), px, dy, 10, RAYWHITE); dy += 18;
 
     DrawText("Entities:", px, dy, 11, SKYBLUE); dy += 15;
@@ -841,13 +835,6 @@ void BitRenderer::DrawDebugOverlay() {
             case BitOp::BG:     opStr = "BG"; break;
             case BitOp::BGM:    opStr = "BGM"; break;
             case BitOp::LABEL:  opStr = "LABEL"; break;
-            case BitOp::WAIT_INPUT:  opStr = "WAIT_I"; break;
-            case BitOp::TRANSITION:  opStr = "TRANS"; break;
-            case BitOp::UI_VISIBLE:  opStr = "UI_VIS"; break;
-            case BitOp::CALL:        opStr = "CALL"; break;
-            case BitOp::RETURN:      opStr = "RET"; break;
-            case BitOp::WAIT_ACTION: opStr = "WAIT_A"; break;
-            case BitOp::SET_LOCAL:   opStr = "SET_L"; break;
             case BitOp::HALT:   opStr = "HALT"; break;
             default: break;
         }
