@@ -60,6 +60,7 @@ private:
     void ParseScene();
     void ParseStatement();
     void ParseAssignment(const std::string& var, std::vector<BitInstruction>& output, bool isLocal = false);
+    void ParseDialogueBlock(const std::string& entityId, std::vector<BitInstruction>& output);
     
     // Expression Parsing
     Operand ParseExpression(std::vector<BitInstruction>& output);

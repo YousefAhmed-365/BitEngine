@@ -102,9 +102,10 @@ scene routine_district_transition {
 scene scene_market {
     akira [sprite = idle, pos = left, alpha = 0.0];
     fade akira, 1.0, 500;
-    akira: "The market is unusually quiet today. [font=dream]Eerily quiet.[/font]";
-
-    akira: "What's our next move?";
+    akira {
+        "The market is unusually quiet today. [font=dream]Eerily quiet.[/font]";
+        .serious: "What's our next move?";
+    };
     choice {
         "Search the stalls" -> market_browsing;
         "Check the terminal" [style = premium] -> market_terminal;

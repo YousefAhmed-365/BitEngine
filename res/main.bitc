@@ -400,6 +400,9 @@
         "akira",
         "What's our next move?"
       ],
+      "meta": {
+        "alias": "serious"
+      },
       "op": "SAY"
     },
     {

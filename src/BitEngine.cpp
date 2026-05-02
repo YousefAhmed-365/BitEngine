@@ -529,7 +529,11 @@ void DialogEngine::SelectOption(int index) {
 }
 
 void DialogEngine::Next() {
-    if (!m_isActive || IsEventDelaying() || !m_pendingJumpId.empty() || m_isTransitioning) return;
+    if (!m_isActive || IsEventDelaying() || !m_pendingJumpId.empty() || m_isTransitioning || m_inputLockoutTimer > 0.0f) return;
+    
+    // Feature: Don't advance if visuals (fades/moves) are still active
+    if (!IsTextRevealing() && IsVisualAnimating()) return;
+
     if (IsTextRevealing()) { SkipReveal(); return; }
     
     m_isAutoNext = false; 
@@ -564,6 +568,8 @@ void DialogEngine::RunVM() {
 
 void DialogEngine::Update(float dt) {
     if (!m_isActive) return;
+
+    if (m_inputLockoutTimer > 0.0f) m_inputLockoutTimer -= dt;
     
     // 1. Transition and Screen Fade updates (must always run, even mid-transition)
     if (m_isTransitioning) {
@@ -730,6 +736,7 @@ void DialogEngine::Update(float dt) {
 void DialogEngine::SkipReveal() { 
     m_revealedCount = (float)m_cachedTotalChars; 
     m_waitTimer = 0.0f;
+    m_inputLockoutTimer = 0.2f; // Prevent immediate double-skip or advance
 }
 bool DialogEngine::IsTextRevealing() const { return m_isActive && m_revealedCount < (float)m_cachedTotalChars; }
 

@@ -835,8 +835,15 @@ void BitRenderer::DrawDebugOverlay() {
             case BitOp::BG:     opStr = "BG"; break;
             case BitOp::BGM:    opStr = "BGM"; break;
             case BitOp::LABEL:  opStr = "LABEL"; break;
+            case BitOp::WAIT_INPUT: opStr = "WAIT_I"; break;
+            case BitOp::TRANSITION: opStr = "TRANS"; break;
+            case BitOp::UI_VISIBLE: opStr = "UI_VIS"; break;
+            case BitOp::CALL:   opStr = "CALL"; break;
+            case BitOp::RETURN: opStr = "RET"; break;
+            case BitOp::WAIT_ACTION: opStr = "WAIT_A"; break;
+            case BitOp::SET_LOCAL:   opStr = "SET_L"; break;
             case BitOp::HALT:   opStr = "HALT"; break;
-            default: break;
+            default:            opStr = "UNKNOWN"; break;
         }
 
         std::string argsStr = "";

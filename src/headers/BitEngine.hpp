@@ -350,6 +350,7 @@ private:
     bool m_isAutoNext = false;
     bool m_isAutoPlaying = false;
     float m_autoPlayTimer = 0.0f;
+    float m_inputLockoutTimer = 0.0f;
     std::vector<HistoryEntry> m_history;
     std::map<std::string, ActiveEntityState> m_activeEntities;
 

@@ -309,10 +309,15 @@ void BitScriptParser::ParseStatement() {
         expect(TokenType::Symbol, ";");
         emit(BitOp::SAY, {"narration", text}, meta);
     }
-    else if (peek().type == TokenType::Identifier && (peekNext().value == ":" || peekNext().value == "[" || peekNext().value == "." || peekNext().value == "=")) {
+    else if (peek().type == TokenType::Identifier && (peekNext().value == ":" || peekNext().value == "[" || peekNext().value == "." || peekNext().value == "=" || peekNext().value == "{")) {
         std::string entity = consume().value;
         if (match(TokenType::Symbol, "=")) {
             ParseAssignment(entity, p.bytecode);
+            return;
+        }
+        
+        if (match(TokenType::Symbol, "{")) {
+            ParseDialogueBlock(entity, p.bytecode);
             return;
         }
 
@@ -532,7 +537,6 @@ void BitScriptParser::ParseStatement() {
 }
 
 void BitScriptParser::ParseAssignment(const std::string& var, std::vector<BitInstruction>& output, bool isLocal) {
-    // Check for simple arithmetic: var = var + val
     if (peek().type == TokenType::Identifier && peek().value == var && 
         (peekNext().value == "+" || peekNext().value == "-" || peekNext().value == "*" || peekNext().value == "/")) {
         consume(); // var
@@ -554,14 +558,47 @@ void BitScriptParser::ParseAssignment(const std::string& var, std::vector<BitIns
     expect(TokenType::Symbol, ";");
     
     if (isLocal) {
-        // BitEngine doesn't have SET_LOCAL_REF, so we use SET_LOCAL with a literal or...
-        // Actually, let's just use SET/SET_REF if it's already declared, but 'local' always declares.
-        // For now, SET_LOCAL in engine only takes lit. I should fix engine too.
         emit(BitOp::SET_LOCAL, {var, res.val});
     } else {
         if (res.isRef) emit(BitOp::SET_REF, {var, res.val});
         else emit(BitOp::SET, {var, res.val});
     }
+}
+
+void BitScriptParser::ParseDialogueBlock(const std::string& entityId, std::vector<BitInstruction>& output) {
+    (void)output;
+    while (peek().type != TokenType::EndOfFile && peek().value != "}") {
+        std::string alias = "";
+        if (match(TokenType::Symbol, ".")) {
+            alias = consume().value;
+        }
+        
+        nlohmann::json meta;
+        if (!alias.empty()) meta["alias"] = alias;
+
+        if (match(TokenType::Symbol, "[")) {
+            while (peek().type != TokenType::EndOfFile && peek().value != "]") {
+                std::string k = consume().value;
+                expect(TokenType::Symbol, "=");
+                std::string v = consume().value;
+                meta[k] = v;
+                match(TokenType::Symbol, ",");
+            }
+            expect(TokenType::Symbol, "]");
+        }
+        
+        match(TokenType::Symbol, ":");
+        
+        if (peek().type == TokenType::String) {
+            std::string text = consume().value;
+            expect(TokenType::Symbol, ";");
+            emit(BitOp::SAY, {entityId, text}, meta);
+        } else {
+            consume();
+        }
+    }
+    expect(TokenType::Symbol, "}");
+    match(TokenType::Symbol, ";");
 }
 
 Operand BitScriptParser::ParseExpression(std::vector<BitInstruction>& output) {
@@ -573,9 +610,6 @@ Operand BitScriptParser::ParseAddExpr(std::vector<BitInstruction>& output) {
     while (peek().type != TokenType::EndOfFile && (peek().value == "+" || peek().value == "-")) {
         std::string op = consume().value;
         Operand right = ParseMulExpr(output);
-        // Fallback for complex expressions: return a placeholder to avoid crash, 
-        // but real fix is implementing a stack-based VM for expressions.
-        // For now, we only support simple A op B in assignments (handled in ParseAssignment).
     }
     return left;
 }
