@@ -44,6 +44,7 @@ enum class BitOp {
     WAIT_INPUT,
     WAIT_ACTION,
     SET_LOCAL,
+    PLAY_TIMELINE,
     HALT
 };
 
@@ -52,6 +53,26 @@ struct BitInstruction {
     std::vector<std::string> args;
     nlohmann::json metadata;
     int line = -1;
+};
+
+struct TimelineEvent {
+    int time_ms = 0;
+    BitOp op;
+    std::vector<std::string> args;
+    nlohmann::json metadata;
+};
+
+struct Timeline {
+    std::string id;
+    std::vector<TimelineEvent> events;
+};
+
+struct ActiveTimeline {
+    std::string id;
+    float timer = 0.0f;
+    size_t nextEventIdx = 0;
+    bool finished = false;
+    bool isBlocking = false;
 };
 
 struct RichChar {
@@ -126,8 +147,10 @@ struct ActiveEntityState {
     float alpha = 1.0f;
     float targetAlpha = 1.0f;
     float startAlpha = 1.0f;
-    float fadeTimer = 0.0f;
     float fadeDuration = 0.0f;
+    float fadeTimer = 0.0f;
+    
+    bool visible = true;
 };
 
 struct HistoryEntry {
@@ -180,6 +203,9 @@ struct DialogProject {
     
     // Bytecode
     std::vector<BitInstruction> bytecode;
+    
+    // Timelines
+    std::unordered_map<std::string, Timeline> timelines;
 };
 
 struct ValidationResult {
@@ -217,6 +243,9 @@ public:
     bool IsTextRevealing() const;
     const std::vector<RichChar>& GetParsedContent() const { return m_cachedParsedContent; }
     int GetRevealedCount() const { return (int)m_revealedCount; }
+    float GetScreenFadeAlpha() const { return m_screenFadeAlpha; }
+    BitColor GetScreenFadeColor() const { return m_screenFadeColor; }
+    
     std::string GetVisibleContent() const; // Legacy plain string access if needed
     
     int GetVariable(const std::string& name) const;
@@ -249,13 +278,10 @@ public:
     float GetBgFadeAlpha() const { return m_bgFadeAlpha; }
     
     // Screen fade
-    float GetScreenFadeAlpha() const { return m_screenFadeAlpha; }
-    BitColor GetScreenFadeColor() const { return m_screenFadeColor; }
-    
     const std::string& GetActiveBgm() const { return m_activeBgm; }
     
-    bool IsUiHidden() const { return m_isUiHidden || m_isTransitioning; }
-    bool IsTransitioning() const { return m_isTransitioning; }
+    bool IsUiHidden() const { return m_isUiHidden; }
+    bool IsTransitioning() const { return false; }
     bool IsAutoNext() const { return m_isAutoNext; }
     const std::map<std::string, ActiveEntityState>& GetActiveEntities() const { return m_activeEntities; }
 
@@ -333,18 +359,6 @@ private:
     float m_screenFadeDuration = 0.0f;
     BitColor m_screenFadeColor = {0,0,0,255};
 
-    // Transition state machine
-    bool m_isTransitioning = false;
-    int m_transitionState = 0; // 0: Fading in, 1: Fading out, 2: Post-delay
-    std::string m_transitionTargetNode = "";
-    float m_transitionDurationVal = 0.6f;
-    float m_transitionPostDelay = 0.0f;
-    float m_transitionTimer = 0.0f;
-    
-    bool m_hasPendingTransition = false;
-    float m_pendingTransitionDuration = 0.6f;
-    float m_pendingTransitionPostDelay = 0.0f;
-
     std::string m_activeBgm = "";
     bool m_isUiHidden = false;
     bool m_isAutoNext = false;
@@ -353,6 +367,7 @@ private:
     float m_inputLockoutTimer = 0.0f;
     std::vector<HistoryEntry> m_history;
     std::map<std::string, ActiveEntityState> m_activeEntities;
+    std::vector<ActiveTimeline> m_activeTimelines;
 
     // Debug state
     std::vector<EventTraceEntry> m_eventTrace;
@@ -363,7 +378,6 @@ private:
     std::vector<std::unordered_map<std::string, int>> m_localVariables;
     std::string m_waitingForActionType = ""; // "sfx", "move", "fade", "all"
 
-    void StartTransition(float duration, float postDelay);
     void RecordError(const std::string& context, const std::string& msg);
     void ProcessEvents(const std::vector<Event>& events);
     bool EvalConditionNode(const ConditionNode& node) const;

@@ -47,27 +47,38 @@ entities {
     };
 };
 
+timeline dramatic_intro {
+    0ms: {
+        fade_screen 1.0, 0;
+        bg = alley_bg;
+    }
+    500ms: fade_screen 0.0, 1000;
+    1500ms: shake 10;
+}
+
 scene scene_alley {
-    bg = "alley_bg";
+    play timeline dramatic_intro wait;
+    
+    # Nested anonymous timeline example
+    play timeline {
+        0ms: fade_screen 1.0, 200 wait;
+        300ms: fade_screen 0.0, 200;
+    } wait;
     bgm = "neon_noir";
-    fade_screen 1.0, 0;
-    fade_screen 0.0, 2000;
     
     call routine_neural_sync(1);
 
-    > akira [sprite = serious, pos = left, alpha = 0.0];
-    fade akira, 1.0, 1000;
-    wait fade; # Explicit wait for character fade
+    akira [sprite = serious, pos = left, alpha = 0.0];
+    fade akira, 1.0, 1000 wait;
     
     akira.angry: "Kael! Stay back! Something is [font=dream]wrong[/font] with the uplink.";
 
-    > kael [sprite = idle, pos = right, alpha = 0.0];
+    kael [sprite = idle, pos = right, alpha = 0.0];
     fade kael, 1.0, 800;
     kael: "I can feel it too... it's like a [color=#ff00ff]glitch[/color] in the air.";
 
     move akira, center, 500;
-    move kael, 0.9, 400;
-    wait move; # Ensure they stop moving before next dialogue
+    move kael, 0.9, 400 wait;
     
     akira.calm: "Wait, I'm detecting a signature nearby. Let's move in.";
     
@@ -88,13 +99,12 @@ scene routine_district_transition {
     ui hide;
     fade bg, market_bg, 2000;
     fade akira, 0.0, 1000;
-    fade kael, 0.0, 1000;
-    wait fade; # Wait for cleanup
+    fade kael, 0.0, 1000 wait;
     
-    < akira;
-    < kael;
+    leave akira;
+    leave kael;
     
-    transition fade_black, 500, 500;
+    fade_screen 1.0, 500 wait;
     narration: "Moving to the next district...";
     return;
 };
@@ -112,7 +122,7 @@ scene scene_market {
     };
 
     scene market_browsing {
-        > kael [pos = right];
+        kael [pos = right];
         call routine_neural_sync(2); # Pass version 2
         kael: "Nothing but scrap metal and rusted parts.";
         jump check_ending;

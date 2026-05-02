@@ -20,6 +20,9 @@ std::vector<Token> BitScriptLexer::Tokenize() {
         else if (isdigit(c)) {
             std::string s;
             while (pos < src.size() && (isdigit(src[pos]) || src[pos] == '.')) s += src[pos++];
+            if (pos < src.size() && isalpha(src[pos])) {
+                 while (pos < src.size() && isalnum(src[pos])) s += src[pos++];
+            }
             tokens.push_back({TokenType::Number, s, line});
         }
         else if (isalpha(c) || c == '_') {
@@ -71,14 +74,17 @@ std::vector<Token> BitScriptLexer::Tokenize() {
 bool BitScriptLexer::IsKeyword(const std::string& s) {
     static const std::vector<std::string> keywords = {
         "config", "var", "entities", "assets", "scene", "sprite", "choice", "jump", "if", "and", "or", "true", "false", 
-        "bg", "bgm", "transition", "ui", "halt", "return", "call", "local", "wait", "shake", "delay", "play_sfx", 
-        "expression", "hide", "pos", "clear", "random", "fade", "move", "fade_screen", "narration", "alias"
+        "bg", "bgm", "ui", "halt", "return", "call", "local", "wait", "shake", "delay", "play_sfx", 
+        "expression", "hide", "pos", "clear", "random", "fade", "move", "fade_screen", "narration", "alias",
+        "timeline", "play", "leave"
     };
     return std::find(keywords.begin(), keywords.end(), s) != keywords.end();
 }
 
 BitScriptParser::BitScriptParser(const std::vector<Token>& tokens, DialogProject& p) 
-    : tokens(tokens), p(p), pos(0), tempVarCount(0), currentScene("") {}
+    : tokens(tokens), p(p), pos(0), tempVarCount(0), currentScene("") {
+    m_currentOutput = &p.bytecode;
+}
 
 Token BitScriptParser::peek() { return tokens[pos]; }
 Token BitScriptParser::peekNext() { if (pos+1 < tokens.size()) return tokens[pos+1]; return tokens.back(); }
@@ -108,7 +114,7 @@ void BitScriptParser::emit(BitOp op, std::vector<std::string> args, nlohmann::js
     int line = 0;
     if (pos > 0 && pos <= tokens.size()) line = tokens[pos-1].line;
     else if (!tokens.empty()) line = tokens[0].line;
-    p.bytecode.push_back({op, args, meta, line});
+    m_currentOutput->push_back({op, args, meta, line});
 }
 
 void BitScriptParser::Parse() {
@@ -118,6 +124,7 @@ void BitScriptParser::Parse() {
         else if (match(TokenType::Keyword, "entities")) ParseEntities();
         else if (match(TokenType::Keyword, "assets")) ParseAssets();
         else if (match(TokenType::Keyword, "scene")) ParseScene();
+        else if (match(TokenType::Keyword, "timeline")) ParseTimeline();
         else consume(); // skip unknown
     }
     emit(BitOp::HALT);
@@ -250,42 +257,59 @@ void BitScriptParser::ParseScene() {
     match(TokenType::Symbol, ";");
 }
 
+std::string BitScriptParser::ParseTimeline() {
+    std::string id = "";
+    if (peek().type == TokenType::Identifier) {
+        id = consume().value;
+    } else {
+        id = "anon_tl_" + std::to_string(tempVarCount++);
+    }
+
+    Timeline tl; tl.id = id;
+    expect(TokenType::Symbol, "{");
+    while (peek().type != TokenType::EndOfFile && peek().value != "}") {
+        std::string timeStr = consume().value;
+        int time_ms = 0;
+        if (timeStr.size() > 2 && timeStr.substr(timeStr.size() - 2) == "ms") {
+            time_ms = std::stoi(timeStr.substr(0, timeStr.size() - 2));
+        } else {
+            try { time_ms = std::stoi(timeStr); } catch(...) { time_ms = 0; }
+        }
+        expect(TokenType::Symbol, ":");
+        
+        std::vector<BitInstruction> temp;
+        std::vector<BitInstruction>* old = m_currentOutput;
+        m_currentOutput = &temp;
+        
+        if (match(TokenType::Symbol, "{")) {
+            while (peek().type != TokenType::EndOfFile && peek().value != "}") {
+                ParseStatement();
+            }
+            expect(TokenType::Symbol, "}");
+        } else {
+            ParseStatement();
+        }
+        
+        m_currentOutput = old;
+        
+        for (auto& ins : temp) {
+            tl.events.push_back({time_ms, ins.op, ins.args, ins.metadata});
+        }
+    }
+    expect(TokenType::Symbol, "}");
+    match(TokenType::Symbol, ";");
+    p.timelines[id] = tl;
+    return id;
+}
+
 void BitScriptParser::ParseStatement() {
     if (match(TokenType::Keyword, "scene")) ParseScene();
-    else if (match(TokenType::Symbol, ">")) {
-        std::string entityId = consume().value;
-        nlohmann::json meta;
-        meta["id"] = entityId;
-        if (match(TokenType::Symbol, "[")) {
-            while (peek().type != TokenType::EndOfFile && peek().value != "]") {
-                std::string k = consume().value;
-                expect(TokenType::Symbol, "=");
-                std::string v = consume().value;
-                meta[k] = v;
-                match(TokenType::Symbol, ",");
-            }
-            expect(TokenType::Symbol, "]");
-        }
-        expect(TokenType::Symbol, ";");
-        meta["join"] = "true";
-        if (!meta.contains("alpha")) meta["alpha"] = "1.0";
-        emit(BitOp::EVENT, {"join"}, meta);
-        emit(BitOp::SAY, {entityId, ""}, meta);
-    }
-    else if (match(TokenType::Symbol, "<")) {
+    else if (match(TokenType::Keyword, "timeline")) ParseTimeline();
+    else if (match(TokenType::Keyword, "leave")) {
         std::string entityId = consume().value;
         expect(TokenType::Symbol, ";");
-        nlohmann::json j; j["op"] = "hide"; j["target"] = entityId; j["id"] = entityId;
-        emit(BitOp::EVENT, {"hide"}, j);
-    }
-    else if (match(TokenType::Keyword, "transition")) {
-        std::string type = consume().value;
-        expect(TokenType::Symbol, ",");
-        std::string duration = consume().value;
-        std::string delay = "0";
-        if (match(TokenType::Symbol, ",")) delay = consume().value;
-        expect(TokenType::Symbol, ";");
-        emit(BitOp::TRANSITION, {type, duration, delay});
+        nlohmann::json j; j["op"] = "leave"; j["target"] = entityId;
+        emit(BitOp::EVENT, {"leave"}, j);
     }
     else if (match(TokenType::Keyword, "ui")) {
         std::string action = consume().value;
@@ -312,12 +336,12 @@ void BitScriptParser::ParseStatement() {
     else if (peek().type == TokenType::Identifier && (peekNext().value == ":" || peekNext().value == "[" || peekNext().value == "." || peekNext().value == "=" || peekNext().value == "{")) {
         std::string entity = consume().value;
         if (match(TokenType::Symbol, "=")) {
-            ParseAssignment(entity, p.bytecode);
+            ParseAssignment(entity, *m_currentOutput);
             return;
         }
         
         if (match(TokenType::Symbol, "{")) {
-            ParseDialogueBlock(entity, p.bytecode);
+            ParseDialogueBlock(entity, *m_currentOutput);
             return;
         }
 
@@ -372,7 +396,7 @@ void BitScriptParser::ParseStatement() {
                 expect(TokenType::Symbol, "(");
                 std::string var = consume().value;
                 std::string op = consume().value;
-                Operand val = ParseExpression(p.bytecode);
+                Operand val = ParseExpression(*m_currentOutput);
                 expect(TokenType::Symbol, ")");
                 
                 if (val.isRef) emit(BitOp::IF_REF, {var, op, val.val, labelChoice});
@@ -398,21 +422,18 @@ void BitScriptParser::ParseStatement() {
     else if (match(TokenType::Keyword, "local")) {
         std::string var = consume().value;
         expect(TokenType::Symbol, "=");
-        ParseAssignment(var, p.bytecode, true);
-    }
-    else if (match(TokenType::Keyword, "wait")) {
-        std::string type = consume().value;
-        expect(TokenType::Symbol, ";");
-        emit(BitOp::WAIT_ACTION, {type});
+        ParseAssignment(var, *m_currentOutput, true);
     }
     else if (match(TokenType::Keyword, "shake")) {
-        Operand intensity = ParseExpression(p.bytecode);
+        Operand intensity = ParseExpression(*m_currentOutput);
+        bool wait = match(TokenType::Keyword, "wait");
         expect(TokenType::Symbol, ";");
         nlohmann::json j; j["op"] = "shake"; j["intensity"] = std::stof(intensity.val);
         emit(BitOp::EVENT, {"shake"}, j);
+        if (wait) emit(BitOp::WAIT_ACTION, {"all"}); // Shake usually implies all
     }
     else if (match(TokenType::Keyword, "delay")) {
-        Operand dur = ParseExpression(p.bytecode);
+        Operand dur = ParseExpression(*m_currentOutput);
         expect(TokenType::Symbol, ";");
         nlohmann::json j; j["op"] = "delay"; j["duration"] = std::stoi(dur.val);
         emit(BitOp::EVENT, {"delay"}, j);
@@ -453,9 +474,9 @@ void BitScriptParser::ParseStatement() {
     else if (match(TokenType::Keyword, "random")) {
         std::string var = consume().value;
         expect(TokenType::Symbol, ",");
-        Operand lo = ParseExpression(p.bytecode);
+        Operand lo = ParseExpression(*m_currentOutput);
         expect(TokenType::Symbol, ",");
-        Operand hi = ParseExpression(p.bytecode);
+        Operand hi = ParseExpression(*m_currentOutput);
         expect(TokenType::Symbol, ";");
         nlohmann::json j; j["op"] = "random"; j["var"] = var;
         j["min"] = std::stoi(lo.val); j["max"] = std::stoi(hi.val);
@@ -467,12 +488,16 @@ void BitScriptParser::ParseStatement() {
         std::string valOrId = consume().value;
         expect(TokenType::Symbol, ",");
         std::string dur = consume().value;
+        
+        bool wait = match(TokenType::Keyword, "wait");
         expect(TokenType::Symbol, ";");
+        
         nlohmann::json j; j["op"] = "fade"; j["target"] = target;
         if (target == "bg") j["id"] = valOrId;
         else j["alpha"] = std::stof(valOrId);
         j["duration"] = std::stoi(dur);
         emit(BitOp::EVENT, {"fade"}, j);
+        if (wait) emit(BitOp::WAIT_ACTION, {"fade"});
     }
     else if (match(TokenType::Keyword, "move")) {
         std::string target = consume().value;
@@ -480,21 +505,26 @@ void BitScriptParser::ParseStatement() {
         std::string x = consume().value;
         expect(TokenType::Symbol, ",");
         std::string dur = consume().value;
+        
+        bool wait = match(TokenType::Keyword, "wait");
         expect(TokenType::Symbol, ";");
+        
         nlohmann::json j; j["op"] = "move"; j["target"] = target;
         j["x"] = x; j["duration"] = std::stoi(dur);
         emit(BitOp::EVENT, {"move"}, j);
+        if (wait) emit(BitOp::WAIT_ACTION, {"move"});
     }
     else if (match(TokenType::Keyword, "fade_screen")) {
         std::string alpha = consume().value;
         expect(TokenType::Symbol, ",");
         std::string dur = consume().value;
+        
+        bool wait = match(TokenType::Keyword, "wait");
         expect(TokenType::Symbol, ";");
+        
         nlohmann::json j; j["op"] = "fade_screen"; j["alpha"] = std::stof(alpha); j["duration"] = std::stoi(dur);
         emit(BitOp::EVENT, {"fade_screen"}, j);
-    }
-    else if (match(TokenType::Keyword, "if")) {
-        ParseIfStatement(p.bytecode);
+        if (wait) emit(BitOp::WAIT_ACTION, {"fade"});
     }
     else if (match(TokenType::Keyword, "bg")) {
         expect(TokenType::Symbol, "=");
@@ -518,7 +548,7 @@ void BitScriptParser::ParseStatement() {
         std::vector<std::string> args = { label };
         if (match(TokenType::Symbol, "(")) {
             while (peek().type != TokenType::EndOfFile && peek().value != ")") {
-                Operand arg = ParseExpression(p.bytecode);
+                Operand arg = ParseExpression(*m_currentOutput);
                 args.push_back(arg.val);
                 match(TokenType::Symbol, ",");
             }
@@ -530,6 +560,22 @@ void BitScriptParser::ParseStatement() {
     else if (match(TokenType::Keyword, "return")) {
         expect(TokenType::Symbol, ";");
         emit(BitOp::RETURN);
+    }
+    else if (match(TokenType::Keyword, "play")) {
+        expect(TokenType::Keyword, "timeline");
+        std::string tid;
+        if (peek().value == "{") {
+            tid = ParseTimeline();
+        } else {
+            tid = consume().value;
+        }
+        std::string wait = "false";
+        if (match(TokenType::Keyword, "wait")) wait = "true";
+        expect(TokenType::Symbol, ";");
+        emit(BitOp::PLAY_TIMELINE, {tid, wait});
+    }
+    else if (match(TokenType::Keyword, "if")) {
+        ParseIfStatement(*m_currentOutput);
     }
     else {
         consume(); // skip unknown

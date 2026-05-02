@@ -43,6 +43,7 @@ private:
     size_t pos;
     int tempVarCount;
     std::string currentScene;
+    std::vector<BitInstruction>* m_currentOutput;
     
     Token peek();
     Token peekNext();
@@ -58,6 +59,7 @@ private:
     void ParseEntities();
     void ParseAssets();
     void ParseScene();
+    std::string ParseTimeline();
     void ParseStatement();
     void ParseAssignment(const std::string& var, std::vector<BitInstruction>& output, bool isLocal = false);
     void ParseDialogueBlock(const std::string& entityId, std::vector<BitInstruction>& output);

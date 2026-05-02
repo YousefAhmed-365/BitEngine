@@ -12,37 +12,23 @@
     },
     {
       "args": [
-        "alley_bg"
+        "dramatic_intro",
+        "true"
       ],
-      "op": "BG"
+      "op": "PLAY_TIMELINE"
+    },
+    {
+      "args": [
+        "anon_tl_0",
+        "true"
+      ],
+      "op": "PLAY_TIMELINE"
     },
     {
       "args": [
         "neon_noir"
       ],
       "op": "BGM"
-    },
-    {
-      "args": [
-        "fade_screen"
-      ],
-      "meta": {
-        "alpha": 1.0,
-        "duration": 0,
-        "op": "fade_screen"
-      },
-      "op": "EVENT"
-    },
-    {
-      "args": [
-        "fade_screen"
-      ],
-      "meta": {
-        "alpha": 0.0,
-        "duration": 2000,
-        "op": "fade_screen"
-      },
-      "op": "EVENT"
     },
     {
       "args": [
@@ -53,26 +39,11 @@
     },
     {
       "args": [
-        "join"
-      ],
-      "meta": {
-        "alpha": "0.0",
-        "id": "akira",
-        "join": "true",
-        "pos": "left",
-        "sprite": "serious"
-      },
-      "op": "EVENT"
-    },
-    {
-      "args": [
         "akira",
         ""
       ],
       "meta": {
         "alpha": "0.0",
-        "id": "akira",
-        "join": "true",
         "pos": "left",
         "sprite": "serious"
       },
@@ -108,26 +79,11 @@
     },
     {
       "args": [
-        "join"
-      ],
-      "meta": {
-        "alpha": "0.0",
-        "id": "kael",
-        "join": "true",
-        "pos": "right",
-        "sprite": "idle"
-      },
-      "op": "EVENT"
-    },
-    {
-      "args": [
         "kael",
         ""
       ],
       "meta": {
         "alpha": "0.0",
-        "id": "kael",
-        "join": "true",
         "pos": "right",
         "sprite": "idle"
       },
@@ -319,33 +275,40 @@
     },
     {
       "args": [
-        "hide"
+        "leave"
       ],
       "meta": {
-        "id": "akira",
-        "op": "hide",
+        "op": "leave",
         "target": "akira"
       },
       "op": "EVENT"
     },
     {
       "args": [
-        "hide"
+        "leave"
       ],
       "meta": {
-        "id": "kael",
-        "op": "hide",
+        "op": "leave",
         "target": "kael"
       },
       "op": "EVENT"
     },
     {
       "args": [
-        "fade_black",
-        "500",
-        "500"
+        "fade_screen"
       ],
-      "op": "TRANSITION"
+      "meta": {
+        "alpha": 1.0,
+        "duration": 500,
+        "op": "fade_screen"
+      },
+      "op": "EVENT"
+    },
+    {
+      "args": [
+        "fade"
+      ],
+      "op": "WAIT_ACTION"
     },
     {
       "args": [
@@ -434,25 +397,10 @@
     },
     {
       "args": [
-        "join"
-      ],
-      "meta": {
-        "alpha": "1.0",
-        "id": "kael",
-        "join": "true",
-        "pos": "right"
-      },
-      "op": "EVENT"
-    },
-    {
-      "args": [
         "kael",
         ""
       ],
       "meta": {
-        "alpha": "1.0",
-        "id": "kael",
-        "join": "true",
         "pos": "right"
       },
       "op": "SAY"
@@ -521,19 +469,19 @@
         "trust_akira",
         ">=",
         "1",
-        "__tmp0_choice"
+        "__tmp1_choice"
       ],
       "op": "IF"
     },
     {
       "args": [
-        "__tmp1_skip"
+        "__tmp2_skip"
       ],
       "op": "GOTO"
     },
     {
       "args": [
-        "__tmp0_choice"
+        "__tmp1_choice"
       ],
       "op": "LABEL"
     },
@@ -546,7 +494,7 @@
     },
     {
       "args": [
-        "__tmp1_skip"
+        "__tmp2_skip"
       ],
       "op": "LABEL"
     },
@@ -555,19 +503,19 @@
         "trust_akira",
         "<",
         "1",
-        "__tmp2_choice"
+        "__tmp3_choice"
       ],
       "op": "IF"
     },
     {
       "args": [
-        "__tmp3_skip"
+        "__tmp4_skip"
       ],
       "op": "GOTO"
     },
     {
       "args": [
-        "__tmp2_choice"
+        "__tmp3_choice"
       ],
       "op": "LABEL"
     },
@@ -580,7 +528,7 @@
     },
     {
       "args": [
-        "__tmp3_skip"
+        "__tmp4_skip"
       ],
       "op": "LABEL"
     },
@@ -723,6 +671,91 @@
   "sfx": {
     "confirm": "assets/confirm.wav",
     "glitch": "assets/glitch.wav"
+  },
+  "timelines": {
+    "anon_tl_0": {
+      "events": [
+        {
+          "args": [
+            "fade_screen"
+          ],
+          "meta": {
+            "alpha": 1.0,
+            "duration": 200,
+            "op": "fade_screen"
+          },
+          "op": "EVENT",
+          "time": 0
+        },
+        {
+          "args": [
+            "fade"
+          ],
+          "op": "WAIT_ACTION",
+          "time": 0
+        },
+        {
+          "args": [
+            "fade_screen"
+          ],
+          "meta": {
+            "alpha": 0.0,
+            "duration": 200,
+            "op": "fade_screen"
+          },
+          "op": "EVENT",
+          "time": 300
+        }
+      ],
+      "id": "anon_tl_0"
+    },
+    "dramatic_intro": {
+      "events": [
+        {
+          "args": [
+            "fade_screen"
+          ],
+          "meta": {
+            "alpha": 1.0,
+            "duration": 0,
+            "op": "fade_screen"
+          },
+          "op": "EVENT",
+          "time": 0
+        },
+        {
+          "args": [
+            "alley_bg"
+          ],
+          "op": "BG",
+          "time": 0
+        },
+        {
+          "args": [
+            "fade_screen"
+          ],
+          "meta": {
+            "alpha": 0.0,
+            "duration": 1000,
+            "op": "fade_screen"
+          },
+          "op": "EVENT",
+          "time": 500
+        },
+        {
+          "args": [
+            "shake"
+          ],
+          "meta": {
+            "intensity": 10.0,
+            "op": "shake"
+          },
+          "op": "EVENT",
+          "time": 1500
+        }
+      ],
+      "id": "dramatic_intro"
+    }
   },
   "variables": {
     "credits": {

@@ -494,7 +494,7 @@ void BitRenderer::DrawEntitySprites() {
     int i = 0;
     for (const auto& [entityId, state] : activeEntities) {
         const auto* entity = m_engine.GetEntity(entityId);
-        if (!entity) continue;
+        if (!entity || !state.visible) continue;
 
         std::string expr = state.expression;
         std::string path = ""; int frames = 1; float speed = 1.0f;
@@ -666,9 +666,9 @@ void BitRenderer::DrawVFX() {
                        {0,0,(float)GetScreenWidth(),(float)GetScreenHeight()},
                        {0,0}, 0, Fade(WHITE, style.vignetteOpacity));
     
-    // Feature: Global Screen Fade
+    // 1. Manual Screen Fade (from fade_screen)
     float screenFade = m_engine.GetScreenFadeAlpha();
-    if (screenFade > 0.01f) {
+    if (screenFade > 0.001f) {
         BitColor bc = m_engine.GetScreenFadeColor();
         Color c = { bc.r, bc.g, bc.b, (unsigned char)(screenFade * 255.0f) };
         DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), c);
@@ -842,6 +842,7 @@ void BitRenderer::DrawDebugOverlay() {
             case BitOp::RETURN: opStr = "RET"; break;
             case BitOp::WAIT_ACTION: opStr = "WAIT_A"; break;
             case BitOp::SET_LOCAL:   opStr = "SET_L"; break;
+            case BitOp::PLAY_TIMELINE: opStr = "PLAY_TL"; break;
             case BitOp::HALT:   opStr = "HALT"; break;
             default:            opStr = "UNKNOWN"; break;
         }

@@ -173,6 +173,7 @@ static std::string OpToStr(BitOp op) {
         case BitOp::RETURN:      return "RETURN";
         case BitOp::WAIT_ACTION: return "WAIT_ACTION";
         case BitOp::SET_LOCAL:   return "SET_LOCAL";
+        case BitOp::PLAY_TIMELINE: return "PLAY_TIMELINE";
         case BitOp::HALT:    return "HALT";
         default:             return "NOP";
     }
@@ -206,6 +207,7 @@ static BitOp StrToOp(const std::string& s) {
     if (s=="RETURN")     return BitOp::RETURN;
     if (s=="WAIT_ACTION") return BitOp::WAIT_ACTION;
     if (s=="SET_LOCAL")  return BitOp::SET_LOCAL;
+    if (s=="PLAY_TIMELINE") return BitOp::PLAY_TIMELINE;
     if (s=="HALT")    return BitOp::HALT;
     return BitOp::HALT;
 }
@@ -260,6 +262,23 @@ bool DialogEngine::SaveBytecode(const std::string& path) const {
         bc.push_back(inj);
     }
     root["bytecode"] = bc;
+
+    // Timelines
+    for (auto& [tid, tl] : m_project.timelines) {
+        json tlj;
+        tlj["id"] = tl.id;
+        json events = json::array();
+        for (const auto& ev : tl.events) {
+            json evj;
+            evj["time"] = ev.time_ms;
+            evj["op"] = OpToStr(ev.op);
+            evj["args"] = ev.args;
+            if (!ev.metadata.empty()) evj["meta"] = ev.metadata;
+            events.push_back(evj);
+        }
+        tlj["events"] = events;
+        root["timelines"][tid] = tlj;
+    }
 
     std::string data = root.dump(2);
     std::ofstream f(path);
@@ -329,7 +348,27 @@ bool DialogEngine::LoadBytecodeFile(const std::string& path) {
         if (inj.contains("meta")) ins.metadata = inj["meta"];
         m_project.bytecode.push_back(ins);
     }
-    Log("Loaded " + std::to_string(m_project.bytecode.size()) + " bytecode instructions from " + path);
+
+    if (root.contains("timelines")) {
+        m_project.timelines.clear();
+        for (auto& [tid, tlj] : root["timelines"].items()) {
+            Timeline tl;
+            tl.id = tid;
+            if (tlj.contains("events")) {
+                for (auto& evj : tlj["events"]) {
+                    TimelineEvent ev;
+                    ev.time_ms = evj.value("time", 0);
+                    ev.op = StrToOp(evj.value("op", "HALT"));
+                    ev.args = evj.value("args", std::vector<std::string>{});
+                    if (evj.contains("meta")) ev.metadata = evj["meta"];
+                    tl.events.push_back(ev);
+                }
+            }
+            m_project.timelines[tid] = tl;
+        }
+    }
+
+    Log("Loaded " + std::to_string(m_project.bytecode.size()) + " bytecode instructions and " + std::to_string(m_project.timelines.size()) + " timelines from " + path);
     return true;
 }
 
@@ -529,7 +568,7 @@ void DialogEngine::SelectOption(int index) {
 }
 
 void DialogEngine::Next() {
-    if (!m_isActive || IsEventDelaying() || !m_pendingJumpId.empty() || m_isTransitioning || m_inputLockoutTimer > 0.0f) return;
+    if (!m_isActive || IsEventDelaying() || !m_pendingJumpId.empty() || m_inputLockoutTimer > 0.0f) return;
     
     // Feature: Don't advance if visuals (fades/moves) are still active
     if (!IsTextRevealing() && IsVisualAnimating()) return;
@@ -544,22 +583,6 @@ void DialogEngine::Next() {
     RunVM();
 }
 
-void DialogEngine::StartTransition(float duration, float postDelay) {
-    m_isTransitioning = true;
-    m_transitionState = 0;
-    m_transitionTargetNode = "vm_resume";
-    m_transitionDurationVal = duration;
-    m_transitionPostDelay = postDelay;
-    
-    m_screenFadeTarget = 1.0f;
-    m_screenFadeStart = m_screenFadeAlpha;
-    m_screenFadeDuration = m_transitionDurationVal / 2.0f;
-    m_screenFadeTimer = 0.0f;
-    
-    m_isUiHidden = true;
-    m_hasPendingTransition = false;
-}
-
 void DialogEngine::RunVM() {
     while (m_isActive && !m_vmWaiting && m_pc < (int)m_project.bytecode.size()) {
         ExecuteInstruction(m_project.bytecode[m_pc++]);
@@ -571,55 +594,34 @@ void DialogEngine::Update(float dt) {
 
     if (m_inputLockoutTimer > 0.0f) m_inputLockoutTimer -= dt;
     
-    // 1. Transition and Screen Fade updates (must always run, even mid-transition)
-    if (m_isTransitioning) {
-        if (m_transitionState == 0) {
-            // Fading to black — wait until fully dark
-            if (m_screenFadeAlpha >= 0.98f) {
-                m_transitionState = 1;
-                m_screenFadeTarget   = 0.0f;
-                m_screenFadeStart    = 1.0f;
-                m_screenFadeDuration = m_transitionDurationVal;
-                m_screenFadeTimer    = 0.0f;
-                // vm_resume: the VM will continue once the fade-out is done
-            }
-        } else if (m_transitionState == 1) {
-            // Fading back in — wait until visible again
-            if (m_screenFadeAlpha <= 0.02f) {
-                m_screenFadeAlpha = 0.0f;
-                if (m_transitionPostDelay > 0.0f) {
-                    m_transitionState = 2;
-                    m_transitionTimer = 0.0f;
-                } else {
-                    m_isTransitioning = false;
-                    m_isUiHidden = false;
-                    if (m_transitionTargetNode == "vm_resume") {
-                        m_vmWaiting = false;
-                        m_vmDelayed = false;
-                        RunVM();
-                    }
-                }
-            }
-        } else if (m_transitionState == 2) {
-            // Post-delay before revealing UI
-            m_transitionTimer += dt;
-            if (m_transitionTimer >= m_transitionPostDelay) {
-                m_isTransitioning = false;
-                m_isUiHidden = false;
-                if (m_transitionTargetNode == "vm_resume") {
-                    m_vmWaiting = false;
-                    m_vmDelayed = false;
-                    RunVM();
-                }
-            }
+    // 0. Update Timelines
+    for (auto it = m_activeTimelines.begin(); it != m_activeTimelines.end(); ) {
+        it->timer += dt * 1000.0f;
+        auto& tl = m_project.timelines[it->id];
+        while (it->nextEventIdx < tl.events.size() && tl.events[it->nextEventIdx].time_ms <= it->timer) {
+            auto& ev = tl.events[it->nextEventIdx++];
+            ExecuteInstruction({ev.op, ev.args, ev.metadata, -1});
+        }
+        if (it->nextEventIdx >= tl.events.size()) {
+            it->finished = true;
+            it = m_activeTimelines.erase(it);
+        } else {
+            ++it;
         }
     }
 
-    if (m_screenFadeTimer < m_screenFadeDuration) {
+    // 1. Screen Fade updates
+    if (m_screenFadeDuration <= 0.0f) {
+        m_screenFadeAlpha = m_screenFadeTarget;
+    } else if (m_screenFadeTimer < m_screenFadeDuration) {
         m_screenFadeTimer += dt;
         float t = std::min(1.0f, m_screenFadeTimer / m_screenFadeDuration);
         m_screenFadeAlpha = m_screenFadeStart + (m_screenFadeTarget - m_screenFadeStart) * t;
-        if (m_screenFadeTimer >= m_screenFadeDuration) m_screenFadeAlpha = m_screenFadeTarget;
+        if (m_screenFadeTimer >= m_screenFadeDuration) {
+            m_screenFadeAlpha = m_screenFadeTarget;
+            m_screenFadeDuration = 0.0f;  // Reset to stop fade
+            m_screenFadeTimer = 0.0f;
+        }
     }
 
     // 2. Visual Updates (Must always run for smooth animations)
@@ -650,12 +652,7 @@ void DialogEngine::Update(float dt) {
     }
 
     // 3. Trigger pending transition if animations and delays are done
-    if (m_hasPendingTransition && !IsVisualAnimating() && m_engineDelayTimer <= 0.0f) {
-        StartTransition(m_pendingTransitionDuration, m_pendingTransitionPostDelay);
-    }
-
-    // 4. Pause normal narrative processing while transitioning
-    if (m_isTransitioning) return;
+    // Visual updates check for VM resumption
 
     // 4. Engine Delay (Pauses narrative, but not visuals)
     if (m_engineDelayTimer > 0.0f) {
@@ -663,9 +660,7 @@ void DialogEngine::Update(float dt) {
         if (m_engineDelayTimer <= 0.0f) {
             m_engineDelayTimer = 0.0f;
             if (m_revealedCount < 0.0f) m_revealedCount = 0.0f;
-            if (m_hasPendingTransition) {
-                StartTransition(m_pendingTransitionDuration, m_pendingTransitionPostDelay);
-            } else if (m_vmWaiting && m_vmDelayed && !m_project.bytecode.empty()) {
+            if (m_vmWaiting && m_vmDelayed && !m_project.bytecode.empty()) {
                 m_vmWaiting = false;
                 m_vmDelayed = false;
                 RunVM();
@@ -706,8 +701,14 @@ void DialogEngine::Update(float dt) {
             done = true;
             for (auto& [id, s] : m_activeEntities) if (s.fadeTimer < s.fadeDuration) done = false;
             if (m_bgFadeTimer < m_bgFadeDuration) done = false;
+            if (m_screenFadeTimer < m_screenFadeDuration) done = false;
         }
         else if (m_waitingForActionType == "all") done = !IsVisualAnimating();
+        else if (m_waitingForActionType == "timeline") {
+            done = true;
+            // If any blocking timeline is still running, we're not done
+            for (const auto& atl : m_activeTimelines) if (atl.isBlocking) done = false;
+        }
 
         if (done) {
             m_waitingForActionType = "";
@@ -716,12 +717,12 @@ void DialogEngine::Update(float dt) {
         }
     }
 
-    if (!IsTextRevealing() && m_isAutoNext && m_waitTimer <= 0.0f && m_visibleOptions.empty() && !m_isTransitioning && !IsEventDelaying() && m_waitingForActionType.empty()) {
+    if (!IsTextRevealing() && m_isAutoNext && m_waitTimer <= 0.0f && m_visibleOptions.empty() && !IsEventDelaying() && m_waitingForActionType.empty()) {
         Next();
     }
 
     // Feature: Auto-Play logic
-    if (m_isAutoPlaying && !IsTextRevealing() && m_visibleOptions.empty() && !m_isTransitioning && m_waitTimer <= 0.0f) {
+    if (m_isAutoPlaying && !IsTextRevealing() && m_visibleOptions.empty() && m_waitTimer <= 0.0f) {
         m_autoPlayTimer += dt;
         if (m_autoPlayTimer >= m_project.configs.auto_play_delay) {
             m_autoPlayTimer = 0.0f;
@@ -912,6 +913,7 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
             // 2. Entity visuals
             if (!entityId.empty() && entityId != "system") {
                 auto& state = m_activeEntities[entityId];
+                state.visible = true; // Auto-join/show when speaking
                 
                 // Apply Aliases
                 if (ins.metadata.contains("alias")) {
@@ -1046,18 +1048,8 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
             m_activeBgm = args[0];
             break;
         }
-        case BitOp::TRANSITION: {
-            float dur = std::stof(args[1]) / 1000.0f;
-            float postDelay = std::stof(args[2]) / 1000.0f;
-            m_hasPendingTransition = true;
-            m_pendingTransitionDuration = dur;
-            m_pendingTransitionPostDelay = postDelay;
-            m_vmWaiting = true;
-            m_vmDelayed = true;
-            m_isUiHidden = true;
-            // Removed immediate StartTransition call
+        case BitOp::TRANSITION:
             break;
-        }
         case BitOp::UI_VISIBLE: {
             m_isUiHidden = (args[0] == "hide");
             break;
@@ -1131,6 +1123,21 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
             m_vmWaiting = true;
             break;
         }
+        case BitOp::PLAY_TIMELINE: {
+            std::string tid = args[0];
+            bool wait = (args[1] == "true");
+            if (m_project.timelines.count(tid)) {
+                ActiveTimeline atl;
+                atl.id = tid;
+                atl.isBlocking = wait;
+                m_activeTimelines.push_back(atl);
+                if (wait) {
+                    m_waitingForActionType = "timeline";
+                    m_vmWaiting = true;
+                }
+            }
+            break;
+        }
         case BitOp::HALT: m_isActive = false; break;
         default: break;
     }
@@ -1147,20 +1154,34 @@ void DialogEngine::ProcessEvents(const std::vector<Event>& events) {
             if (m_activeEntities.count(target)) m_activeEntities[target].expression = p.value("id", "idle");
             continue;
         }
-        if (e.op == "hide") { m_activeEntities.erase(p.value("target", "")); continue; }
+        if (e.op == "hide") {
+            std::string target = p.value("target", "");
+            if (m_activeEntities.count(target)) m_activeEntities[target].visible = false;
+            continue;
+        }
+        if (e.op == "leave") {
+            m_activeEntities.erase(p.value("target", ""));
+            continue;
+        }
         if (e.op == "pos") {
-            auto& s = m_activeEntities[p.value("target", "")];
+            std::string target = p.value("target", "");
+            auto& s = m_activeEntities[target];
             float x = ParseXParam(p);
             s.pos = std::to_string(x); s.currentNormX = x; s.targetNormX = x;
+            s.visible = true; // Auto-show if modified? Or just keep current? 
+            // User said "all character who enter join by default and are active".
+            // So let's ensure they are visible.
             continue;
         }
         if (e.op == "jump")  { m_pendingJumpId = p.value("target", ""); continue; }
         if (e.op == "delay") { m_engineDelayTimer = p.value("duration", 0) / 1000.0f; continue; }
         if (e.op == "move") {
-            auto& s = m_activeEntities[p.value("target", "")];
+            std::string target = p.value("target", "");
+            auto& s = m_activeEntities[target];
             float x = ParseXParam(p);
             s.pos = std::to_string(x); s.targetNormX = x; s.startNormX = s.currentNormX;
             s.moveDuration = p.value("duration", 0) / 1000.0f; s.moveTimer = 0.0f;
+            s.visible = true;
             continue;
         }
         if (e.op == "fade") {
@@ -1173,11 +1194,10 @@ void DialogEngine::ProcessEvents(const std::vector<Event>& events) {
                     m_bgFadeAlpha = 0.0f; m_bgFadeTimer = 0.0f; m_bgFadeDuration = std::max(0.01f, duration / 1000.0f);
                 }
             } else {
-                if (m_activeEntities.count(target)) {
-                    auto& s = m_activeEntities[target];
-                    s.targetAlpha = p.value("alpha", 1.0f); s.startAlpha = s.alpha;
-                    s.fadeDuration = std::max(0.01f, duration / 1000.0f); s.fadeTimer = 0.0f;
-                }
+                auto& s = m_activeEntities[target];
+                s.targetAlpha = p.value("alpha", 1.0f); s.startAlpha = s.alpha;
+                s.fadeDuration = std::max(0.01f, duration / 1000.0f); s.fadeTimer = 0.0f;
+                s.visible = true;
             }
             continue;
         }
