@@ -1,0 +1,686 @@
+{
+  "backgrounds": {
+    "alley_bg": "assets/alley_bg.png",
+    "market_bg": "assets/market_bg.png"
+  },
+  "bytecode": [
+    {
+      "args": [
+        "scene_alley_start"
+      ],
+      "op": "LABEL"
+    },
+    {
+      "args": [
+        "alley_bg"
+      ],
+      "op": "BG"
+    },
+    {
+      "args": [
+        "neon_noir"
+      ],
+      "op": "BGM"
+    },
+    {
+      "args": [
+        "fade_screen"
+      ],
+      "meta": {
+        "alpha": 1.0,
+        "duration": 0,
+        "op": "fade_screen"
+      },
+      "op": "EVENT"
+    },
+    {
+      "args": [
+        "fade_screen"
+      ],
+      "meta": {
+        "alpha": 0.0,
+        "duration": 2000,
+        "op": "fade_screen"
+      },
+      "op": "EVENT"
+    },
+    {
+      "args": [
+        "system",
+        "[speed=0.3]Connecting to neural uplink...[wait=0.8] established."
+      ],
+      "meta": {
+        "auto_next": "true",
+        "pre_delay": "1000"
+      },
+      "op": "SAY"
+    },
+    {
+      "args": [
+        "intro_cinematic"
+      ],
+      "op": "GOTO"
+    },
+    {
+      "args": [
+        "intro_cinematic"
+      ],
+      "op": "LABEL"
+    },
+    {
+      "args": [
+        "shake"
+      ],
+      "meta": {
+        "intensity": 10.0,
+        "op": "shake"
+      },
+      "op": "EVENT"
+    },
+    {
+      "args": [
+        "system",
+        "[shake]WARNING:[wait=0.5] System integrity compromised."
+      ],
+      "meta": {
+        "auto_next": "true"
+      },
+      "op": "SAY"
+    },
+    {
+      "args": [
+        "delay"
+      ],
+      "meta": {
+        "duration": 1500,
+        "op": "delay"
+      },
+      "op": "EVENT"
+    },
+    {
+      "args": [
+        "alley_start_real"
+      ],
+      "op": "GOTO"
+    },
+    {
+      "args": [
+        "alley_start_real"
+      ],
+      "op": "LABEL"
+    },
+    {
+      "args": [
+        "akira",
+        ""
+      ],
+      "meta": {
+        "alpha": "0.0",
+        "pos": "left",
+        "sprite": "serious"
+      },
+      "op": "SAY"
+    },
+    {
+      "args": [
+        "fade"
+      ],
+      "meta": {
+        "alpha": 1.0,
+        "duration": 1000,
+        "op": "fade",
+        "target": "akira"
+      },
+      "op": "EVENT"
+    },
+    {
+      "args": [
+        "akira",
+        "Kael! Stay back! Something is [font=dream]wrong[/font] with the uplink."
+      ],
+      "op": "SAY"
+    },
+    {
+      "args": [
+        "kael_enters"
+      ],
+      "op": "GOTO"
+    },
+    {
+      "args": [
+        "kael_enters"
+      ],
+      "op": "LABEL"
+    },
+    {
+      "args": [
+        "kael",
+        ""
+      ],
+      "meta": {
+        "alpha": "0.0",
+        "join": "true",
+        "pos": "right",
+        "sprite": "idle"
+      },
+      "op": "SAY"
+    },
+    {
+      "args": [
+        "fade"
+      ],
+      "meta": {
+        "alpha": 1.0,
+        "duration": 800,
+        "op": "fade",
+        "target": "kael"
+      },
+      "op": "EVENT"
+    },
+    {
+      "args": [
+        "kael",
+        "I can feel it too... it's like a [color=#ff00ff]glitch[/color] in the air."
+      ],
+      "meta": {
+        "join": "true"
+      },
+      "op": "SAY"
+    },
+    {
+      "args": [
+        "alley_move_demo"
+      ],
+      "op": "GOTO"
+    },
+    {
+      "args": [
+        "alley_move_demo"
+      ],
+      "op": "LABEL"
+    },
+    {
+      "args": [
+        "move"
+      ],
+      "meta": {
+        "duration": 500,
+        "op": "move",
+        "target": "akira",
+        "x": "center"
+      },
+      "op": "EVENT"
+    },
+    {
+      "args": [
+        "move"
+      ],
+      "meta": {
+        "duration": 400,
+        "op": "move",
+        "target": "kael",
+        "x": "0.9"
+      },
+      "op": "EVENT"
+    },
+    {
+      "args": [
+        "akira",
+        "Wait, I'm detecting a signature nearby. Let's move in."
+      ],
+      "meta": {
+        "join": "true"
+      },
+      "op": "SAY"
+    },
+    {
+      "args": [
+        "alley_to_market"
+      ],
+      "op": "GOTO"
+    },
+    {
+      "args": [
+        "alley_to_market"
+      ],
+      "op": "LABEL"
+    },
+    {
+      "args": [
+        "fade"
+      ],
+      "meta": {
+        "duration": 2000,
+        "id": "market_bg",
+        "op": "fade",
+        "target": "bg"
+      },
+      "op": "EVENT"
+    },
+    {
+      "args": [
+        "fade"
+      ],
+      "meta": {
+        "alpha": 0.0,
+        "duration": 1500,
+        "op": "fade",
+        "target": "akira"
+      },
+      "op": "EVENT"
+    },
+    {
+      "args": [
+        "fade"
+      ],
+      "meta": {
+        "alpha": 0.0,
+        "duration": 1500,
+        "op": "fade",
+        "target": "kael"
+      },
+      "op": "EVENT"
+    },
+    {
+      "args": [
+        "system",
+        "Moving to the Market District..."
+      ],
+      "meta": {
+        "auto_next": "true",
+        "join": "true",
+        "pre_delay": "1500",
+        "transition": "fade_black",
+        "transition_delay": "500",
+        "transition_duration": "1000"
+      },
+      "op": "SAY"
+    },
+    {
+      "args": [
+        "scene_market_start"
+      ],
+      "op": "GOTO"
+    },
+    {
+      "args": [
+        "scene_market_start"
+      ],
+      "op": "LABEL"
+    },
+    {
+      "args": [
+        "akira",
+        ""
+      ],
+      "meta": {
+        "alpha": "0.0",
+        "pos": "left",
+        "sprite": "idle"
+      },
+      "op": "SAY"
+    },
+    {
+      "args": [
+        "fade"
+      ],
+      "meta": {
+        "alpha": 1.0,
+        "duration": 500,
+        "op": "fade",
+        "target": "akira"
+      },
+      "op": "EVENT"
+    },
+    {
+      "args": [
+        "akira",
+        "The market is unusually quiet today. [font=dream]Eerily quiet.[/font]"
+      ],
+      "op": "SAY"
+    },
+    {
+      "args": [
+        "market_options"
+      ],
+      "op": "GOTO"
+    },
+    {
+      "args": [
+        "market_options"
+      ],
+      "op": "LABEL"
+    },
+    {
+      "args": [
+        "akira",
+        "What's our next move?"
+      ],
+      "meta": {
+        "join": "true"
+      },
+      "op": "SAY"
+    },
+    {
+      "args": [
+        "Search the stalls",
+        "market_browsing"
+      ],
+      "op": "CHOICE"
+    },
+    {
+      "args": [
+        "Check the terminal",
+        "market_terminal"
+      ],
+      "meta": {
+        "style": "premium"
+      },
+      "op": "CHOICE"
+    },
+    {
+      "args": [
+        "market_browsing"
+      ],
+      "op": "LABEL"
+    },
+    {
+      "args": [
+        "kael",
+        "Nothing but scrap metal and rusted parts."
+      ],
+      "meta": {
+        "join": "true",
+        "pos": "right"
+      },
+      "op": "SAY"
+    },
+    {
+      "args": [
+        "check_ending"
+      ],
+      "op": "GOTO"
+    },
+    {
+      "args": [
+        "market_terminal"
+      ],
+      "op": "LABEL"
+    },
+    {
+      "args": [
+        "__tmp0",
+        "trust_akira"
+      ],
+      "op": "SET_REF"
+    },
+    {
+      "args": [
+        "__tmp0",
+        "1"
+      ],
+      "op": "ADD"
+    },
+    {
+      "args": [
+        "trust_akira",
+        "__tmp0"
+      ],
+      "op": "SET_REF"
+    },
+    {
+      "args": [
+        "akira",
+        "Accessing the main terminal... [wait=0.5] [font=dream]ACCESS GRANTED[/font]."
+      ],
+      "meta": {
+        "join": "true"
+      },
+      "op": "SAY"
+    },
+    {
+      "args": [
+        "check_ending"
+      ],
+      "op": "GOTO"
+    },
+    {
+      "args": [
+        "check_ending"
+      ],
+      "op": "LABEL"
+    },
+    {
+      "args": [
+        "system",
+        "Calculating outcome based on neural synchronization..."
+      ],
+      "meta": {
+        "join": "true"
+      },
+      "op": "SAY"
+    },
+    {
+      "args": [
+        "trust_akira",
+        ">=",
+        "1",
+        "__tmp1_choice"
+      ],
+      "op": "IF"
+    },
+    {
+      "args": [
+        "__tmp2_skip"
+      ],
+      "op": "GOTO"
+    },
+    {
+      "args": [
+        "__tmp1_choice"
+      ],
+      "op": "LABEL"
+    },
+    {
+      "args": [
+        "Continue (Synchronization High)",
+        "ending_good"
+      ],
+      "op": "CHOICE"
+    },
+    {
+      "args": [
+        "__tmp2_skip"
+      ],
+      "op": "LABEL"
+    },
+    {
+      "args": [
+        "trust_akira",
+        "<",
+        "1",
+        "__tmp3_choice"
+      ],
+      "op": "IF"
+    },
+    {
+      "args": [
+        "__tmp4_skip"
+      ],
+      "op": "GOTO"
+    },
+    {
+      "args": [
+        "__tmp3_choice"
+      ],
+      "op": "LABEL"
+    },
+    {
+      "args": [
+        "Continue (Synchronization Low)",
+        "ending_bad"
+      ],
+      "op": "CHOICE"
+    },
+    {
+      "args": [
+        "__tmp4_skip"
+      ],
+      "op": "LABEL"
+    },
+    {
+      "args": [
+        "ending_good"
+      ],
+      "op": "LABEL"
+    },
+    {
+      "args": [
+        "akira",
+        "Synchronization complete. We're in. Good work."
+      ],
+      "meta": {
+        "join": "true"
+      },
+      "op": "SAY"
+    },
+    {
+      "args": [
+        "dialog_end_final"
+      ],
+      "op": "GOTO"
+    },
+    {
+      "args": [
+        "ending_bad"
+      ],
+      "op": "LABEL"
+    },
+    {
+      "args": [
+        "akira",
+        "Synchronization failed. We're locked out. This is a disaster."
+      ],
+      "meta": {
+        "join": "true"
+      },
+      "op": "SAY"
+    },
+    {
+      "args": [
+        "dialog_end_final"
+      ],
+      "op": "GOTO"
+    },
+    {
+      "args": [
+        "dialog_end_final"
+      ],
+      "op": "LABEL"
+    },
+    {
+      "args": [
+        "system",
+        "End of Demonstration."
+      ],
+      "meta": {
+        "join": "true"
+      },
+      "op": "SAY"
+    },
+    {
+      "args": [],
+      "op": "HALT"
+    },
+    {
+      "args": [],
+      "op": "HALT"
+    }
+  ],
+  "configs": {
+    "auto_play_delay": 2.0,
+    "auto_save": false,
+    "mode": "typewriter",
+    "reveal_speed": 45.0,
+    "start_node": "scene_alley_start"
+  },
+  "entities": {
+    "akira": {
+      "default_pos_x": 0.800000011920929,
+      "id": "akira",
+      "name": "Akira",
+      "sprites": {
+        "idle": {
+          "frames": 2,
+          "path": "assets/akira_idle.png",
+          "scale": 3.0,
+          "speed": 4.0
+        },
+        "neutral": {
+          "frames": 1,
+          "path": "assets/akira_neutral.png",
+          "scale": 3.0,
+          "speed": 1.0
+        },
+        "serious": {
+          "frames": 1,
+          "path": "assets/akira_serious.png",
+          "scale": 3.0,
+          "speed": 1.0
+        }
+      },
+      "type": "Fixer"
+    },
+    "kael": {
+      "default_pos_x": 0.20000000298023224,
+      "id": "kael",
+      "name": "Kael",
+      "sprites": {
+        "idle": {
+          "frames": 1,
+          "path": "assets/kael_idle.png",
+          "scale": 3.0,
+          "speed": 1.0
+        }
+      },
+      "type": "Merchant"
+    },
+    "system": {
+      "default_pos_x": 0.5,
+      "id": "system",
+      "name": "Log",
+      "type": "System"
+    }
+  },
+  "fonts": {
+    "dream": "assets/fonts/dream.ttf"
+  },
+  "magic": "BITC",
+  "music": {
+    "market_theme": "assets/market_theme.mp3",
+    "neon_noir": "assets/neon_noir.mp3"
+  },
+  "sfx": {
+    "confirm": "assets/confirm.wav",
+    "glitch": "assets/glitch.wav"
+  },
+  "variables": {
+    "credits": {
+      "id": "credits",
+      "initial_value": 50
+    },
+    "knows_about_target": {
+      "id": "knows_about_target",
+      "initial_value": 0
+    },
+    "trust_akira": {
+      "id": "trust_akira",
+      "initial_value": 0
+    },
+    "trust_kael": {
+      "id": "trust_kael",
+      "initial_value": 0
+    }
+  },
+  "version": 1
+}

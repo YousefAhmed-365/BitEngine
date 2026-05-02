@@ -6,16 +6,21 @@
 
 class BitApp {
 public:
-    BitApp(const std::string& projectPath = "res_bitscript/main.bitscript");
+    BitApp();
     ~BitApp();
 
-    void Run();
+    int ProcessArgs(int argc, char** argv);
+    void Run(const std::string& projectPath);
 
 private:
     void LoadConfig(const std::string& path);
+    void PrintHelp(const char* argv0);
+    int DoCompile(const std::string& src, const std::string& dst);
+    int DoDryRun(const std::string& path);
+    int DoListScenes(const std::string& path);
+    int DoStats(const std::string& path);
 
-    std::string m_projectPath;
-    std::string m_title       = "BitEngine Core v2.0";
+    std::string m_title       = "BitEngine Core v2.1";
     int         m_width       = 1280;
     int         m_height      = 720;
     int         m_minWidth    = 800;
