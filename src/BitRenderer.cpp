@@ -5,6 +5,7 @@
 #include <iostream>
 #include <fstream>
 #include <cmath>
+#include <algorithm>
 
 using json = nlohmann::ordered_json;
 
@@ -690,23 +691,23 @@ void BitRenderer::DrawDebugOverlay() {
     if (sw < 1100) cols = 2;
     if (sw < 600)  cols = 1;
     
-    int rows = (4 + cols - 1) / cols;
+    int rows_count = (5 + cols - 1) / cols;
     int panelW = (sw - 40 - (cols - 1) * gap) / cols;
-    if (panelW > 280) panelW = 280;
+    if (panelW > 350) panelW = 350;
     
     // Scale height based on rows available
-    int panelH = (sh - 60 - (rows - 1) * (gap + 20)) / rows;
+    int panelH = (sh - 60 - (rows_count - 1) * (gap + 20)) / rows_count;
     if (panelH > 380) panelH = 380;
     if (panelH < 150) panelH = 150;
 
     int totalW = cols * panelW + (cols - 1) * gap;
-    int startX = sw - totalW - 20;
+    int startX = sw - totalW - pad;
     int startY = 20;
 
     int scrollOffset = (int)m_debugScroll;
 
-    // We now have 4 panels. Draw unified background:
-    int fullH = rows * panelH + (rows - 1) * (gap + 15);
+    // We now have 5 panels. Draw unified background:
+    int fullH = rows_count * panelH + (rows_count - 1) * (gap + 15);
     DrawRectangle(startX - pad, startY - pad, totalW + pad * 2, fullH + pad * 2, Fade(BLACK, 0.85f));
 
     auto GetPanelRect = [&](int idx) -> Rectangle {
@@ -771,6 +772,60 @@ void BitRenderer::DrawDebugOverlay() {
         dy += 12;
     }
     if (entities.empty()) DrawText("(none)", px, dy, 10, Fade(RAYWHITE, 0.4f)); 
+
+    // Panel 5: Bytecode Inspector
+    Rectangle r5 = GetPanelRect(4);
+    px = (int)r5.x; py = (int)r5.y; dy = py;
+    DrawText("BYTECODE INSPECTOR", px, dy, 13, PURPLE); dy += 20;
+    const auto& bytecode = m_engine.GetProject().bytecode;
+    int currentPC = m_engine.GetCurrentPC();
+    
+    int viewRange = (panelH - 30) / 12;
+    int startIns = std::max(0, currentPC - viewRange / 2);
+    int endIns = std::min((int)bytecode.size(), startIns + viewRange);
+
+    for (int i = startIns; i < endIns; ++i) {
+        const auto& ins = bytecode[i];
+        Color col = (i == currentPC - 1) ? YELLOW : (i == currentPC) ? GREEN : GRAY;
+        if (i == currentPC) DrawRectangle(px - 2, dy, panelW, 11, Fade(GREEN, 0.2f));
+        
+        std::string opStr = "UNKNOWN";
+        switch(ins.op) {
+            case BitOp::SAY:    opStr = "SAY"; break;
+            case BitOp::TEXT:   opStr = "TEXT"; break;
+            case BitOp::CHOICE: opStr = "CHOICE"; break;
+            case BitOp::IF:     opStr = "IF"; break;
+            case BitOp::IF_REF: opStr = "IF_REF"; break;
+            case BitOp::GOTO:   opStr = "GOTO"; break;
+            case BitOp::SET:    opStr = "SET"; break;
+            case BitOp::SET_REF:opStr = "SET_R"; break;
+            case BitOp::ADD:    opStr = "ADD"; break;
+            case BitOp::ADD_REF:opStr = "ADD_R"; break;
+            case BitOp::SUB:    opStr = "SUB"; break;
+            case BitOp::SUB_REF:opStr = "SUB_R"; break;
+            case BitOp::MUL:    opStr = "MUL"; break;
+            case BitOp::MUL_REF:opStr = "MUL_R"; break;
+            case BitOp::DIV:    opStr = "DIV"; break;
+            case BitOp::DIV_REF:opStr = "DIV_R"; break;
+            case BitOp::EVENT:  opStr = "EVENT"; break;
+            case BitOp::BG:     opStr = "BG"; break;
+            case BitOp::BGM:    opStr = "BGM"; break;
+            case BitOp::LABEL:  opStr = "LABEL"; break;
+            case BitOp::HALT:   opStr = "HALT"; break;
+            default: break;
+        }
+
+        std::string argsStr = "";
+        for (const auto& a : ins.args) {
+            std::string cleaned = a;
+            std::replace(cleaned.begin(), cleaned.end(), '\n', ' ');
+            argsStr += " " + (cleaned.size() > 12 ? cleaned.substr(0, 10) + ".." : cleaned);
+        }
+        
+        std::string metaStr = ins.metadata.empty() ? "" : TextFormat(" [+%d]", (int)ins.metadata.size());
+        DrawText(TextFormat("%04d %-6s%s%s", i, opStr.c_str(), argsStr.c_str(), metaStr.c_str()), px, dy, 9, col);
+        dy += 11;
+    }
 
     // Error log stays at far bottom
     if (!errors.empty()) {

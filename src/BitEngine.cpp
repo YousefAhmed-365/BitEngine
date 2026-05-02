@@ -657,10 +657,14 @@ void DialogEngine::SetVariable(const std::string& name, int value) {
         return;
     }
     const auto& d = it->second;
+    int oldVal = m_variables.count(name) ? m_variables[name] : 0;
     int v = value;
     if (d.min) v = std::max(v, *d.min);
     if (d.max) v = std::min(v, *d.max);
     m_variables[name] = v;
+
+    m_eventTrace.push_back({std::to_string(m_pc), "SET", name, oldVal, v});
+    if (m_eventTrace.size() > 50) m_eventTrace.erase(m_eventTrace.begin());
 }
 
 const std::vector<std::string>& DialogEngine::ConsumePendingSFX() {
@@ -835,6 +839,7 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
         case BitOp::GOTO: {
             for (int i = 0; i < (int)m_project.bytecode.size(); ++i) {
                 if (m_project.bytecode[i].op == BitOp::LABEL && m_project.bytecode[i].args[0] == args[0]) {
+                    m_eventTrace.push_back({std::to_string(m_pc-1), "JUMP", args[0], 0, i});
                     m_pc = i; break;
                 }
             }
@@ -853,6 +858,7 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
             else if (op == ">=")              pass = (v >= val);
             else if (op == "<=")              pass = (v <= val);
             
+            m_eventTrace.push_back({std::to_string(m_pc-1), "IF", pass ? "TRUE" : "FALSE", v, val});
             if (pass) {
                 for (int i = 0; i < (int)m_project.bytecode.size(); ++i) {
                     if (m_project.bytecode[i].op == BitOp::LABEL && m_project.bytecode[i].args[0] == args[3]) {
