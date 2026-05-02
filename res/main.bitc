@@ -286,18 +286,6 @@
         "fade"
       ],
       "meta": {
-        "duration": 2000,
-        "id": "market_bg",
-        "op": "fade",
-        "target": "bg"
-      },
-      "op": "EVENT"
-    },
-    {
-      "args": [
-        "fade"
-      ],
-      "meta": {
         "alpha": 0.0,
         "duration": 1000,
         "op": "fade",
@@ -797,20 +785,8 @@
     }
   },
   "variables": {
-    "credits": {
-      "id": "credits",
-      "initial_value": 50
-    },
-    "knows_about_target": {
-      "id": "knows_about_target",
-      "initial_value": 0
-    },
     "trust_akira": {
       "id": "trust_akira",
-      "initial_value": 0
-    },
-    "trust_kael": {
-      "id": "trust_kael",
       "initial_value": 0
     }
   },

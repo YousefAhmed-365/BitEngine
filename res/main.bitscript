@@ -5,9 +5,6 @@ config {
 };
 
 var trust_akira = 0;
-var trust_kael = 0;
-var credits = 50;
-var knows_about_target = 0;
 
 assets {
     backgrounds {
@@ -105,7 +102,6 @@ scene transition{
 }
 
 scene routine_district_transition {
-    fade bg, market_bg, 2000;
     fade akira, 0.0, 1000;
     fade kael, 0.0, 1000 wait;
     
