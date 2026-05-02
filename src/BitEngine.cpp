@@ -1,5 +1,6 @@
 #include "headers/BitEngine.hpp"
 #include "headers/BitScriptInterpreter.hpp"
+#include "headers/BitScriptAnalyzer.hpp"
 #include "json.hpp"
 #include <fstream>
 #include <iostream>
@@ -837,9 +838,17 @@ void DialogEngine::Log(const std::string& msg, const std::string& level) const {
 }
 
 ValidationResult DialogEngine::ValidateProject(const DialogProject& p) {
-    ValidationResult errors;
-    // Narrative is now verified at the BitScript compiler level.
-    return errors;
+    ValidationResult results;
+    auto messages = BitScriptAnalyzer::Analyze(p);
+    for (const auto& msg : messages) {
+        std::string prefix = (msg.level == AnalysisMessage::Level::ERROR) ? "[ERROR]" : "[WARN]";
+        if (msg.line > 0) {
+            results.errors.push_back(prefix + " (Line " + std::to_string(msg.line) + "): " + msg.message);
+        } else {
+            results.errors.push_back(prefix + " " + msg.message);
+        }
+    }
+    return results;
 }
 float DialogEngine::ParseXParam(const nlohmann::json& params, const std::string& key) const {
     if (params.contains(key)) {
@@ -890,7 +899,7 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
                 }
                 if (ins.metadata.contains("bgm")) m_activeBgm = ins.metadata["bgm"];
                 if (ins.metadata.contains("auto_next")) m_isAutoNext = (ins.metadata["auto_next"].get<std::string>() == "true");
-                if (ins.metadata.contains("pre_delay")) m_engineDelayTimer = std::stoi(ins.metadata["pre_delay"].get<std::string>()) / 1000.0f;
+                if (ins.metadata.contains("pre_delay")) m_engineDelayTimer = SafeStoi(ins.metadata["pre_delay"].get<std::string>()) / 1000.0f;
             }
 
             // 2. Entity visuals
@@ -966,15 +975,15 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
             if (m_project.configs.auto_save) SaveGame(0);
             break;
         }
-        case BitOp::SET:     SetVariable(args[0], std::stoi(args[1])); break;
+        case BitOp::SET:     SetVariable(args[0], SafeStoi(args[1])); break;
         case BitOp::SET_REF: SetVariable(args[0], GetVariable(args[1])); break;
-        case BitOp::ADD:     SetVariable(args[0], GetVariable(args[0]) + std::stoi(args[1])); break;
+        case BitOp::ADD:     SetVariable(args[0], GetVariable(args[0]) + SafeStoi(args[1])); break;
         case BitOp::ADD_REF: SetVariable(args[0], GetVariable(args[0]) + GetVariable(args[1])); break;
-        case BitOp::SUB:     SetVariable(args[0], GetVariable(args[0]) - std::stoi(args[1])); break;
+        case BitOp::SUB:     SetVariable(args[0], GetVariable(args[0]) - SafeStoi(args[1])); break;
         case BitOp::SUB_REF: SetVariable(args[0], GetVariable(args[0]) - GetVariable(args[1])); break;
-        case BitOp::MUL:     SetVariable(args[0], GetVariable(args[0]) * std::stoi(args[1])); break;
+        case BitOp::MUL:     SetVariable(args[0], GetVariable(args[0]) * SafeStoi(args[1])); break;
         case BitOp::MUL_REF: SetVariable(args[0], GetVariable(args[0]) * GetVariable(args[1])); break;
-        case BitOp::DIV:     SetVariable(args[0], GetVariable(args[0]) / std::stoi(args[1])); break;
+        case BitOp::DIV:     SetVariable(args[0], GetVariable(args[0]) / SafeStoi(args[1])); break;
         case BitOp::DIV_REF: SetVariable(args[0], GetVariable(args[0]) / GetVariable(args[1])); break;
         case BitOp::GOTO: {
             for (int i = 0; i < (int)m_project.bytecode.size(); ++i) {
@@ -988,7 +997,7 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
         case BitOp::IF:
         case BitOp::IF_REF: {
             int v = GetVariable(args[0]);
-            int val = (ins.op == BitOp::IF_REF) ? GetVariable(args[2]) : std::stoi(args[2]);
+            int val = (ins.op == BitOp::IF_REF) ? GetVariable(args[2]) : SafeStoi(args[2]);
             std::string op = args[1];
             bool pass = false;
             if      (op == "==" || op == "=") pass = (v == val);
@@ -1102,7 +1111,7 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
         }
         case BitOp::SET_LOCAL: {
             if (!m_localVariables.empty()) {
-                m_localVariables.back()[args[0]] = std::stoi(args[1]);
+                m_localVariables.back()[args[0]] = SafeStoi(args[1]);
             }
             break;
         }
@@ -1184,5 +1193,13 @@ void DialogEngine::ProcessEvents(const std::vector<Event>& events) {
             next = lo + (std::rand() % (hi - lo + 1));
         }
         SetVariable(var, next);
+    }
+}
+int DialogEngine::SafeStoi(const std::string& s) const {
+    if (s.empty()) return 0;
+    try {
+        return std::stoi(s);
+    } catch (...) {
+        return 0;
     }
 }

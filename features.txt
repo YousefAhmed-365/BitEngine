@@ -131,6 +131,11 @@ B. UNIFIED DEBUG OVERLAY (F3)
     - Event Trace: Chronological telemetry log of variable changes (Old -> New), 
       branching decisions (IF TRUE/FALSE), and Scene Jumps.
     - Asset Audit: Visual confirmation of loaded textures, music, and SFX.
+    - Static Analyzer: Proactive narrative validation during compilation.
+      - Referential Integrity: Detects broken `jump`, `call`, and `choice` targets.
+      - Variable Audit: Flags use of undefined variables in expressions and conditionals.
+      - Asset Validation: Ensures character IDs and event targets exist in registry.
+      - Line-Linked Errors: Directly maps bytecode issues back to source line numbers.
 
 --------------------------------------------------------------------------------
 7. INTERACTION & ACCESSIBILITY

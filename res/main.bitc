@@ -57,6 +57,7 @@
       ],
       "meta": {
         "alpha": "0.0",
+        "id": "akira",
         "join": "true",
         "pos": "left",
         "sprite": "serious"
@@ -70,6 +71,7 @@
       ],
       "meta": {
         "alpha": "0.0",
+        "id": "akira",
         "join": "true",
         "pos": "left",
         "sprite": "serious"
@@ -110,6 +112,7 @@
       ],
       "meta": {
         "alpha": "0.0",
+        "id": "kael",
         "join": "true",
         "pos": "right",
         "sprite": "idle"
@@ -123,6 +126,7 @@
       ],
       "meta": {
         "alpha": "0.0",
+        "id": "kael",
         "join": "true",
         "pos": "right",
         "sprite": "idle"
@@ -318,6 +322,7 @@
         "hide"
       ],
       "meta": {
+        "id": "akira",
         "op": "hide",
         "target": "akira"
       },
@@ -328,6 +333,7 @@
         "hide"
       ],
       "meta": {
+        "id": "kael",
         "op": "hide",
         "target": "kael"
       },
@@ -429,6 +435,7 @@
       ],
       "meta": {
         "alpha": "1.0",
+        "id": "kael",
         "join": "true",
         "pos": "right"
       },
@@ -441,6 +448,7 @@
       ],
       "meta": {
         "alpha": "1.0",
+        "id": "kael",
         "join": "true",
         "pos": "right"
       },
@@ -474,24 +482,10 @@
     },
     {
       "args": [
-        "__tmp0",
-        "trust_akira"
-      ],
-      "op": "SET_REF"
-    },
-    {
-      "args": [
-        "__tmp0",
+        "trust_akira",
         "1"
       ],
       "op": "ADD"
-    },
-    {
-      "args": [
-        "trust_akira",
-        "__tmp0"
-      ],
-      "op": "SET_REF"
     },
     {
       "args": [
@@ -524,19 +518,19 @@
         "trust_akira",
         ">=",
         "1",
-        "__tmp1_choice"
+        "__tmp0_choice"
       ],
       "op": "IF"
     },
     {
       "args": [
-        "__tmp2_skip"
+        "__tmp1_skip"
       ],
       "op": "GOTO"
     },
     {
       "args": [
-        "__tmp1_choice"
+        "__tmp0_choice"
       ],
       "op": "LABEL"
     },
@@ -549,7 +543,7 @@
     },
     {
       "args": [
-        "__tmp2_skip"
+        "__tmp1_skip"
       ],
       "op": "LABEL"
     },
@@ -558,19 +552,19 @@
         "trust_akira",
         "<",
         "1",
-        "__tmp3_choice"
+        "__tmp2_choice"
       ],
       "op": "IF"
     },
     {
       "args": [
-        "__tmp4_skip"
+        "__tmp3_skip"
       ],
       "op": "GOTO"
     },
     {
       "args": [
-        "__tmp3_choice"
+        "__tmp2_choice"
       ],
       "op": "LABEL"
     },
@@ -583,7 +577,7 @@
     },
     {
       "args": [
-        "__tmp4_skip"
+        "__tmp3_skip"
       ],
       "op": "LABEL"
     },

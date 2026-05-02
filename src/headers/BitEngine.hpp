@@ -51,6 +51,7 @@ struct BitInstruction {
     BitOp op;
     std::vector<std::string> args;
     nlohmann::json metadata;
+    int line = -1;
 };
 
 struct RichChar {
@@ -181,13 +182,9 @@ struct DialogProject {
     std::vector<BitInstruction> bytecode;
 };
 
-// Validation Result
-struct ValidationError {
-    std::string file;
-    std::string field;
-    std::string message;
+struct ValidationResult {
+    std::vector<std::string> errors;
 };
-using ValidationResult = std::vector<ValidationError>;
 
 // Event Trace Entry
 struct EventTraceEntry {
@@ -223,6 +220,7 @@ public:
     std::string GetVisibleContent() const; // Legacy plain string access if needed
     
     int GetVariable(const std::string& name) const;
+    int SafeStoi(const std::string& s) const;
     void SetVariable(const std::string& name, int value);
     const std::unordered_map<std::string, int>& GetAllVariables() const { return m_variables; }
     

@@ -51,12 +51,15 @@ private:
     void expect(TokenType t, const std::string& v = "");
     
     std::string genTempVar();
+    void emit(BitOp op, std::vector<std::string> args = {}, nlohmann::json meta = {});
     
     void ParseConfig();
     void ParseVariable();
     void ParseEntities();
     void ParseAssets();
     void ParseScene();
+    void ParseStatement();
+    void ParseAssignment(const std::string& var, std::vector<BitInstruction>& output, bool isLocal = false);
     
     // Expression Parsing
     Operand ParseExpression(std::vector<BitInstruction>& output);

@@ -143,6 +143,21 @@ int BitApp::DoCompile(const std::string& src, const std::string& dst) {
         for (const auto& e : engine.GetErrors()) std::cerr << "   - " << e << "\n";
         return 1;
     }
+
+    // Static Analysis
+    auto validation = engine.ValidateProject(engine.GetProject());
+    if (!validation.errors.empty()) {
+        std::cout << "│  \n├─ Issues:\n";
+        bool hasErrors = false;
+        for (const auto& e : validation.errors) {
+            std::cout << "│  " << e << "\n";
+            if (e.find("[ERROR]") != std::string::npos) hasErrors = true;
+        }
+        if (hasErrors) {
+            std::cerr << "└─ [ERROR] Compilation aborted due to static analysis errors.\n";
+            return 1;
+        }
+    }
     if (!engine.SaveBytecode(dst)) {
         std::cerr << "└─ [ERROR] Failed to write binary: " << dst << "\n";
         return 1;
@@ -182,7 +197,8 @@ int BitApp::DoDryRun(const std::string& path) {
         else if (ins.op == BitOp::SAY) ++says;
         else if (ins.op == BitOp::CHOICE) ++choices;
     }
-    auto errs = engine.GetErrors();
+    auto validation = engine.ValidateProject(engine.GetProject());
+    auto errs = validation.errors;
     if (errs.empty()) {
         std::cout << "│  \n├─ Validation Successful! (No errors found)\n│  Time       : " << elapsed << "ms\n│  \n├─ Project Summary:\n│  - Instructions : " << bc.size() << "\n│  - Scenes       : " << labels << "\n│  - Dialogue     : " << says << " lines\n│  - Choices      : " << choices << "\n│  - Variables    : " << proj.variables.size() << "\n└──────────────────────────────────────────────────────────────────\n";
         return 0;

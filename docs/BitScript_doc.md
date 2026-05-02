@@ -246,3 +246,28 @@ The engine provides a comprehensive CLI for developers:
 - **Rich Text**: Supports style tags (color, bold, speed) within dialogue strings.
 - **Dynamic Transitions**: Scenes support backgrounds, BGM, and SFX with integrated fade logic.
 - **VM State**: The engine tracks the current speaker, active entities, and execution history automatically.
+
+---
+
+## 🔍 Static Analyzer (New in v0.2)
+
+BitScript includes a built-in static analyzer that proactively identifies logic and narrative errors during the compilation phase.
+
+### 1. Referential Integrity
+The analyzer verifies that every `jump`, `call`, and `choice` target points to a valid `scene` label. This prevents "missing label" crashes during gameplay.
+
+### 2. Variable Auditing
+- **Undefined Usage**: Detects when a script attempts to read from or write to a variable that hasn't been declared in a global `var` block.
+- **Conditional Integrity**: Ensures that `if` statements and choice conditions reference valid state registers.
+
+### 3. Entity & Asset Verification
+- **Character Registry**: Ensures that dialogue statements and `join`/`leave` commands use valid character IDs defined in the `entities` block.
+- **Alias Verification**: Validates that character moods (`akira.angry`) correspond to aliases defined in the entity's configuration.
+
+### 4. Line-Linked Reporting
+Errors and warnings are mapped directly to their source line numbers, allowing developers to quickly locate and resolve issues.
+
+```text
+[ERROR] (Line 142): Duplicate scene label: intro_scene
+[WARN] (Line 85): Assignment to undefined variable: player_trust
+```
