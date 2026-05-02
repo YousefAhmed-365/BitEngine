@@ -1,0 +1,143 @@
+================================================================================
+                       BITENGINE COMPREHENSIVE FEATURE LIST
+================================================================================
+
+--------------------------------------------------------------------------------
+1. BITSCRIPT NARRATIVE ENGINE (v0.1)
+--------------------------------------------------------------------------------
+BitEngine now uses a strictly bytecode-driven architecture, moving away from 
+legacy JSON definitions to a high-performance custom VM.
+
+A. BITSCRIPT LANGUAGE FEATURES
+    - Scene Management: `scene scene_id(params) { ... };` blocks with support for nesting and parameters.
+    - Global State: `var identifier = value;` for persistent game variables.
+    - Local State: `local identifier = value;` for scene-scoped variables (pushed/popped with call stack).
+    - Dialogue Syntax: `entity_id.alias [modifiers]: "text content";`
+      - Character Aliases: Define named "moods" or shortcuts in entity blocks.
+    - Narration Syntax: `narration [modifiers]: "text content";` (Standalone narrator text).
+    - Character Management:
+      - `> entity_id [modifiers];` - Join character to scene (sets alpha=1.0 by default).
+      - `< entity_id;` - Remove character from scene (unloads from active map).
+    - Cinematic Statements: Standalone commands for better script readability.
+      - `transition <type>, <duration>, <post_delay>;` (Fades and scene jumps).
+      - `ui <show/hide>;` (Global visibility control for the dialogue interface).
+      - `wait <move/fade/all/sfx>;` (Explicitly pause VM until visual/audio actions finish).
+    - Narrative Stack: Sub-routine support with parameter passing.
+      - `call <scene_id>(args);` - Jump to scene, push return address, and inject arguments as locals.
+      - `return;` - Pop from stack, clear locals, and return to caller.
+    - Comments:
+      - `# Single-line comment.`
+      - `#- Multi-line comment block -#`
+    - Branching: `choice { "Option A" -> target_scene; ... };` with conditional 
+      visibility via `if (expression)`.
+    - Logic: Robust expression evaluator supporting arithmetic (`+`, `-`, `*`, `/`), 
+      logical (`and`, `or`, `!`), and comparison (`==`, `!=`, `<`, `>`, `<=`, `>=`).
+    - Control Flow: `if (condition) { ... }`, `jump scene_id;`, and `delay ms;`.
+
+B. NATIVE VIRTUAL MACHINE (VM)
+    - Bytecode Execution: Compiled `.bitc` files execute O(1) instruction dispatch.
+    - Program Counter (PC): Precise tracking of execution state across saves.
+    - Narrative Stack: Full LIFO stack support for nested `call`/`return` logic.
+    - Error Handling: Runtime validation for missing labels, variables, or entities.
+
+--------------------------------------------------------------------------------
+2. RICH TEXT RENDERING SYSTEM
+--------------------------------------------------------------------------------
+Fully procedural text engine supporting nested style tags and dynamic reveal.
+
+A. FORMATTING TAGS
+   - [color=#HEX / "NAME"]: Overrides text color (e.g., `[color=RED]Alert![/color]`).
+   - [speed=FLOAT]: Modifies typewriter reveal speed (e.g., `[speed=0.5]Slow...[/speed]`).
+   - [wait=FLOAT]: Pauses the reveal for X seconds at the current character.
+   - [shake]: Adds procedural per-character positional jitter for intensity.
+   - [wave]: Adds procedural per-character sine-wave vertical offset for "ethereal" text.
+   - [font=ID]: Switches font mid-sentence using IDs registered in the style manager.
+   - [/tag]: Closes active modifiers to return to default styling.
+
+B. DYNAMIC FEATURES
+   - Variable Interpolation: Automatically replaces `{var_name}` with registry values.
+   - Neural Typewriter: Variable reveal speed based on punctuation and character modifiers.
+   - Advance Width Caching: High-performance font measurement to maintain stable FPS.
+
+--------------------------------------------------------------------------------
+3. VISUAL STYLING & UI SYSTEM
+--------------------------------------------------------------------------------
+Comprehensive JSON-driven styling with hot-reload and texture override support.
+
+A. UI ANCHOR FRAMEWORK
+   - Adaptive Layouts: Supports `bottom`, `top`, `left`, `right`, and `center` anchors.
+   - Normalized Coordinates: All positions (0.0 to 1.0) scale to any resolution.
+   - Custom Fonts: Support for `.ttf` and `.otf` files with GPU-cached glyphs.
+
+B. TEXTURE OVERRIDES (DrawStyledRect)
+   - Support for custom textures for: Dialog Box, Name Label, Choice Box, 
+     Toast Notifications, and Waiting Cursor.
+   - Nine-Slice Scaling: Define slice margins to scale UI panels without distortion.
+   - Color Tints: Multiplicative blending to recolor textures on the fly.
+
+C. UI COMPONENTS
+   - Dialog Box: Customizable roundness, border thickness, padding, and opacity.
+   - Name Label: Alignment (left/center/right), independent offsets, and styling.
+   - Choice Menu: Styled options with `normal` vs `premium` mapping.
+   - Waiting Cursor: Animated shapes (`triangle`, `dot`, `bar`) or custom textures.
+
+--------------------------------------------------------------------------------
+4. CINEMATIC & VFX SYSTEMS
+--------------------------------------------------------------------------------
+Native support for dramatic narrative presentation and cinematic effects.
+
+A. ENTITY SYSTEM
+   - Multi-Sprite Entities: Map character IDs to various expressions/poses.
+   - Animations: Support for frame-based sprite sheet animations (`path`, `frames`, `speed`).
+   - Procedural Floating: Gentle breathing/floating effects defined in global styles.
+   - Dynamic Shadows: Automatic character shadows with adjustable opacity.
+
+B. CINEMATIC COMMANDS
+   - `move`: Smooth cubic-eased position interpolation over time.
+   - `fade`: Opacity interpolation for characters (0.0 to 1.0) and backgrounds.
+   - `fade_screen`: Full-screen cinematic color overlays (Flash to white, Fade to black).
+   - `shake`: Procedural camera/UI jitter with intensity control.
+
+C. TRANSITION STATE MACHINE
+   - Smart Fading: Native `transition = fade_black` metadata support.
+   - Pending Transitions: Fades wait for animations (like character exits) to finish.
+   - Visual Continuity: Background/Character fades continue during screen transitions.
+
+--------------------------------------------------------------------------------
+5. AUDIO & ASSET MANAGEMENT
+--------------------------------------------------------------------------------
+- Background Music (BGM): Continuous looping tracks with automatic caching.
+- Sound Effects (SFX): One-shot triggers with memory management and silent fallbacks.
+- Global Registry: Centralized mapping for backgrounds, music, and sfx IDs.
+- XOR Security: Native encryption for project files and compiled bytecode.
+
+--------------------------------------------------------------------------------
+6. DEVELOPER TOOLING & CLI
+--------------------------------------------------------------------------------
+The engine provides a robust toolset for building and debugging narratives.
+
+A. COMMAND LINE INTERFACE (BitEngine CLI)
+   - `-c, --compile <src> [dst]`: Compiles .bitscript into encrypted bytecode.
+   - `-r, --run <file>`: Runs the specified compiled file or source project.
+   - `-d, --debug`: Starts the engine with the unified debug overlay active.
+   - `-s, --style <id>`: Launches with a specific UI style preset.
+
+B. UNIFIED DEBUG OVERLAY (F3)
+    - Bytecode Inspector: Real-time visualization of the running VM bytecode with 
+      PC tracking, argument sanitization, and metadata analysis.
+    - Local Scope & Stack: Specialized panel for monitoring call depth, return 
+      addresses, and active `local` variables in the current scene.
+    - Variable Watcher: Real-time list of all global variables and their values.
+    - Event Trace: Chronological telemetry log of variable changes (Old -> New), 
+      branching decisions (IF TRUE/FALSE), and Scene Jumps.
+    - Asset Audit: Visual confirmation of loaded textures, music, and SFX.
+
+--------------------------------------------------------------------------------
+7. INTERACTION & ACCESSIBILITY
+--------------------------------------------------------------------------------
+- Message History (H): Complete scrollable backlog of all past dialogue and effects.
+- Auto-Play Mode (A): Hands-free progression that respects reveal speeds.
+- Fast Skip: Advance current text reveal instantly on click/space.
+- Neural Saves: Binary save system that preserves variable state and exact PC.
+- Toast System: Non-blocking notifications for game events (e.g., "Game Saved").
+- Custom Cursor: Style-driven mouse textures with automatic system cursor hiding.

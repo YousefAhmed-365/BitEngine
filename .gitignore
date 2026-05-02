@@ -27,7 +27,6 @@ debug.log
 *.swo
 .DS_Store
 Thumbs.db
-features.txt
 
 # CMake temporary files
 CMakeLists.txt.user

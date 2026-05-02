@@ -1,5 +1,5 @@
 # 🧩 BitScript Specification & Documentation
-**Version 0.1**
+**Version 0.2**
 
 BitScript is a lightweight, high-performance narrative scripting language designed specifically for the **BitEngine VM**. It combines declarative entity management with a powerful expression-native logic system to enable complex branching storytelling with minimal syntax overhead.
 
@@ -45,7 +45,7 @@ SpriteProperty      = "path" "=" String ";"
                     | "speed" "=" Number ";"
                     | "scale" "=" Number ";" ;
 
-SceneBlock          = "scene" Identifier "{" { SceneStatement } "}" ";" ;
+SceneBlock          = "scene" Identifier [ "(" { Identifier } ")" ] "{" { SceneStatement } "}" ";" ;
 SceneStatement      = Dialogue
                     | ChoiceBlock
                     | Assignment
@@ -59,11 +59,11 @@ SceneStatement      = Dialogue
                     | NarrationStatement
                     | ExpressionStatement ;
 
-Dialogue            = Identifier [ "[" { Modifier } "]" ] ":" String ";" ;
+Dialogue            = Identifier [ "." Identifier ] [ "[" { Modifier } "]" ] ":" String ";" ;
 NarrationStatement  = "narration" [ "[" { Modifier } "]" ] ":" String ";" ;
 JoinStatement       = ">" Identifier [ "[" { Modifier } "]" ] ";" ;
 LeaveStatement      = "<" Identifier ";" ;
-StackStatement      = "call" Identifier ";" | "return" ";" ;
+StackStatement      = "call" Identifier [ "(" { Expression } ")" ] ";" | "return" ";" ;
 TransitionStatement = "transition" Identifier "," Number "," Number ";" ;
 UiStatement         = "ui" ("show" | "hide") ";" ;
 Modifier            = Identifier "=" Expression ;
@@ -73,6 +73,9 @@ ChoiceOption        = String "->" Identifier [ "if" Expression ] ";" ;
 
 JumpStatement       = "jump" Identifier ";" ;
 IfStatement         = "if" "(" Expression ")" "{" { SceneStatement } "}" ";" ;
+LocalDecl           = "local" Identifier "=" Expression ";" ;
+WaitStatement       = "wait" ("move" | "fade" | "all" | "sfx") ";" ;
+StackStatement      = "call" Identifier [ "(" { Expression } ")" ] ";" | "return" ";" ;
 
 Expression          = LogicalExpr ;
 LogicalExpr         = ComparisonExpr { ("and" | "or") ComparisonExpr } ;
@@ -121,15 +124,20 @@ entities {
             frames = 2;
             speed = 4.0;
         };
+
+        alias angry {
+            sprite = serious,
+            shake = true
+        };
     };
 };
 ```
 
 ### 3. Scenes & Dialogue
-Scenes are the heart of the narrative. Dialogue is bound to an entity and supports **modifiers** in square brackets.
+Scenes support parameters and character **aliases** (moods).
 ```bitscript
-scene intro_scene {
-    akira [sprite=idle; pos=center;]: "We've finally arrived.";
+scene intro_scene(day_count) {
+    akira.angry: "It's already been {day_count} days!";
     jump next_scene;
 };
 ```
@@ -148,46 +156,41 @@ if (trust >= 10 and visited_market == true) {
 };
 ```
 
-### 6. Narrative Stack
-The stack allows you to call scenes like sub-routines.
-- `call <scene_id>`: Saves the current position and jumps to the scene.
-- `return`: Returns to the position after the last `call`.
+### 6. Narrative Stack & Parameters
+Scenes can be called like functions with parameters and their own local scope.
+- `local <var> = <val>;`: Defines a variable only visible within the current scene.
+- `call <scene>(<args>)`: Jumps to a scene and passes values to its parameters.
 
 ```bitscript
-scene alley {
-    akira: "Let's check the terminal.";
-    call diagnostic_routine;
-    akira: "Diagnostics done.";
+scene market {
+    local price = 50;
+    call pay_routine(price);
 }
 
-scene diagnostic_routine {
-    narration: "System scan in progress...";
+scene pay_routine(amount) {
+    narration: "You paid {amount} credits.";
     return;
 }
 ```
 
-### 7. Character Management
-Use symbols for high-level scene entry and exit.
-- `> <id> [modifiers]`: Adds character to scene (instantly visible).
-- `< <id>`: Removes character from scene state.
+### 7. Character Management & Aliases
+- `> <id> [modifiers]`: Join character to scene.
+- `< <id>`: Remove character from scene.
+- `<id>.<alias>`: Use a predefined mood alias from the entity definition.
 
 ```bitscript
-> akira [pos=left, sprite=serious];
-akira: "I'm in position.";
-< akira;
+akira.angry: "This is taking too long!";
 ```
 
-### 8. Cinematic Statements
-Standalone statements for managing visuals and narrative pace.
+### 8. Cinematic Statements & Wait
 - `transition <fade_type>, <duration>, <post_delay>;`
 - `ui <show/hide>;`
-- `narration: "Text";` (Dialogue without a speaker).
+- `wait <move|fade|all|sfx>;`: Pauses the script until the specified action completes.
 
 ```bitscript
-ui hide;
-transition fade_black, 1000, 500;
-narration: "Three days later...";
-ui show;
+fade akira, 1.0, 1000;
+wait fade; # Script will not proceed until Akira is visible
+akira: "I'm here.";
 ```
 
 ### 9. Comments
