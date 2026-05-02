@@ -648,6 +648,7 @@
   "configs": {
     "auto_play_delay": 2.0,
     "auto_save": false,
+    "debug_mode": "none",
     "enable_floating": true,
     "enable_shadows": true,
     "enable_vignette": true,

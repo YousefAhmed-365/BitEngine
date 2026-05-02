@@ -1,0 +1,116 @@
+# BitPack Compiled Bytecode v1.0
+
+@CONFIG
+start_node:scene_alley
+mode:typewriter
+save_prefix:save_slot_
+debug_mode:none
+reveal_speed:45
+auto_play_delay:2
+auto_save:false
+encrypt_save:false
+enable_floating:true
+enable_shadows:true
+enable_vignette:true
+max_slots:5
+
+@VARS
+knows_about_target:0
+credits:50
+trust_kael:0
+trust_akira:0
+
+@ASSETS
+bg:market_bg="assets/market_bg.png"
+bg:alley_bg="assets/alley_bg.png"
+music:market_theme="assets/market_theme.mp3"
+music:neon_noir="assets/neon_noir.mp3"
+sfx:confirm="assets/confirm.wav"
+sfx:glitch="assets/glitch.wav"
+font:dream="assets/fonts/dream.ttf"
+
+@ENTITIES
+kael{"name":"Kael","pos_x":0.20000000298023224,"sprites":{"idle":{"frames":1,"path":"assets/kael_idle.png","scale":3.0,"speed":1.0}},"type":"Merchant"}
+akira{"aliases":{"angry":{"shake":"true","sprite":"serious"},"calm":{"sprite":"neutral"}},"name":"Akira","pos_x":0.800000011920929,"sprites":{"idle":{"frames":2,"path":"assets/akira_idle.png","scale":3.0,"speed":4.0},"neutral":{"frames":1,"path":"assets/akira_neutral.png","scale":3.0,"speed":1.0},"serious":{"frames":1,"path":"assets/akira_serious.png","scale":3.0,"speed":1.0}},"type":"Fixer"}
+
+@BYTECODE
+000 LABEL ["scene_alley"] @50
+001 BG ["alley_bg"] @51
+002 BGM ["neon_noir"] @52
+003 EVENT ["fade_screen"] {"alpha":1.0,"duration":0,"op":"fade_screen"} @53
+004 EVENT ["fade_screen"] {"alpha":0.0,"duration":2000,"op":"fade_screen"} @54
+005 CALL ["routine_neural_sync","1"] @56
+006 EVENT ["join"] {"alpha":"0.0","id":"akira","join":"true","pos":"left","sprite":"serious"} @58
+007 SAY ["akira",""] {"alpha":"0.0","id":"akira","join":"true","pos":"left","sprite":"serious"} @58
+008 EVENT ["fade"] {"alpha":1.0,"duration":1000,"op":"fade","target":"akira"} @59
+009 WAIT_ACTION ["fade"] @60
+010 SAY ["akira","Kael! Stay back! Something is [font=dream]wrong[/font] with the uplink."] {"alias":"angry"} @62
+011 EVENT ["join"] {"alpha":"0.0","id":"kael","join":"true","pos":"right","sprite":"idle"} @64
+012 SAY ["kael",""] {"alpha":"0.0","id":"kael","join":"true","pos":"right","sprite":"idle"} @64
+013 EVENT ["fade"] {"alpha":1.0,"duration":800,"op":"fade","target":"kael"} @65
+014 SAY ["kael","I can feel it too... it's like a [color=#ff00ff]glitch[/color] in the air."] @66
+015 EVENT ["move"] {"duration":500,"op":"move","target":"akira","x":"center"} @68
+016 EVENT ["move"] {"duration":400,"op":"move","target":"kael","x":"0.9"} @69
+017 WAIT_ACTION ["move"] @70
+018 SAY ["akira","Wait, I'm detecting a signature nearby. Let's move in."] {"alias":"calm"} @72
+019 CALL ["routine_district_transition"] @74
+020 GOTO ["scene_market"] @75
+021 LABEL ["routine_neural_sync","version"] @78
+022 SET_LOCAL ["sync_status","1"] @79
+023 SAY ["narration","[speed=0.3]Connecting to neural uplink v{version}...[wait=0.8] established."] {"auto_next":"true","pre_delay":"1000"} @80
+024 EVENT ["shake"] {"intensity":10.0,"op":"shake"} @81
+025 SAY ["narration","[shake]WARNING:[wait=0.5] System integrity compromised."] {"auto_next":"true"} @82
+026 EVENT ["delay"] {"duration":1500,"op":"delay"} @83
+027 RETURN [] @84
+028 LABEL ["routine_district_transition"] @87
+029 UI_VISIBLE ["hide"] @88
+030 EVENT ["fade"] {"duration":2000,"id":"market_bg","op":"fade","target":"bg"} @89
+031 EVENT ["fade"] {"alpha":0.0,"duration":1000,"op":"fade","target":"akira"} @90
+032 EVENT ["fade"] {"alpha":0.0,"duration":1000,"op":"fade","target":"kael"} @91
+033 WAIT_ACTION ["fade"] @92
+034 EVENT ["hide"] {"id":"akira","op":"hide","target":"akira"} @94
+035 EVENT ["hide"] {"id":"kael","op":"hide","target":"kael"} @95
+036 TRANSITION ["fade_black","500","500"] @97
+037 SAY ["narration","Moving to the next district..."] @98
+038 RETURN [] @99
+039 LABEL ["scene_market"] @102
+040 SAY ["akira",""] {"alpha":"0.0","pos":"left","sprite":"idle"} @103
+041 EVENT ["fade"] {"alpha":1.0,"duration":500,"op":"fade","target":"akira"} @104
+042 SAY ["akira","The market is unusually quiet today. [font=dream]Eerily quiet.[/font]"] @105
+043 SAY ["akira","What's our next move?"] @107
+044 CHOICE ["Search the stalls","market_browsing"] @109
+045 CHOICE ["Check the terminal","market_terminal"] {"style":"premium"} @110
+046 WAIT_INPUT [] @111
+047 LABEL ["market_browsing"] @113
+048 EVENT ["join"] {"alpha":"1.0","id":"kael","join":"true","pos":"right"} @114
+049 SAY ["kael",""] {"alpha":"1.0","id":"kael","join":"true","pos":"right"} @114
+050 CALL ["routine_neural_sync","2"] @115
+051 SAY ["kael","Nothing but scrap metal and rusted parts."] @116
+052 GOTO ["check_ending"] @117
+053 LABEL ["market_terminal"] @120
+054 ADD ["trust_akira","1"] @121
+055 SAY ["akira","Accessing the main terminal... [wait=0.5] [font=dream]ACCESS GRANTED[/font]."] @122
+056 GOTO ["check_ending"] @123
+057 LABEL ["check_ending"] @127
+058 SAY ["narration","Calculating outcome based on neural synchronization..."] @128
+059 IF ["trust_akira",">=","1","__tmp0_choice"] @130
+060 GOTO ["__tmp1_skip"] @130
+061 LABEL ["__tmp0_choice"] @130
+062 CHOICE ["Continue (Synchronization High)","ending_good"] @130
+063 LABEL ["__tmp1_skip"] @130
+064 IF ["trust_akira","<","1","__tmp2_choice"] @131
+065 GOTO ["__tmp3_skip"] @131
+066 LABEL ["__tmp2_choice"] @131
+067 CHOICE ["Continue (Synchronization Low)","ending_bad"] @131
+068 LABEL ["__tmp3_skip"] @131
+069 WAIT_INPUT [] @132
+070 LABEL ["ending_good"] @134
+071 SAY ["akira","Synchronization complete. We're in. Good work."] @135
+072 GOTO ["dialog_end_final"] @136
+073 LABEL ["ending_bad"] @139
+074 SAY ["akira","Synchronization failed. We're locked out. This is a disaster."] @140
+075 GOTO ["dialog_end_final"] @141
+076 LABEL ["dialog_end_final"] @145
+077 SAY ["narration","End of Demonstration."] @146
+078 HALT [] @147
+079 HALT [] @148

@@ -130,7 +130,11 @@ bool DialogEngine::LoadProject(const std::string& configFilePath) {
         return LoadBytecodeFile(configFilePath);
     }
 
-    RecordError("LoadProject", "Unsupported file type: " + configFilePath + ". Only .bitscript and .bitc are supported.");
+    if (configFilePath.size() > 5 && configFilePath.substr(configFilePath.size() - 5) == ".bitp") {
+        return LoadBitPackFile(configFilePath);
+    }
+
+    RecordError("LoadProject", "Unsupported file type: " + configFilePath + ". Only .bitscript, .bitc, and .bitp are supported.");
     return false;
 }
 
@@ -211,6 +215,10 @@ static BitOp StrToOp(const std::string& s) {
 }
 
 bool DialogEngine::SaveBytecode(const std::string& path) const {
+    if (path.size() > 5 && path.substr(path.size() - 5) == ".bitp") {
+        return SaveBitPack(path);
+    }
+    
     if (m_project.bytecode.empty()) {
         Log("SaveBytecode: no bytecode to save.", "WARN");
         return false;
@@ -222,6 +230,7 @@ bool DialogEngine::SaveBytecode(const std::string& path) const {
     // Project metadata (entities, assets, variables, configs)
     root["configs"]["start_node"]    = m_project.configs.start_node;
     root["configs"]["mode"]          = m_project.configs.mode;
+    root["configs"]["debug_mode"]    = m_project.configs.debug_mode;
     root["configs"]["reveal_speed"]  = m_project.configs.reveal_speed;
     root["configs"]["auto_play_delay"]= m_project.configs.auto_play_delay;
     root["configs"]["auto_save"]     = m_project.configs.auto_save;
@@ -284,6 +293,7 @@ bool DialogEngine::LoadBytecodeFile(const std::string& path) {
         auto& c = root["configs"];
         m_project.configs.start_node    = c.value("start_node","dialog_start");
         m_project.configs.mode          = c.value("mode","typewriter");
+        m_project.configs.debug_mode     = c.value("debug_mode","none");
         m_project.configs.reveal_speed  = c.value("reveal_speed", 45.0f);
         m_project.configs.auto_play_delay= c.value("auto_play_delay",2.0f);
         m_project.configs.auto_save     = c.value("auto_save",false);
@@ -1202,4 +1212,215 @@ int DialogEngine::SafeStoi(const std::string& s) const {
     } catch (...) {
         return 0;
     }
+}
+
+// ── BitPack Assembler Serialization (.bitp) ───────────────────────────────────
+
+bool DialogEngine::SaveBitPack(const std::string& path) const {
+    std::ofstream f(path);
+    if (!f) return false;
+
+    f << "# BitPack Compiled Bytecode v1.0\n\n";
+
+    f << "@CONFIG\n";
+    f << "start_node:" << m_project.configs.start_node << "\n";
+    f << "mode:" << m_project.configs.mode << "\n";
+    f << "save_prefix:" << m_project.configs.save_prefix << "\n";
+    f << "debug_mode:" << m_project.configs.debug_mode << "\n";
+    f << "reveal_speed:" << m_project.configs.reveal_speed << "\n";
+    f << "auto_play_delay:" << m_project.configs.auto_play_delay << "\n";
+    f << "auto_save:" << (m_project.configs.auto_save ? "true" : "false") << "\n";
+    f << "encrypt_save:" << (m_project.configs.encrypt_save ? "true" : "false") << "\n";
+    f << "enable_floating:" << (m_project.configs.enable_floating ? "true" : "false") << "\n";
+    f << "enable_shadows:" << (m_project.configs.enable_shadows ? "true" : "false") << "\n";
+    f << "enable_vignette:" << (m_project.configs.enable_vignette ? "true" : "false") << "\n";
+    f << "max_slots:" << m_project.configs.max_slots << "\n";
+    f << "\n";
+
+    f << "@VARS\n";
+    for (auto& [k, v] : m_project.variables) {
+        f << k << ":" << v.initial_value;
+        if (v.min.has_value()) f << ":" << v.min.value();
+        if (v.max.has_value()) f << ":" << v.max.value();
+        f << "\n";
+    }
+    f << "\n";
+
+    f << "@ASSETS\n";
+    for (auto& [k, v] : m_project.backgrounds) f << "bg:" << k << "=\"" << v << "\"\n";
+    for (auto& [k, v] : m_project.music)       f << "music:" << k << "=\"" << v << "\"\n";
+    for (auto& [k, v] : m_project.sfx)         f << "sfx:" << k << "=\"" << v << "\"\n";
+    for (auto& [k, v] : m_project.fonts)       f << "font:" << k << "=\"" << v << "\"\n";
+    f << "\n";
+
+    f << "@ENTITIES\n";
+    for (auto& [k, e] : m_project.entities) {
+        nlohmann::json ej;
+        ej["name"] = e.name;
+        ej["type"] = e.type;
+        ej["pos_x"] = e.default_pos_x;
+        if (!e.aliases.empty()) ej["aliases"] = e.aliases;
+        if (!e.sprites.empty()) {
+            for (auto& [sn, sd] : e.sprites) {
+                ej["sprites"][sn] = { {"path",sd.path}, {"frames",sd.frames}, {"speed",sd.speed}, {"scale",sd.scale} };
+            }
+        }
+        f << k << ej.dump() << "\n";
+    }
+    f << "\n";
+
+    f << "@BYTECODE\n";
+    for (size_t i = 0; i < m_project.bytecode.size(); ++i) {
+        const auto& ins = m_project.bytecode[i];
+        f << std::setw(3) << std::setfill('0') << i << " " << OpToStr(ins.op) << " [";
+        for (size_t j = 0; j < ins.args.size(); ++j) {
+            f << "\"" << ins.args[j] << "\"" << (j == ins.args.size() - 1 ? "" : ",");
+        }
+        f << "]";
+        if (!ins.metadata.empty()) f << " " << ins.metadata.dump();
+        f << " @" << ins.line << "\n";
+    }
+
+    return true;
+}
+
+bool DialogEngine::LoadBitPackFile(const std::string& path) {
+    std::ifstream f(path);
+    if (!f) return false;
+
+    m_project.bytecode.clear();
+    std::string line;
+    std::string section = "";
+
+    while (std::getline(f, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        if (line[0] == '@') {
+            section = line.substr(1);
+            continue;
+        }
+
+        if (section == "CONFIG") {
+            size_t sep = line.find(':');
+            if (sep != std::string::npos) {
+                std::string k = line.substr(0, sep);
+                std::string v = line.substr(sep + 1);
+                if (k == "start_node") m_project.configs.start_node = v;
+                else if (k == "mode") m_project.configs.mode = v;
+                else if (k == "save_prefix") m_project.configs.save_prefix = v;
+                else if (k == "debug_mode") m_project.configs.debug_mode = v;
+                else if (k == "reveal_speed") m_project.configs.reveal_speed = std::stof(v);
+                else if (k == "auto_play_delay") m_project.configs.auto_play_delay = std::stof(v);
+                else if (k == "auto_save") m_project.configs.auto_save = (v == "true");
+                else if (k == "encrypt_save") m_project.configs.encrypt_save = (v == "true");
+                else if (k == "enable_floating") m_project.configs.enable_floating = (v == "true");
+                else if (k == "enable_shadows") m_project.configs.enable_shadows = (v == "true");
+                else if (k == "enable_vignette") m_project.configs.enable_vignette = (v == "true");
+                else if (k == "max_slots") m_project.configs.max_slots = std::stoi(v);
+            }
+        }
+        else if (section == "VARS") {
+            std::stringstream ss(line);
+            std::string id, sval, smin, smax;
+            std::getline(ss, id, ':');
+            std::getline(ss, sval, ':');
+            VariableDef vd; vd.id = id; vd.initial_value = std::stoi(sval);
+            if (std::getline(ss, smin, ':')) vd.min = std::stoi(smin);
+            if (std::getline(ss, smax, ':')) vd.max = std::stoi(smax);
+            m_project.variables[id] = vd;
+            m_variables[id] = vd.initial_value;
+        }
+        else if (section == "ASSETS") {
+            size_t sep1 = line.find(':');
+            size_t sep2 = line.find('=');
+            if (sep1 != std::string::npos && sep2 != std::string::npos) {
+                std::string type = line.substr(0, sep1);
+                std::string id = line.substr(sep1 + 1, sep2 - sep1 - 1);
+                std::string pathVal = line.substr(sep2 + 1);
+                if (pathVal.size() >= 2 && pathVal.front() == '"') pathVal = pathVal.substr(1, pathVal.size() - 2);
+                
+                if (type == "bg") m_project.backgrounds[id] = pathVal;
+                else if (type == "music") m_project.music[id] = pathVal;
+                else if (type == "sfx") m_project.sfx[id] = pathVal;
+                else if (type == "font") m_project.fonts[id] = pathVal;
+            }
+        }
+        else if (section == "ENTITIES") {
+            size_t brace = line.find('{');
+            if (brace != std::string::npos) {
+                std::string id = line.substr(0, brace);
+                try {
+                    nlohmann::json ej = nlohmann::json::parse(line.substr(brace));
+                    Entity e; e.id = id;
+                    e.name = ej.value("name", "Unknown");
+                    e.type = ej.value("type", "char");
+                    e.default_pos_x = ej.value("pos_x", 0.5f);
+                    if (ej.contains("aliases")) e.aliases = ej["aliases"];
+                    if (ej.contains("sprites")) {
+                        for (auto& [sn, sdj] : ej["sprites"].items()) {
+                            SpriteDef sd;
+                            sd.path = sdj.value("path", "");
+                            sd.frames = sdj.value("frames", 1);
+                            sd.speed = sdj.value("speed", 5.0f);
+                            sd.scale = sdj.value("scale", 1.0f);
+                            e.sprites[sn] = sd;
+                        }
+                    }
+                    m_project.entities[id] = e;
+                } catch(...) {}
+            }
+        }
+        else if (section == "BYTECODE") {
+            // ID OPCODE [args] {meta} @line
+            std::stringstream ss(line);
+            std::string sid, sop, sargs;
+            ss >> sid >> sop;
+            
+            BitInstruction ins;
+            ins.op = StrToOp(sop);
+            
+            size_t startBracket = line.find('[');
+            size_t endBracket = line.find_last_of(']');
+            if (startBracket != std::string::npos && endBracket != std::string::npos) {
+                std::string argsStr = line.substr(startBracket + 1, endBracket - startBracket - 1);
+                
+                // Quote-aware tokenizer
+                std::string current;
+                bool inQuotes = false;
+                for (size_t i = 0; i < argsStr.size(); ++i) {
+                    char c = argsStr[i];
+                    if (c == '"') {
+                        inQuotes = !inQuotes;
+                    } else if (c == ',' && !inQuotes) {
+                        ins.args.push_back(current);
+                        current.clear();
+                    } else {
+                        current += c;
+                    }
+                }
+                if (!current.empty() || !argsStr.empty()) ins.args.push_back(current);
+                
+                // Clean up quotes from args
+                for (auto& a : ins.args) {
+                    if (a.size() >= 2 && a.front() == '"' && a.back() == '"') {
+                        a = a.substr(1, a.size() - 2);
+                    }
+                }
+            }
+            
+            size_t brace = line.find('{');
+            if (brace != std::string::npos && brace < line.find('@', endBracket)) {
+                size_t endBrace = line.find('}', brace);
+                std::string metaStr = line.substr(brace, endBrace - brace + 1);
+                try { ins.metadata = json::parse(metaStr); } catch(...) {}
+            }
+            
+            size_t at = line.find('@', endBracket);
+            if (at != std::string::npos) {
+                ins.line = std::stoi(line.substr(at + 1));
+            }
+            m_project.bytecode.push_back(ins);
+        }
+    }
+
+    return true;
 }

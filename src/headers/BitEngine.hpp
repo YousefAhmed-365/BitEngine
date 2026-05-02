@@ -198,10 +198,15 @@ struct EventTraceEntry {
 class DialogEngine {
 public:
     DialogEngine();
-    bool LoadProject(const std::string& path);
-    bool LoadBytecodeFile(const std::string& path);   // Load .bitc VM bytecode
+    bool LoadProject(const std::string& configFilePath);
+    bool SaveBytecode(const std::string& path) const;
+    bool LoadBytecodeFile(const std::string& path);
+
+    // BitPack Format (.bitp)
+    bool SaveBitPack(const std::string& path) const;
+    bool LoadBitPackFile(const std::string& path);
+    
     void CompileProject(const std::string& outputPath);
-    bool SaveBytecode(const std::string& path) const; // Export .bitc VM bytecode
     
     void SaveGame(int slot = 0); 
     bool LoadGame(int slot = 0);
