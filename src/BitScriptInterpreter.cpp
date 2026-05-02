@@ -14,7 +14,8 @@ bool BitScriptLexer::IsKeyword(const std::string& s) {
         "sprite", "scene", "choice", "jump", "if", "and", "or", "true", "false", 
         "left", "right", "center", "bg", "bgm",
         "shake", "delay", "fade", "move", "fade_screen", "halt",
-        "play_sfx", "expression", "hide", "pos", "clear", "random"
+        "play_sfx", "expression", "hide", "pos", "clear", "random",
+        "transition", "ui", "narration"
     };
     for (const auto& k : kw) if (k == s) return true;
     return false;
@@ -29,9 +30,19 @@ std::vector<Token> BitScriptLexer::Tokenize() {
             pos++;
             continue;
         }
-        if (c == '/' && pos + 1 < src.length() && src[pos+1] == '/') {
-            while (pos < src.length() && src[pos] != '\n') pos++;
-            continue;
+        if (c == '#') {
+            if (pos + 1 < src.length() && src[pos+1] == '-') {
+                pos += 2; // skip #-
+                while (pos + 1 < src.length() && !(src[pos] == '-' && src[pos+1] == '#')) {
+                    if (src[pos] == '\n') line++;
+                    pos++;
+                }
+                if (pos + 1 < src.length()) pos += 2; // skip -#
+                continue;
+            } else {
+                while (pos < src.length() && src[pos] != '\n') pos++;
+                continue;
+            }
         }
         if (isalpha(c) || c == '_') {
             std::string ident;
@@ -212,7 +223,69 @@ void BitScriptParser::ParseScene() {
     p.bytecode.push_back({BitOp::LABEL, {name}, {}});
     expect(TokenType::Symbol, "{");
     while (!match(TokenType::Symbol, "}")) {
-        if (peek().type == TokenType::Identifier && peekNext().value == ":") {
+        if (match(TokenType::Keyword, "scene")) ParseScene();
+        else if (match(TokenType::Symbol, ">")) {
+            // Join character: > akira [sprite=idle];
+            std::string entityId = consume().value;
+            nlohmann::json meta;
+            if (match(TokenType::Symbol, "[")) {
+                while (!match(TokenType::Symbol, "]")) {
+                    std::string k = consume().value;
+                    expect(TokenType::Symbol, "=");
+                    std::string v = consume().value;
+                    meta[k] = v;
+                    match(TokenType::Symbol, ",");
+                }
+            }
+            expect(TokenType::Symbol, ";");
+            meta["join"] = "true";
+            p.bytecode.push_back({BitOp::EVENT, {"join"}, meta});
+            // We use EVENT with op="join" but we should probably just use SAY with empty text
+            p.bytecode.push_back({BitOp::SAY, {entityId, ""}, meta});
+        }
+        else if (match(TokenType::Symbol, "<")) {
+            // Leave character: < akira;
+            std::string entityId = consume().value;
+            expect(TokenType::Symbol, ";");
+            nlohmann::json j; j["op"] = "hide"; j["id"] = entityId;
+            p.bytecode.push_back({BitOp::EVENT, {"hide"}, j});
+        }
+        else if (match(TokenType::Keyword, "transition")) {
+            // transition type, duration, post_delay;
+            std::string type = consume().value;
+            expect(TokenType::Symbol, ",");
+            std::string duration = consume().value;
+            std::string delay = "0";
+            if (match(TokenType::Symbol, ",")) delay = consume().value;
+            expect(TokenType::Symbol, ";");
+            p.bytecode.push_back({BitOp::TRANSITION, {type, duration, delay}, {}});
+        }
+        else if (match(TokenType::Keyword, "ui")) {
+            // ui hide; ui show;
+            std::string action = consume().value;
+            expect(TokenType::Symbol, ";");
+            p.bytecode.push_back({BitOp::UI_VISIBLE, {action}, {}});
+        }
+        else if (match(TokenType::Keyword, "narration")) {
+            // narration [meta]: "text"; or narration "text";
+            nlohmann::json meta;
+            if (match(TokenType::Symbol, "[")) {
+                while (!match(TokenType::Symbol, "]")) {
+                    std::string k = consume().value;
+                    expect(TokenType::Symbol, "=");
+                    std::string v = consume().value;
+                    meta[k] = v;
+                    match(TokenType::Symbol, ",");
+                }
+            }
+            if (match(TokenType::Symbol, ":")) {
+                // optional colon
+            }
+            std::string text = consume().value;
+            expect(TokenType::Symbol, ";");
+            p.bytecode.push_back({BitOp::SAY, {"narration", text}, meta});
+        }
+        else if (peek().type == TokenType::Identifier && peekNext().value == ":") {
             std::string entity = consume().value;
             consume(); // :
             std::string text = consume().value;

@@ -37,6 +37,8 @@ enum class BitOp {
     BG,         // id
     BGM,        // id
     LABEL,      // marker (no-op)
+    TRANSITION,
+    UI_VISIBLE,
     HALT
 };
 
@@ -268,6 +270,13 @@ public:
 
     // Delay State
     bool IsEventDelaying() const { return m_engineDelayTimer > 0.0f; }
+    bool IsVisualAnimating() const {
+        for (const auto& [id, state] : m_activeEntities) {
+            if (state.moveTimer < state.moveDuration || state.fadeTimer < state.fadeDuration) return true;
+        }
+        if (m_bgFadeAlpha < 1.0f) return true;
+        return false;
+    }
 
     // Narrative Effects State
     float GetEffectShake() const { return m_shakeIntensity; }

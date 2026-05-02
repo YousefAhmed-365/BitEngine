@@ -10,6 +10,8 @@ obj/
 *.out
 *.app
 *.png
+*.bitc
+*.bitscript
 
 # Save and logs
 save/

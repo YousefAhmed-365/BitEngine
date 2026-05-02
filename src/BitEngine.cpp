@@ -539,7 +539,12 @@ void DialogEngine::Update(float dt) {
         }
     }
 
-    // 3. Pause normal narrative processing while transitioning
+    // 3. Trigger pending transition if animations and delays are done
+    if (m_hasPendingTransition && !IsVisualAnimating() && m_engineDelayTimer <= 0.0f) {
+        StartTransition(m_pendingTransitionDuration, m_pendingTransitionPostDelay);
+    }
+
+    // 4. Pause normal narrative processing while transitioning
     if (m_isTransitioning) return;
 
     // 4. Engine Delay (Pauses narrative, but not visuals)
@@ -754,31 +759,7 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
                 }
                 if (ins.metadata.contains("bgm")) m_activeBgm = ins.metadata["bgm"];
                 if (ins.metadata.contains("auto_next")) m_isAutoNext = (ins.metadata["auto_next"].get<std::string>() == "true");
-                if (ins.metadata.contains("hide_ui"))   m_isUiHidden = (ins.metadata["hide_ui"].get<std::string>() == "true");
                 if (ins.metadata.contains("pre_delay")) m_engineDelayTimer = std::stoi(ins.metadata["pre_delay"].get<std::string>()) / 1000.0f;
-
-                // Feature: Transition handling
-                if (ins.metadata.contains("transition")) {
-                    float dur = 0.6f;
-                    if (ins.metadata.contains("transition_duration")) 
-                        dur = std::stof(ins.metadata["transition_duration"].get<std::string>()) / 1000.0f;
-                    
-                    float postDelay = 0.0f;
-                    if (ins.metadata.contains("transition_delay"))
-                        postDelay = std::stof(ins.metadata["transition_delay"].get<std::string>()) / 1000.0f;
-
-                    m_hasPendingTransition = true;
-                    m_pendingTransitionDuration = dur;
-                    m_pendingTransitionPostDelay = postDelay;
-
-                    m_vmWaiting = true;
-                    m_vmDelayed = true;
-                    m_isUiHidden = true; // Hide UI immediately
-
-                    if (m_engineDelayTimer <= 0.0f) {
-                        StartTransition(dur, postDelay);
-                    }
-                }
             }
 
             // 2. Entity visuals
@@ -800,13 +781,13 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
 
             // 3. Joining logic
             if (!join) {
-                if (entityId != "system" && !m_activeEntities.count(entityId)) {
+                if (entityId != "system" && entityId != "narration" && !m_activeEntities.count(entityId)) {
                     m_activeEntities.clear();
                 }
             }
 
             // 4. Content reveal
-            m_currentSpeakerId = entityId;
+            m_currentSpeakerId = (entityId == "narration" || entityId == "system") ? "" : entityId;
             m_cachedInterpolatedContent = InterpolateVariables(content);
             m_cachedParsedContent = RichTextParser::Parse(m_cachedInterpolatedContent);
             m_cachedTotalChars = m_cachedParsedContent.size();
@@ -817,7 +798,8 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
             // 5. History
             if (!content.empty()) {
                 std::string speaker = "SYSTEM";
-                if (m_project.entities.count(entityId)) speaker = m_project.entities.at(entityId).name;
+                if (entityId == "narration") speaker = "";
+                else if (m_project.entities.count(entityId)) speaker = m_project.entities.at(entityId).name;
                 HistoryEntry entry = { speaker, m_cachedInterpolatedContent, m_cachedParsedContent };
                 m_history.push_back(entry);
                 if (m_history.size() > 100) m_history.erase(m_history.begin());
@@ -888,6 +870,22 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
         }
         case BitOp::BGM: {
             m_activeBgm = args[0];
+            break;
+        }
+        case BitOp::TRANSITION: {
+            float dur = std::stof(args[1]) / 1000.0f;
+            float postDelay = std::stof(args[2]) / 1000.0f;
+            m_hasPendingTransition = true;
+            m_pendingTransitionDuration = dur;
+            m_pendingTransitionPostDelay = postDelay;
+            m_vmWaiting = true;
+            m_vmDelayed = true;
+            m_isUiHidden = true;
+            // Removed immediate StartTransition call
+            break;
+        }
+        case BitOp::UI_VISIBLE: {
+            m_isUiHidden = (args[0] == "hide");
             break;
         }
         case BitOp::EVENT: {
