@@ -95,8 +95,16 @@ scene routine_neural_sync(version) {
     return;
 };
 
+scene transition{
+    ui hide
+    fade_screen 1.0, 1000 wait;
+    fade_screen 0.0, 1000 wait;
+    ui show;
+
+    return;
+}
+
 scene routine_district_transition {
-    ui hide;
     fade bg, market_bg, 2000;
     fade akira, 0.0, 1000;
     fade kael, 0.0, 1000 wait;
@@ -104,7 +112,7 @@ scene routine_district_transition {
     leave akira;
     leave kael;
     
-    fade_screen 1.0, 500 wait;
+    call transition;
     narration: "Moving to the next district...";
     return;
 };

@@ -221,7 +221,7 @@
     },
     {
       "args": [
-        "routine_district_transition"
+        "transition"
       ],
       "op": "LABEL"
     },
@@ -230,6 +230,56 @@
         "hide"
       ],
       "op": "UI_VISIBLE"
+    },
+    {
+      "args": [
+        "fade_screen"
+      ],
+      "meta": {
+        "alpha": 1.0,
+        "duration": 1000,
+        "op": "fade_screen"
+      },
+      "op": "EVENT"
+    },
+    {
+      "args": [
+        "fade"
+      ],
+      "op": "WAIT_ACTION"
+    },
+    {
+      "args": [
+        "fade_screen"
+      ],
+      "meta": {
+        "alpha": 0.0,
+        "duration": 1000,
+        "op": "fade_screen"
+      },
+      "op": "EVENT"
+    },
+    {
+      "args": [
+        "fade"
+      ],
+      "op": "WAIT_ACTION"
+    },
+    {
+      "args": [
+        "show"
+      ],
+      "op": "UI_VISIBLE"
+    },
+    {
+      "args": [],
+      "op": "RETURN"
+    },
+    {
+      "args": [
+        "routine_district_transition"
+      ],
+      "op": "LABEL"
     },
     {
       "args": [
@@ -295,20 +345,9 @@
     },
     {
       "args": [
-        "fade_screen"
+        "transition"
       ],
-      "meta": {
-        "alpha": 1.0,
-        "duration": 500,
-        "op": "fade_screen"
-      },
-      "op": "EVENT"
-    },
-    {
-      "args": [
-        "fade"
-      ],
-      "op": "WAIT_ACTION"
+      "op": "CALL"
     },
     {
       "args": [

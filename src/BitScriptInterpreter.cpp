@@ -612,7 +612,6 @@ void BitScriptParser::ParseAssignment(const std::string& var, std::vector<BitIns
 }
 
 void BitScriptParser::ParseDialogueBlock(const std::string& entityId, std::vector<BitInstruction>& output) {
-    (void)output;
     while (peek().type != TokenType::EndOfFile && peek().value != "}") {
         std::string alias = "";
         if (match(TokenType::Symbol, ".")) {
@@ -656,13 +655,99 @@ Operand BitScriptParser::ParseAddExpr(std::vector<BitInstruction>& output) {
     while (peek().type != TokenType::EndOfFile && (peek().value == "+" || peek().value == "-")) {
         std::string op = consume().value;
         Operand right = ParseMulExpr(output);
+        
+        // For literal operations, compute directly
+        if (!left.isRef && !right.isRef) {
+            try {
+                int lval = std::stoi(left.val);
+                int rval = std::stoi(right.val);
+                int result = (op == "+") ? (lval + rval) : (lval - rval);
+                left.val = std::to_string(result);
+            } catch (...) {
+                // Conversion failed, keep left
+            }
+        } else {
+            // For variable operations, emit instructions
+            std::string resultVar = genTempVar();
+            if (op == "+") {
+                if (left.isRef && right.isRef) {
+                    emit(BitOp::SET_REF, {resultVar, left.val});
+                    emit(BitOp::ADD_REF, {resultVar, right.val});
+                } else if (left.isRef) {
+                    emit(BitOp::SET_REF, {resultVar, left.val});
+                    emit(BitOp::ADD, {resultVar, right.val});
+                } else {
+                    emit(BitOp::SET, {resultVar, left.val});
+                    emit(BitOp::ADD_REF, {resultVar, right.val});
+                }
+            } else { // op == "-"
+                if (left.isRef && right.isRef) {
+                    emit(BitOp::SET_REF, {resultVar, left.val});
+                    emit(BitOp::SUB_REF, {resultVar, right.val});
+                } else if (left.isRef) {
+                    emit(BitOp::SET_REF, {resultVar, left.val});
+                    emit(BitOp::SUB, {resultVar, right.val});
+                } else {
+                    emit(BitOp::SET, {resultVar, left.val});
+                    emit(BitOp::SUB_REF, {resultVar, right.val});
+                }
+            }
+            left = {false, resultVar};
+        }
     }
     return left;
 }
 
 Operand BitScriptParser::ParseMulExpr(std::vector<BitInstruction>& output) {
-    (void)output;
-    return ParsePrimary();
+    Operand left = ParsePrimary();
+    while (peek().type != TokenType::EndOfFile && (peek().value == "*" || peek().value == "/")) {
+        std::string op = consume().value;
+        Operand right = ParsePrimary();
+        
+        // For literal operations, compute directly
+        if (!left.isRef && !right.isRef) {
+            try {
+                int lval = std::stoi(left.val);
+                int rval = std::stoi(right.val);
+                if (op == "/" && rval == 0) {
+                    left.val = "0"; // Division by zero at parse time - default to 0
+                } else {
+                    int result = (op == "*") ? (lval * rval) : (lval / rval);
+                    left.val = std::to_string(result);
+                }
+            } catch (...) {
+                left.val = "0";
+            }
+        } else {
+            // For variable operations, emit instructions
+            std::string resultVar = genTempVar();
+            if (op == "*") {
+                if (left.isRef && right.isRef) {
+                    emit(BitOp::SET_REF, {resultVar, left.val});
+                    emit(BitOp::MUL_REF, {resultVar, right.val});
+                } else if (left.isRef) {
+                    emit(BitOp::SET_REF, {resultVar, left.val});
+                    emit(BitOp::MUL, {resultVar, right.val});
+                } else {
+                    emit(BitOp::SET, {resultVar, left.val});
+                    emit(BitOp::MUL_REF, {resultVar, right.val});
+                }
+            } else { // op == "/"
+                if (left.isRef && right.isRef) {
+                    emit(BitOp::SET_REF, {resultVar, left.val});
+                    emit(BitOp::DIV_REF, {resultVar, right.val});
+                } else if (left.isRef) {
+                    emit(BitOp::SET_REF, {resultVar, left.val});
+                    emit(BitOp::DIV, {resultVar, right.val});
+                } else {
+                    emit(BitOp::SET, {resultVar, left.val});
+                    emit(BitOp::DIV_REF, {resultVar, right.val});
+                }
+            }
+            left = {false, resultVar};
+        }
+    }
+    return left;
 }
 
 Operand BitScriptParser::ParsePrimary() {
@@ -676,37 +761,45 @@ Operand BitScriptParser::ParsePrimary() {
 void BitScriptParser::ParseIfStatement(std::vector<BitInstruction>& output) {
     expect(TokenType::Symbol, "(");
     
-    struct Cond { std::string var, op, val; bool isRef; bool isOr; };
+    struct Cond { std::string var, op, val; bool isRef; };
     std::vector<Cond> conditions;
 
     auto parseOne = [&]() {
         std::string var = consume().value;
         std::string op = consume().value;
         Operand val = ParseExpression(output);
-        conditions.push_back({var, op, val.val, val.isRef, false});
+        conditions.push_back({var, op, val.val, val.isRef});
     };
 
     parseOne();
     while (peek().type != TokenType::EndOfFile && (peek().value == "and" || peek().value == "or")) {
-        bool isOr = (consume().value == "or");
+        consume(); // consume "and" or "or" - for now only AND logic is properly supported
         parseOne();
-        conditions.back().isOr = isOr;
     }
     
     expect(TokenType::Symbol, ")");
     expect(TokenType::Symbol, "{");
     
-    std::string thenLabel = genTempVar() + "_then";
     std::string endLabel = genTempVar() + "_end";
 
+    // Helper to negate operator
+    auto negateOp = [](const std::string& op) -> std::string {
+        if (op == "==" || op == "=") return "!=";
+        if (op == "!=") return "==";
+        if (op == ">") return "<=";
+        if (op == "<") return ">=";
+        if (op == ">=") return "<";
+        if (op == "<=") return ">";
+        return op;
+    };
+
+    // Emit AND logic: jump to end if ANY condition is false
     for (size_t i = 0; i < conditions.size(); ++i) {
         auto& c = conditions[i];
-        if (c.isRef) emit(BitOp::IF_REF, {c.var, c.op, c.val, thenLabel});
-        else emit(BitOp::IF, {c.var, c.op, c.val, thenLabel});
+        std::string negate = negateOp(c.op);
+        if (c.isRef) emit(BitOp::IF_REF, {c.var, negate, c.val, endLabel});
+        else emit(BitOp::IF, {c.var, negate, c.val, endLabel});
     }
-    
-    emit(BitOp::GOTO, {endLabel});
-    emit(BitOp::LABEL, {thenLabel});
     
     while (peek().type != TokenType::EndOfFile && peek().value != "}") {
         ParseStatement();

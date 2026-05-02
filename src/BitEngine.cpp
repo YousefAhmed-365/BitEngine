@@ -597,7 +597,12 @@ void DialogEngine::Update(float dt) {
     // 0. Update Timelines
     for (auto it = m_activeTimelines.begin(); it != m_activeTimelines.end(); ) {
         it->timer += dt * 1000.0f;
-        auto& tl = m_project.timelines[it->id];
+        auto tlIt = m_project.timelines.find(it->id);
+        if (tlIt == m_project.timelines.end()) {
+            it = m_activeTimelines.erase(it);
+            continue;
+        }
+        auto& tl = tlIt->second;
         while (it->nextEventIdx < tl.events.size() && tl.events[it->nextEventIdx].time_ms <= it->timer) {
             auto& ev = tl.events[it->nextEventIdx++];
             ExecuteInstruction({ev.op, ev.args, ev.metadata, -1});
@@ -992,8 +997,18 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
         case BitOp::SUB_REF: SetVariable(args[0], GetVariable(args[0]) - GetVariable(args[1])); break;
         case BitOp::MUL:     SetVariable(args[0], GetVariable(args[0]) * SafeStoi(args[1])); break;
         case BitOp::MUL_REF: SetVariable(args[0], GetVariable(args[0]) * GetVariable(args[1])); break;
-        case BitOp::DIV:     SetVariable(args[0], GetVariable(args[0]) / SafeStoi(args[1])); break;
-        case BitOp::DIV_REF: SetVariable(args[0], GetVariable(args[0]) / GetVariable(args[1])); break;
+        case BitOp::DIV: {
+            int divisor = SafeStoi(args[1]);
+            if (divisor == 0) RecordError("ExecuteInstruction", "Division by zero");
+            else SetVariable(args[0], GetVariable(args[0]) / divisor);
+            break;
+        }
+        case BitOp::DIV_REF: {
+            int divisor = GetVariable(args[1]);
+            if (divisor == 0) RecordError("ExecuteInstruction", "Division by zero");
+            else SetVariable(args[0], GetVariable(args[0]) / divisor);
+            break;
+        }
         case BitOp::GOTO: {
             for (int i = 0; i < (int)m_project.bytecode.size(); ++i) {
                 if (m_project.bytecode[i].op == BitOp::LABEL && m_project.bytecode[i].args[0] == args[0]) {
@@ -1080,18 +1095,18 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
                 m_callStack.push_back(m_pc);
                 m_localVariables.push_back({}); // New scope
                 
-                // Map parameters
+                // Map parameters - resolve variable references in caller's scope
                 if (labelIns && labelIns->args.size() > 1) {
                     for (size_t i = 1; i < labelIns->args.size(); ++i) {
                         std::string paramName = labelIns->args[i];
                         int val = 0;
                         if (args.size() > i) {
-                            // Arg could be a literal or variable name from the OLD scope?
-                            // Wait, the interpreter already resolved literals but what about variables?
-                            // If it's a variable name, we should resolve it in the CALLER'S scope.
-                            // But CALL's args[i] is a string. 
-                            // Let's assume it's an integer value for now (already parsed by ParseExpression).
-                            try { val = std::stoi(args[i]); } catch(...) {}
+                            // Try to parse as integer first, if fails treat as variable name
+                            try {
+                                val = std::stoi(args[i]);
+                            } catch (...) {
+                                val = GetVariable(args[i]);
+                            }
                         }
                         m_localVariables.back()[paramName] = val;
                     }
