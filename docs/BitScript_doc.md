@@ -1,5 +1,5 @@
 # 🧩 BitScript Specification & Documentation
-**Version 2.1.0**
+**Version 0.1**
 
 BitScript is a lightweight, high-performance narrative scripting language designed specifically for the **BitEngine VM**. It combines declarative entity management with a powerful expression-native logic system to enable complex branching storytelling with minimal syntax overhead.
 
@@ -155,9 +155,9 @@ BitScript features a robust expression evaluator used in assignments, conditions
 
 ---
 
-## 🚀 Native VM & Bytecode (New in v2.1)
+## 🚀 Native VM & Bytecode (New in v0.1)
 
-As of version 2.1, BitEngine has moved to a **strictly bytecode-driven architecture**.
+As of version 0.1, BitEngine has moved to a **strictly bytecode-driven architecture**.
 
 ### Compilation
 The human-readable `.bitscript` files must be compiled into binary `.bitc` files before execution (though the engine can parse source files directly for development).

@@ -20,7 +20,7 @@ private:
     int DoListScenes(const std::string& path);
     int DoStats(const std::string& path);
 
-    std::string m_title       = "BitEngine Core v2.1";
+    std::string m_title       = "BitEngine Core v0.1";
     int         m_width       = 1280;
     int         m_height      = 720;
     int         m_minWidth    = 800;

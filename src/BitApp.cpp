@@ -11,7 +11,7 @@
 
 using json = nlohmann::json;
 
-static const char* ENGINE_VERSION = "2.1.0";
+static const char* ENGINE_VERSION = "0.1";
 static const char* ENGINE_NAME    = "BitEngine";
 
 static bool endsWith(const std::string& s, const std::string& suffix) {
@@ -233,6 +233,7 @@ int BitApp::DoStats(const std::string& path) {
 }
 
 void BitApp::Run(const std::string& projectPath) {
+    SetTraceLogLevel(LOG_NONE);
     if (m_resizable) SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(m_width, m_height, m_title.c_str());
     SetWindowMinSize(m_minWidth, m_minHeight);
