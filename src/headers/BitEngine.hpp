@@ -297,6 +297,11 @@ public:
     bool HasErrors() const { return !m_errors.empty(); }
     const std::vector<std::string>& GetErrors() const { return m_errors; }
 
+    // v0.2 Debug Getters
+    const std::vector<int>& GetCallStack() const { return m_callStack; }
+    const std::vector<std::unordered_map<std::string, int>>& GetLocalScopes() const { return m_localVariables; }
+    std::string GetWaitActionType() const { return m_waitingForActionType; }
+
 private:
     DialogProject m_project;
     bool m_debugOverlayVisible = false;

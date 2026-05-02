@@ -691,7 +691,7 @@ void BitRenderer::DrawDebugOverlay() {
     if (sw < 1100) cols = 2;
     if (sw < 600)  cols = 1;
     
-    int rows_count = (5 + cols - 1) / cols;
+    int rows_count = (6 + cols - 1) / cols;
     int panelW = (sw - 40 - (cols - 1) * gap) / cols;
     if (panelW > 350) panelW = 350;
     
@@ -759,7 +759,8 @@ void BitRenderer::DrawDebugOverlay() {
     DrawText(TextFormat("UI Hidden:   %s", m_engine.IsUiHidden() ? "TRUE" : "FALSE"), px, dy, 10, m_engine.IsUiHidden() ? YELLOW : GRAY); dy += 14;
     DrawText(TextFormat("Auto-Play:   %s", m_engine.IsAutoPlaying() ? "ON" : "OFF"), px, dy, 10, m_engine.IsAutoPlaying() ? LIME : GRAY); dy += 14;
     DrawText(TextFormat("Transition:  %s", m_engine.IsTransitioning() ? "ACTIVE" : "FALSE"), px, dy, 10, m_engine.IsTransitioning() ? ORANGE : GRAY); dy += 14;
-    DrawText(TextFormat("Wait Timer:  %.2fs", m_engine.IsEventDelaying() ? m_engine.GetBgFadeAlpha() : 0.0f), px, dy, 10, m_engine.IsEventDelaying() ? ORANGE : GRAY); dy += 14;
+    std::string waitType = m_engine.GetWaitActionType();
+    DrawText(TextFormat("Wait Action: %s", waitType.empty() ? "NONE" : waitType.c_str()), px, dy, 10, !waitType.empty() ? ORANGE : GRAY); dy += 14;
     DrawText(TextFormat("BG Fade:     %.2f", m_engine.GetBgFadeAlpha()), px, dy, 10, RAYWHITE); dy += 18;
 
     DrawText("Entities:", px, dy, 11, SKYBLUE); dy += 15;
@@ -773,9 +774,33 @@ void BitRenderer::DrawDebugOverlay() {
     }
     if (entities.empty()) DrawText("(none)", px, dy, 10, Fade(RAYWHITE, 0.4f)); 
 
-    // Panel 5: Bytecode Inspector
+    // Panel 5: Local Scope & Stack
     Rectangle r5 = GetPanelRect(4);
     px = (int)r5.x; py = (int)r5.y; dy = py;
+    DrawText("LOCAL SCOPE & STACK", px, dy, 13, VIOLET); dy += 22;
+    
+    const auto& stack = m_engine.GetCallStack();
+    DrawText(TextFormat("Call Depth: %d", (int)stack.size()), px, dy, 10, RAYWHITE); dy += 14;
+    for (int i = 0; i < (int)stack.size(); ++i) {
+        DrawText(TextFormat("  [%d] @ PC:%d", i, stack[i]), px, dy, 9, Fade(RAYWHITE, 0.7f));
+        dy += 12;
+    }
+    dy += 10;
+
+    DrawText("Active Locals:", px, dy, 11, SKYBLUE); dy += 15;
+    const auto& scopes = m_engine.GetLocalScopes();
+    if (!scopes.empty()) {
+        for (const auto& [name, val] : scopes.back()) {
+            DrawText(TextFormat("%-14s %d", name.c_str(), val), px, dy, 10, VIOLET);
+            dy += 12;
+        }
+    } else {
+        DrawText("(none)", px, dy, 10, GRAY);
+    }
+
+    // Panel 6: Bytecode Inspector
+    Rectangle r6 = GetPanelRect(5);
+    px = (int)r6.x; py = (int)r6.y; dy = py;
     DrawText("BYTECODE INSPECTOR", px, dy, 13, PURPLE); dy += 20;
     const auto& bytecode = m_engine.GetProject().bytecode;
     int currentPC = m_engine.GetCurrentPC();
