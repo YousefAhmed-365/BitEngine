@@ -955,12 +955,39 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
             break;
         }
         case BitOp::CALL: {
-            m_callStack.push_back(m_pc);
-            m_localVariables.push_back({}); // New local scope
+            std::string labelId = args[0];
+            int targetPC = -1;
+            const BitInstruction* labelIns = nullptr;
+
             for (int i = 0; i < (int)m_project.bytecode.size(); ++i) {
-                if (m_project.bytecode[i].op == BitOp::LABEL && m_project.bytecode[i].args[0] == args[0]) {
-                    m_pc = i; break;
+                if (m_project.bytecode[i].op == BitOp::LABEL && m_project.bytecode[i].args[0] == labelId) {
+                    targetPC = i;
+                    labelIns = &m_project.bytecode[i];
+                    break;
                 }
+            }
+
+            if (targetPC != -1) {
+                m_callStack.push_back(m_pc);
+                m_localVariables.push_back({}); // New scope
+                
+                // Map parameters
+                if (labelIns && labelIns->args.size() > 1) {
+                    for (size_t i = 1; i < labelIns->args.size(); ++i) {
+                        std::string paramName = labelIns->args[i];
+                        int val = 0;
+                        if (args.size() > i) {
+                            // Arg could be a literal or variable name from the OLD scope?
+                            // Wait, the interpreter already resolved literals but what about variables?
+                            // If it's a variable name, we should resolve it in the CALLER'S scope.
+                            // But CALL's args[i] is a string. 
+                            // Let's assume it's an integer value for now (already parsed by ParseExpression).
+                            try { val = std::stoi(args[i]); } catch(...) {}
+                        }
+                        m_localVariables.back()[paramName] = val;
+                    }
+                }
+                m_pc = targetPC;
             }
             break;
         }

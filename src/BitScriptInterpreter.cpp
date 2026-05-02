@@ -235,7 +235,14 @@ void BitScriptParser::ParseAssets() {
 
 void BitScriptParser::ParseScene() {
     std::string name = consume().value;
-    p.bytecode.push_back({BitOp::LABEL, {name}, {}});
+    std::vector<std::string> params = { name };
+    if (match(TokenType::Symbol, "(")) {
+        while (!match(TokenType::Symbol, ")")) {
+            params.push_back(consume().value);
+            match(TokenType::Symbol, ",");
+        }
+    }
+    p.bytecode.push_back({BitOp::LABEL, params, {}});
     expect(TokenType::Symbol, "{");
     while (!match(TokenType::Symbol, "}")) {
         if (match(TokenType::Keyword, "scene")) ParseScene();
@@ -514,9 +521,17 @@ void BitScriptParser::ParseScene() {
             p.bytecode.push_back({BitOp::GOTO, {target}, {}});
         }
         else if (match(TokenType::Keyword, "call")) {
-            std::string target = consume().value;
+            std::string label = consume().value;
+            std::vector<std::string> args = { label };
+            if (match(TokenType::Symbol, "(")) {
+                while (!match(TokenType::Symbol, ")")) {
+                    Operand arg = ParseExpression(p.bytecode);
+                    args.push_back(arg.val);
+                    match(TokenType::Symbol, ",");
+                }
+            }
             expect(TokenType::Symbol, ";");
-            p.bytecode.push_back({BitOp::CALL, {target}, {}});
+            p.bytecode.push_back({BitOp::CALL, args, {}});
         }
         else if (match(TokenType::Keyword, "return")) {
             expect(TokenType::Symbol, ";");
