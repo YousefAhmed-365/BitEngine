@@ -335,9 +335,8 @@ void BitRenderer::Draw() {
     
     if (m_showHistory) DrawHistory();
     
-    DrawCustomCursor();
-
     if (m_engine.IsDebugOverlayVisible()) DrawDebugOverlay();
+    DrawCustomCursor();
 
     // Toast notification
     if (saveToastTimer > 0.0f) {

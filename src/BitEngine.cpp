@@ -165,6 +165,13 @@ static std::string OpToStr(BitOp op) {
         case BitOp::BG:      return "BG";
         case BitOp::BGM:     return "BGM";
         case BitOp::LABEL:   return "LABEL";
+        case BitOp::WAIT_INPUT: return "WAIT_INPUT";
+        case BitOp::TRANSITION:  return "TRANSITION";
+        case BitOp::UI_VISIBLE:  return "UI_VISIBLE";
+        case BitOp::CALL:        return "CALL";
+        case BitOp::RETURN:      return "RETURN";
+        case BitOp::WAIT_ACTION: return "WAIT_ACTION";
+        case BitOp::SET_LOCAL:   return "SET_LOCAL";
         case BitOp::HALT:    return "HALT";
         default:             return "NOP";
     }
@@ -191,6 +198,13 @@ static BitOp StrToOp(const std::string& s) {
     if (s=="BG")      return BitOp::BG;
     if (s=="BGM")     return BitOp::BGM;
     if (s=="LABEL")   return BitOp::LABEL;
+    if (s=="WAIT_INPUT") return BitOp::WAIT_INPUT;
+    if (s=="TRANSITION") return BitOp::TRANSITION;
+    if (s=="UI_VISIBLE") return BitOp::UI_VISIBLE;
+    if (s=="CALL")       return BitOp::CALL;
+    if (s=="RETURN")     return BitOp::RETURN;
+    if (s=="WAIT_ACTION") return BitOp::WAIT_ACTION;
+    if (s=="SET_LOCAL")  return BitOp::SET_LOCAL;
     if (s=="HALT")    return BitOp::HALT;
     return BitOp::HALT;
 }
@@ -210,15 +224,26 @@ bool DialogEngine::SaveBytecode(const std::string& path) const {
     root["configs"]["reveal_speed"]  = m_project.configs.reveal_speed;
     root["configs"]["auto_play_delay"]= m_project.configs.auto_play_delay;
     root["configs"]["auto_save"]     = m_project.configs.auto_save;
+    root["configs"]["encrypt_save"]  = m_project.configs.encrypt_save;
+    root["configs"]["save_prefix"]   = m_project.configs.save_prefix;
+    root["configs"]["enable_floating"] = m_project.configs.enable_floating;
+    root["configs"]["enable_shadows"]  = m_project.configs.enable_shadows;
+    root["configs"]["enable_vignette"] = m_project.configs.enable_vignette;
+    root["configs"]["max_slots"]       = m_project.configs.max_slots;
 
     for (auto& [k,v] : m_project.backgrounds) root["backgrounds"][k] = v;
     for (auto& [k,v] : m_project.music)        root["music"][k]       = v;
     for (auto& [k,v] : m_project.sfx)          root["sfx"][k]         = v;
     for (auto& [k,v] : m_project.fonts)        root["fonts"][k]       = v;
-    for (auto& [k,v] : m_project.variables)
-        root["variables"][k] = { {"id", v.id}, {"initial_value", v.initial_value} };
+    for (auto& [k,v] : m_project.variables) {
+        json vj = { {"id", v.id}, {"initial_value", v.initial_value} };
+        if (v.min.has_value()) vj["min"] = v.min.value();
+        if (v.max.has_value()) vj["max"] = v.max.value();
+        root["variables"][k] = vj;
+    }
     for (auto& [k,e] : m_project.entities) {
         json ej = { {"id",e.id},{"name",e.name},{"type",e.type},{"default_pos_x",e.default_pos_x} };
+        if (!e.aliases.empty()) ej["aliases"] = e.aliases;
         for (auto& [sn,sd] : e.sprites)
             ej["sprites"][sn] = { {"path",sd.path},{"frames",sd.frames},{"speed",sd.speed},{"scale",sd.scale} };
         root["entities"][k] = ej;
@@ -261,6 +286,12 @@ bool DialogEngine::LoadBytecodeFile(const std::string& path) {
         m_project.configs.reveal_speed  = c.value("reveal_speed", 45.0f);
         m_project.configs.auto_play_delay= c.value("auto_play_delay",2.0f);
         m_project.configs.auto_save     = c.value("auto_save",false);
+        m_project.configs.encrypt_save  = c.value("encrypt_save", false);
+        m_project.configs.save_prefix   = c.value("save_prefix", "save_slot_");
+        m_project.configs.enable_floating = c.value("enable_floating", true);
+        m_project.configs.enable_shadows  = c.value("enable_shadows", true);
+        m_project.configs.enable_vignette = c.value("enable_vignette", true);
+        m_project.configs.max_slots       = c.value("max_slots", 5);
     }
     if (root.contains("backgrounds")) for (auto& [k,v] : root["backgrounds"].items()) m_project.backgrounds[k] = v;
     if (root.contains("music"))        for (auto& [k,v] : root["music"].items())        m_project.music[k]       = v;
@@ -269,6 +300,8 @@ bool DialogEngine::LoadBytecodeFile(const std::string& path) {
     if (root.contains("variables"))
         for (auto& [k,vj] : root["variables"].items()) {
             VariableDef vd; vd.id = vj.value("id",k); vd.initial_value = vj.value("initial_value",0);
+            if (vj.contains("min")) vd.min = vj["min"].get<int>();
+            if (vj.contains("max")) vd.max = vj["max"].get<int>();
             m_project.variables[k] = vd; m_variables[k] = vd.initial_value;
         }
     if (root.contains("entities"))
@@ -281,6 +314,7 @@ bool DialogEngine::LoadBytecodeFile(const std::string& path) {
                     sdef.frames = sd.value("frames",1); sdef.speed = sd.value("speed",5.0f); sdef.scale = sd.value("scale",1.0f);
                     e.sprites[sn] = sdef;
                 }
+            if (ej.contains("aliases")) e.aliases = ej["aliases"];
             m_project.entities[k] = e;
         }
 
