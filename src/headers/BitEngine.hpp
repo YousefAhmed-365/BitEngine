@@ -322,6 +322,10 @@ private:
     float m_transitionDurationVal = 0.6f;
     float m_transitionPostDelay = 0.0f;
     float m_transitionTimer = 0.0f;
+    
+    bool m_hasPendingTransition = false;
+    float m_pendingTransitionDuration = 0.6f;
+    float m_pendingTransitionPostDelay = 0.0f;
 
     std::string m_activeBgm = "";
     bool m_isUiHidden = false;
@@ -335,6 +339,7 @@ private:
     std::vector<EventTraceEntry> m_eventTrace;
     std::vector<std::string> m_errors;
 
+    void StartTransition(float duration, float postDelay);
     void RecordError(const std::string& context, const std::string& msg);
     void ProcessEvents(const std::vector<Event>& events);
     bool EvalConditionNode(const ConditionNode& node) const;

@@ -432,7 +432,30 @@ void DialogEngine::Next() {
     if (!m_visibleOptions.empty()) return;
 
     m_vmWaiting = false;
+    m_vmDelayed = false;
     RunVM();
+}
+
+void DialogEngine::StartTransition(float duration, float postDelay) {
+    m_isTransitioning = true;
+    m_transitionState = 0;
+    m_transitionTargetNode = "vm_resume";
+    m_transitionDurationVal = duration;
+    m_transitionPostDelay = postDelay;
+    
+    m_screenFadeTarget = 1.0f;
+    m_screenFadeStart = m_screenFadeAlpha;
+    m_screenFadeDuration = m_transitionDurationVal / 2.0f;
+    m_screenFadeTimer = 0.0f;
+    
+    m_isUiHidden = true;
+    m_hasPendingTransition = false;
+}
+
+void DialogEngine::RunVM() {
+    while (m_isActive && !m_vmWaiting && m_pc < (int)m_project.bytecode.size()) {
+        ExecuteInstruction(m_project.bytecode[m_pc++]);
+    }
 }
 
 void DialogEngine::Update(float dt) {
@@ -489,8 +512,52 @@ void DialogEngine::Update(float dt) {
         if (m_screenFadeTimer >= m_screenFadeDuration) m_screenFadeAlpha = m_screenFadeTarget;
     }
 
-    // 2. Pause normal narrative processing while transitioning
+    // 2. Visual Updates (Must always run for smooth animations)
+    if (m_bgFadeAlpha < 1.0f) {
+        m_bgFadeTimer += dt;
+        m_bgFadeAlpha = std::min(1.0f, m_bgFadeTimer / m_bgFadeDuration);
+    }
+
+    // Entity Interpolation
+    for (auto& [id, state] : m_activeEntities) {
+        // Movement
+        if (state.moveTimer < state.moveDuration) {
+            state.moveTimer += dt;
+            float t = std::min(1.0f, state.moveTimer / state.moveDuration);
+            // Cubic Ease-out
+            t = 1.0f - powf(1.0f - t, 3.0f); 
+            state.currentNormX = state.startNormX + (state.targetNormX - state.startNormX) * t;
+            if (state.moveTimer >= state.moveDuration) state.currentNormX = state.targetNormX;
+        }
+
+        // Fading
+        if (state.fadeTimer < state.fadeDuration) {
+            state.fadeTimer += dt;
+            float t = std::min(1.0f, state.fadeTimer / state.fadeDuration);
+            state.alpha = state.startAlpha + (state.targetAlpha - state.startAlpha) * t;
+            if (state.fadeTimer >= state.fadeDuration) state.alpha = state.targetAlpha;
+        }
+    }
+
+    // 3. Pause normal narrative processing while transitioning
     if (m_isTransitioning) return;
+
+    // 4. Engine Delay (Pauses narrative, but not visuals)
+    if (m_engineDelayTimer > 0.0f) {
+        m_engineDelayTimer -= dt;
+        if (m_engineDelayTimer <= 0.0f) {
+            m_engineDelayTimer = 0.0f;
+            if (m_revealedCount < 0.0f) m_revealedCount = 0.0f;
+            if (m_hasPendingTransition) {
+                StartTransition(m_pendingTransitionDuration, m_pendingTransitionPostDelay);
+            } else if (m_vmWaiting && m_vmDelayed && !m_project.bytecode.empty()) {
+                m_vmWaiting = false;
+                m_vmDelayed = false;
+                RunVM();
+            }
+        }
+        return;
+    }
 
     // 3. Normal Narrative Processing
     if (IsTextRevealing()) {
@@ -528,51 +595,6 @@ void DialogEngine::Update(float dt) {
         m_autoPlayTimer = 0.0f;
     }
 
-    if (m_bgFadeAlpha < 1.0f) {
-        m_bgFadeTimer += dt;
-        m_bgFadeAlpha = std::min(1.0f, m_bgFadeTimer / m_bgFadeDuration);
-    }
-
-    // Entity Interpolation
-    for (auto& [id, state] : m_activeEntities) {
-        // Movement
-        if (state.moveTimer < state.moveDuration) {
-            state.moveTimer += dt;
-            float t = std::min(1.0f, state.moveTimer / state.moveDuration);
-            // Cubic Ease-out
-            t = 1.0f - powf(1.0f - t, 3.0f); 
-            state.currentNormX = state.startNormX + (state.targetNormX - state.startNormX) * t;
-            if (state.moveTimer >= state.moveDuration) state.currentNormX = state.targetNormX;
-        }
-
-        // Fading
-        if (state.fadeTimer < state.fadeDuration) {
-            state.fadeTimer += dt;
-            float t = std::min(1.0f, state.fadeTimer / state.fadeDuration);
-            state.alpha = state.startAlpha + (state.targetAlpha - state.startAlpha) * t;
-            if (state.fadeTimer >= state.fadeDuration) state.alpha = state.targetAlpha;
-        }
-    }
-
-    if (m_engineDelayTimer > 0.0f) {
-        m_engineDelayTimer -= dt;
-        if (m_engineDelayTimer <= 0.0f) {
-            m_engineDelayTimer = 0.0f;
-
-            if (m_revealedCount < 0.0f) {
-                m_revealedCount = 0.0f;
-            }
-
-            if (m_vmWaiting && m_vmDelayed && !m_project.bytecode.empty()) {
-                m_vmWaiting = false;
-                m_vmDelayed = false;
-                RunVM();
-                return;
-            }
-        } else {
-            return;
-        }
-    }
 }
 
 void DialogEngine::SkipReveal() { 
@@ -707,12 +729,6 @@ float DialogEngine::ParsePosition(const std::string& pos) const {
     try { return std::stof(pos); } catch(...) { return 0.5f; }
 }
 
-void DialogEngine::RunVM() {
-    while (m_isActive && !m_vmWaiting && m_pc < (int)m_project.bytecode.size()) {
-        ExecuteInstruction(m_project.bytecode[m_pc++]);
-    }
-}
-
 void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
     auto& args = ins.args;
     switch (ins.op) {
@@ -735,6 +751,29 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
                 if (ins.metadata.contains("auto_next")) m_isAutoNext = (ins.metadata["auto_next"].get<std::string>() == "true");
                 if (ins.metadata.contains("hide_ui"))   m_isUiHidden = (ins.metadata["hide_ui"].get<std::string>() == "true");
                 if (ins.metadata.contains("pre_delay")) m_engineDelayTimer = std::stoi(ins.metadata["pre_delay"].get<std::string>()) / 1000.0f;
+
+                // Feature: Transition handling
+                if (ins.metadata.contains("transition")) {
+                    float dur = 0.6f;
+                    if (ins.metadata.contains("transition_duration")) 
+                        dur = std::stof(ins.metadata["transition_duration"].get<std::string>()) / 1000.0f;
+                    
+                    float postDelay = 0.0f;
+                    if (ins.metadata.contains("transition_delay"))
+                        postDelay = std::stof(ins.metadata["transition_delay"].get<std::string>()) / 1000.0f;
+
+                    m_hasPendingTransition = true;
+                    m_pendingTransitionDuration = dur;
+                    m_pendingTransitionPostDelay = postDelay;
+
+                    m_vmWaiting = true;
+                    m_vmDelayed = true;
+                    m_isUiHidden = true; // Hide UI immediately
+
+                    if (m_engineDelayTimer <= 0.0f) {
+                        StartTransition(dur, postDelay);
+                    }
+                }
             }
 
             // 2. Entity visuals
