@@ -85,6 +85,7 @@ void BitScriptAnalyzer::CheckVariables(const DialogProject& project, std::vector
 }
 
 void BitScriptAnalyzer::CheckControlFlow(const DialogProject& project, std::vector<AnalysisMessage>& messages) {
+    (void)messages;
     bool isReachable = true;
     for (size_t i = 0; i < project.bytecode.size(); ++i) {
         const auto& ins = project.bytecode[i];

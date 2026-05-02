@@ -581,6 +581,7 @@ Operand BitScriptParser::ParseAddExpr(std::vector<BitInstruction>& output) {
 }
 
 Operand BitScriptParser::ParseMulExpr(std::vector<BitInstruction>& output) {
+    (void)output;
     return ParsePrimary();
 }
 

@@ -32,7 +32,7 @@ mkdir -p "$SAVE_DIR"
 # 3. Build Project
 cd "$BUILD_DIR"
 cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE ..
-make -j$(nproc)
+make -j4
 
 # 4. Check if build was successful
 if [ $? -eq 0 ]; then
