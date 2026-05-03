@@ -6,6 +6,10 @@
 std::vector<AnalysisMessage> BitScriptAnalyzer::Analyze(const DialogProject& project) {
     std::vector<AnalysisMessage> messages;
     
+    for (const auto& err : project.parseErrors) {
+        messages.push_back({AnalysisMessage::Level::ERROR, err, -1});
+    }
+
     CheckConfiguration(project, messages);
     CheckLabels(project, messages);
     CheckEntities(project, messages);

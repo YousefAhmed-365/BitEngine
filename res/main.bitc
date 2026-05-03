@@ -116,7 +116,7 @@
         "duration": 500,
         "op": "move",
         "target": "akira",
-        "x": "0.500000"
+        "x": "0.5"
       },
       "op": "EVENT"
     },
@@ -641,6 +641,12 @@
     {
       "args": [],
       "op": "HALT"
+    },
+    {
+      "args": [
+        "broken"
+      ],
+      "op": "LABEL"
     },
     {
       "args": [],

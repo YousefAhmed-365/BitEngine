@@ -101,8 +101,9 @@ bool BitScriptParser::match(TokenType t, const std::string& v) {
 
 void BitScriptParser::expect(TokenType t, const std::string& v) {
     if (!match(t, v)) {
-        std::cerr << "[BitScript] Parse error line " << peek().line 
-                  << ": Expected '" << v << "' but found '" << peek().value << "'\n";
+        std::string err = "Parse error line " + std::to_string(peek().line) + 
+                          ": Expected '" + v + "' but found '" + peek().value + "'";
+        p.parseErrors.push_back(err);
     }
 }
 

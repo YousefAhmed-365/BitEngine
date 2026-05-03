@@ -206,6 +206,9 @@ struct DialogProject {
     
     // Timelines
     std::unordered_map<std::string, Timeline> timelines;
+
+    // Parse errors caught during compilation
+    std::vector<std::string> parseErrors;
 };
 
 struct ValidationResult {
