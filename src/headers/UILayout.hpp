@@ -70,6 +70,9 @@ struct UIStyleBlock {
     std::string          mouseCursorPath;
     std::optional<float> mouseCursorScale;
 
+    // Conditional visibility: "speaker" | "narration" | "choices" | "ui" | "" (always)
+    std::optional<std::string> visibleWhen;
+
     // History panel
     std::optional<float> historyPadding;
     std::optional<float> historySpacing;

@@ -87,8 +87,7 @@ void BitRenderer::DrawGroupElem(UIElement& elem) {
 void BitRenderer::DrawPanelElem(UIElement& elem) {
     if (elem.role == "name_label") {
         auto* e = m_engine.GetCurrentEntity();
-        if (!e) { elem.visible = false; return; }
-        elem.visible = true;
+        if (!e) return;
         const auto& s = elem.resolvedStyle;
         Font f = GetFont(s.fontPath);
         int fs = s.fontSize.value_or(28);
@@ -131,9 +130,10 @@ void BitRenderer::DrawCursorElem(UIElement& elem) {
     if (m_engine.IsTextRevealing()) return;
     const auto& s = elem.resolvedStyle;
     float anim  = sinf((float)GetTime() * s.cursorAnimSpeed.value_or(10.0f));
-    float bR    = elem.computedRect.x;
-    float bB    = elem.computedRect.y;
-    float sz    = s.cursorSize.value_or(8.0f);
+    // Use the bottom-right corner of the computed rect as draw position
+    float bR = elem.computedRect.x + elem.computedRect.width;
+    float bB = elem.computedRect.y + elem.computedRect.height;
+    float sz = s.cursorSize.value_or(8.0f);
     const UITexture& ct = s.cursorTexture;
     if (!ct.path.empty()) {
         Texture2D t = GetTexture(ct.path);
@@ -158,8 +158,7 @@ void BitRenderer::DrawCursorElem(UIElement& elem) {
 
 void BitRenderer::DrawChoicesElem(UIElement& elem) {
     auto& opts = m_engine.GetVisibleOptions();
-    if (opts.empty() || m_engine.IsTextRevealing()) { elem.visible = false; return; }
-    elem.visible = true;
+    if (opts.empty() || m_engine.IsTextRevealing() || m_engine.IsUiHidden()) return;
     const auto& s = elem.resolvedStyle;
     int optH    = s.optionHeight.value_or(38);
     int optGap  = s.optionGap.value_or(10);
@@ -169,28 +168,34 @@ void BitRenderer::DrawChoicesElem(UIElement& elem) {
     Color premCol = s.optionPremium.value_or(Color{255,0,255,255});
     Font f = GetFont(s.choiceFontPath.empty() ? s.fontPath : s.choiceFontPath);
 
-    float totalH = opts.size()*(optH+optGap) - optGap + elem.padTop + elem.padBottom;
-    Rectangle r = elem.computedRect;
-    r.height = totalH;
-    // re-center vertically
-    r.y = elem.computedRect.y + (elem.computedRect.height - totalH) * 0.5f;
-    elem.computedRect = r;
+    // Recalculate height based on actual number of choices and re-center
+    float pad   = elem.padTop + elem.padBottom;
+    float totalH = (float)(opts.size() * (optH + optGap) - optGap) + pad;
+    float sw = (float)GetScreenWidth(), sh = (float)GetScreenHeight();
+    Rectangle r = {
+        sw * 0.5f - elem.computedRect.width * 0.5f,
+        sh * 0.5f - totalH * 0.5f - 80.0f,
+        elem.computedRect.width,
+        totalH
+    };
     DrawStyledPanel(r, s);
 
     for (int i = 0; i < (int)opts.size(); ++i) {
-        Rectangle oRect = { r.x + elem.padLeft,
-                            r.y + elem.padTop + i*(optH+optGap),
-                            r.width - elem.padLeft - elem.padRight,
-                            (float)optH };
+        Rectangle oRect = {
+            r.x + elem.padLeft,
+            r.y + elem.padTop + i * (optH + optGap),
+            r.width - elem.padLeft - elem.padRight,
+            (float)optH
+        };
         Color col = (opts[i].style == "premium") ? premCol : optCol;
         if (CheckCollisionPointRec(GetMousePosition(), oRect)) {
             DrawRectangleRec(oRect, Fade(col, 0.2f));
             DrawRectangleLinesEx(oRect, 1.0f, col);
             col = hvrCol;
         }
-        float ty = oRect.y + optH/2.0f - optFs/2.0f;
-        DrawTextEx(f, opts[i].content.c_str(), {oRect.x+40, ty}, (float)optFs, 2.0f, col);
-        DrawCircle((int)oRect.x+20, (int)oRect.y+optH/2, 4, col);
+        float ty = oRect.y + optH * 0.5f - optFs * 0.5f;
+        DrawTextEx(f, opts[i].content.c_str(), {oRect.x + 40, ty}, (float)optFs, 2.0f, col);
+        DrawCircle((int)oRect.x + 20, (int)(oRect.y + optH * 0.5f), 4, col);
     }
 }
 

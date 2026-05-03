@@ -105,6 +105,7 @@ UIStyleBlock UIStyleBlock::MergedWith(const UIStyleBlock& o) const {
     MERGE_OPT(clearColor);
     MERGE_STR(mouseCursorPath);
     MERGE_OPT(mouseCursorScale);
+    MERGE_OPT(visibleWhen);
     MERGE_OPT(historyPadding);
     MERGE_OPT(historySpacing);
     MERGE_OPT(historySpeakerFontSize);
@@ -183,6 +184,7 @@ UIStyleBlock StyleSheet::ParseBlock(const json& j) {
     getFloat("shadow_opacity",   b.shadowOpacity);
     getStr  ("mouse_cursor_path",b.mouseCursorPath);
     getFloat("mouse_cursor_scale",b.mouseCursorScale);
+    if (j.contains("visible_when")) b.visibleWhen = j["visible_when"].get<std::string>();
     getFloat("history_padding",   b.historyPadding);
     getFloat("history_spacing",   b.historySpacing);
     getFloat("history_speaker_font_size", b.historySpeakerFontSize);

@@ -41,8 +41,9 @@ void BitRenderer::Draw() {
 
     BeginMode2D(cam);
     for (auto* root : m_layout.GetRoots()) {
-        // History and mouse cursor drawn outside camera — skip here
-        if (root->role == "history_panel" || root->role == "mouse_cursor") continue;
+        if (root->role == "history_panel" ||
+            root->role == "mouse_cursor"  ||
+            root->role == "toast") continue;
         DrawElement(*root);
     }
     EndMode2D();
@@ -76,6 +77,14 @@ void BitRenderer::Draw() {
 // ─────────────────────────────────────────────────────────────────────────────
 void BitRenderer::DrawElement(UIElement& elem) {
     if (!elem.visible) return;
+
+    if (elem.resolvedStyle.visibleWhen.has_value()) {
+        const std::string& vw = elem.resolvedStyle.visibleWhen.value();
+        if (vw == "speaker" && !m_engine.GetCurrentEntity()) return;
+        if (vw == "narration" && m_engine.GetCurrentEntity()) return;
+        if (vw == "choices" && m_engine.GetVisibleOptions().empty()) return;
+        if (vw == "ui" && m_engine.IsUiHidden()) return;
+    }
 
     if      (elem.type == "background")    DrawBackgroundElem(elem);
     else if (elem.type == "entity_layer")  DrawEntityLayerElem(elem);
@@ -118,12 +127,19 @@ void BitRenderer::HandleInput() {
         for (int i = 0; i < (int)opts.size(); ++i) {
             if (IsKeyPressed(KEY_ONE + i)) { m_engine.SelectOption(i); return; }
             if (choiceElem) {
-                float itemH = choiceElem->resolvedStyle.optionHeight.value_or(38) +
-                              choiceElem->resolvedStyle.optionGap.value_or(10);
-                Rectangle oRect = { choiceElem->contentRect.x,
-                                    choiceElem->contentRect.y + i * itemH,
-                                    choiceElem->contentRect.width,
-                                    (float)choiceElem->resolvedStyle.optionHeight.value_or(38) };
+                int optH  = choiceElem->resolvedStyle.optionHeight.value_or(38);
+                int optGap = choiceElem->resolvedStyle.optionGap.value_or(10);
+                float pad  = choiceElem->padTop + choiceElem->padBottom;
+                float totalH = (float)(opts.size() * (optH + optGap) - optGap) + pad;
+                float sw = (float)GetScreenWidth(), sh = (float)GetScreenHeight();
+                float ry = sh * 0.5f - totalH * 0.5f - 80.0f;
+                float rx = sw * 0.5f - choiceElem->computedRect.width * 0.5f;
+                Rectangle oRect = {
+                    rx + choiceElem->padLeft,
+                    ry + choiceElem->padTop + i * (optH + optGap),
+                    choiceElem->computedRect.width - choiceElem->padLeft - choiceElem->padRight,
+                    (float)optH
+                };
                 if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) &&
                     CheckCollisionPointRec(GetMousePosition(), oRect)) {
                     m_engine.SelectOption(i); return;
