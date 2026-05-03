@@ -24,7 +24,7 @@ GlobalStatement     = ConfigBlock
                     | VariableDecl
                     | EntityBlock
                     | SceneBlock
-                    | ";" ;
+                    | [ ";" ] ;
 
 ConfigBlock         = "config" "{" { ConfigEntry } "}" ";" ;
 ConfigEntry         = Identifier "=" Expression ";" ;
@@ -32,20 +32,19 @@ ConfigEntry         = Identifier "=" Expression ";" ;
 VariableDecl        = "var" Identifier "=" Expression ";" ;
 Assignment          = Identifier "=" Expression ";" ;
 
-EntityBlock         = "entities" "{" { Entity } "}" ";" ;
-Entity              = Identifier "{" { EntityProperty } "}" ";" ;
+EntityBlock         = "entities" "{" { Entity } "}" [ ";" ] ;
+Entity              = Identifier "{" { EntityProperty } "}" [ ";" ] ;
 EntityProperty      = "name" "=" String ";"
-                    | "type" "=" Identifier ";"
                     | "default_pos" "=" Position ";"
                     | SpriteBlock ;
 
-SpriteBlock         = "sprite" Identifier "{" { SpriteProperty } "}" ";" ;
+SpriteBlock         = "sprite" Identifier "{" { SpriteProperty } "}" [ ";" ] ;
 SpriteProperty      = "path" "=" String ";"
-                    | "frames" "=" Number ";"
-                    | "speed" "=" Number ";"
-                    | "scale" "=" Number ";" ;
+                    | "frames" "=" Expression ";"
+                    | "speed" "=" Expression ";"
+                    | "scale" "=" Expression ";" ;
 
-SceneBlock          = "scene" Identifier [ "(" { Identifier } ")" ] "{" { SceneStatement } "}" ";" ;
+SceneBlock          = "scene" Identifier [ "(" { Identifier } ")" ] "{" { SceneStatement } "}" [ ";" ] ;
 SceneStatement      = Dialogue
                     | ChoiceBlock
                     | Assignment
@@ -68,11 +67,11 @@ TransitionStatement = "transition" Identifier "," Number "," Number ";" ;
 UiStatement         = "ui" ("show" | "hide") ";" ;
 Modifier            = Identifier "=" Expression ;
 
-ChoiceBlock         = "choice" "{" { ChoiceOption } "}" ";" ;
+ChoiceBlock         = "choice" "{" { ChoiceOption } "}" [ ";" ] ;
 ChoiceOption        = String "->" Identifier [ "if" Expression ] ";" ;
 
 JumpStatement       = "jump" Identifier ";" ;
-IfStatement         = "if" "(" Expression ")" "{" { SceneStatement } "}" ";" ;
+IfStatement         = "if" "(" Expression ")" "{" { SceneStatement } "}" [ ";" ] ;
 LocalDecl           = "local" Identifier "=" Expression ";" ;
 WaitStatement       = "wait" ("move" | "fade" | "all" | "sfx") ";" ;
 StackStatement      = "call" Identifier [ "(" { Expression } ")" ] ";" | "return" ";" ;
@@ -87,7 +86,7 @@ Primary             = Number | String | Identifier | Boolean | "(" Expression ")
 
 CompareOp           = "==" | "!=" | "<" | ">" | "<=" | ">=" ;
 Position            = "left" | "right" | "center" | Number ;
-Number              = Digit { Digit } [ "." Digit { Digit } ] ;
+Number              = Digit { Digit } [ "." Digit { Digit } ] [ "ms" | "s" ] ;
 String              = "\"" { AnyChar } "\"" ;
 Boolean             = "true" | "false" ;
 Identifier          = Letter { Letter | Digit | "_" } ;
@@ -116,7 +115,6 @@ Entities represent characters. They can have multiple **sprites** mapped to "exp
 entities {
     akira {
         name = "Akira";
-        type = Fixer;
         default_pos = right;
 
         sprite idle {
@@ -183,12 +181,13 @@ akira.angry: "This is taking too long!";
 ```
 
 ### 8. Cinematic Statements & Wait
-- `transition <fade_type>, <duration>, <post_delay>;`
+- `fade_screen <alpha_expr>, <duration_expr>;`: Fades screen to target opacity over time and holds. (Automated transitions are decommissioned in favor of manual screen fades).
+- `fade <entity_id>, <alpha_expr>, <duration_expr>;`: Fades an entity to target opacity.
 - `ui <show/hide>;`
 - `wait <move|fade|all|sfx>;`: Pauses the script until the specified action completes.
 
 ```bitscript
-fade akira, 1.0, 1000;
+fade akira, 1.0, 1s;
 wait fade; # Script will not proceed until Akira is visible
 akira: "I'm here.";
 ```
@@ -215,6 +214,11 @@ BitScript features a robust expression evaluator used in assignments, conditions
 | **Arithmetic** | `+`, `-`, `*`, `/` |
 | **Logic** | `and`, `or`, `!` |
 | **Comparison** | `==`, `!=`, `<`, `>`, `<=`, `>=` |
+
+**Variables** and **Time Units** can be used within expressions:
+- Time suffixes (`ms`, `s`) automatically convert to milliseconds (e.g. `2s + 500ms` evaluates to `2500`).
+- Strict type-checking prevents adding strings to numbers.
+- Any cinematic statement argument (like duration or alpha) supports full mathematical expressions rather than just hardcoded numbers.
 
 **Variables** are dynamically typed (Numbers, Booleans, Strings) and persist in the VM's state registers.
 

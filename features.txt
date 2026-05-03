@@ -19,7 +19,7 @@ A. BITSCRIPT LANGUAGE FEATURES
       - `> entity_id [modifiers];` - Join character to scene (sets alpha=1.0 by default).
       - `< entity_id;` - Remove character from scene (unloads from active map).
     - Cinematic Statements: Standalone commands for better script readability.
-      - `transition <type>, <duration>, <post_delay>;` (Fades and scene jumps).
+      - `fade_screen <alpha>, <duration>;` (Linear full-screen opacity control with time suffixes like `s` and `ms`).
       - `ui <show/hide>;` (Global visibility control for the dialogue interface).
       - `wait <move/fade/all/sfx>;` (Explicitly pause VM until visual/audio actions finish).
     - Narrative Stack: Sub-routine support with parameter passing.
@@ -32,6 +32,9 @@ A. BITSCRIPT LANGUAGE FEATURES
       visibility via `if (expression)`.
     - Logic: Robust expression evaluator supporting arithmetic (`+`, `-`, `*`, `/`), 
       logical (`and`, `or`, `!`), and comparison (`==`, `!=`, `<`, `>`, `<=`, `>=`).
+      - Full variable interpolation and type-checking within expressions.
+      - Time suffixes (`ms`, `s`) directly supported in numerical values.
+      - Cinematic statement arguments (duration, alpha, positions) fully accept dynamic expressions.
     - Control Flow: `if (condition) { ... }`, `jump scene_id;`, and `delay ms;`.
 
 B. NATIVE VIRTUAL MACHINE (VM)
@@ -60,26 +63,25 @@ B. DYNAMIC FEATURES
    - Advance Width Caching: High-performance font measurement to maintain stable FPS.
 
 --------------------------------------------------------------------------------
-3. VISUAL STYLING & UI SYSTEM
+3. VISUAL STYLING & DATA-DRIVEN UI SYSTEM
 --------------------------------------------------------------------------------
-Comprehensive JSON-driven styling with hot-reload and texture override support.
+Comprehensive JSON-driven layout and styling architecture completely decoupled from engine logic.
 
-A. UI ANCHOR FRAMEWORK
-   - Adaptive Layouts: Supports `bottom`, `top`, `left`, `right`, and `center` anchors.
-   - Normalized Coordinates: All positions (0.0 to 1.0) scale to any resolution.
-   - Custom Fonts: Support for `.ttf` and `.otf` files with GPU-cached glyphs.
+A. HIERARCHICAL LAYOUT SYSTEM (`ui_default.json`)
+   - Tree-Based Elements: True parent-child nested UI components (`group`, `panel`, `text`, `choices`).
+   - Adaptive Anchor Framework: Supports `top`, `bottom`, `left`, `right`, and `center` anchors (`anchor_to` & `anchor_point`).
+   - Resolution Independent Sizing: Supports explicit pixels, `auto` (content wrap), and normalized percentages (e.g. `"94%"`).
+   - Component Binding: Abstract rendering that maps engine data dynamically to elements based on a `role` (e.g., `choice_list`, `name_label`).
 
-B. TEXTURE OVERRIDES (DrawStyledRect)
-   - Support for custom textures for: Dialog Box, Name Label, Choice Box, 
-     Toast Notifications, and Waiting Cursor.
+B. GLOBAL STYLESHEETS (`style.json`)
+   - Reusable Property Blocks: Named style presets that define borders, colors, text sizing, and textures.
+   - Inline Overrides: UI components can override inherited styles directly within their element nodes.
+   - Visibility Control: Built-in `visible` toggle flag that can be set in the stylesheet or the element, while preserving application-level toggles.
+
+C. TEXTURE OVERRIDES & EFFECTS
+   - Support for custom textures for Dialog Boxes, Choice Boxes, Toasts, and Cursors.
    - Nine-Slice Scaling: Define slice margins to scale UI panels without distortion.
    - Color Tints: Multiplicative blending to recolor textures on the fly.
-
-C. UI COMPONENTS
-   - Dialog Box: Customizable roundness, border thickness, padding, and opacity.
-   - Name Label: Alignment (left/center/right), independent offsets, and styling.
-   - Choice Menu: Styled options with `normal` vs `premium` mapping.
-   - Waiting Cursor: Animated shapes (`triangle`, `dot`, `bar`) or custom textures.
 
 --------------------------------------------------------------------------------
 4. CINEMATIC & VFX SYSTEMS
@@ -98,10 +100,9 @@ B. CINEMATIC COMMANDS
    - `fade_screen`: Full-screen cinematic color overlays (Flash to white, Fade to black).
    - `shake`: Procedural camera/UI jitter with intensity control.
 
-C. TRANSITION STATE MACHINE
-   - Smart Fading: Native `transition = fade_black` metadata support.
-   - Pending Transitions: Fades wait for animations (like character exits) to finish.
-   - Visual Continuity: Background/Character fades continue during screen transitions.
+C. DIRECT CINEMATIC CONTROL
+   - Pure explicit cinematic flow powered by `fade_screen` replacing automated rigid transition mechanics.
+   - Visual Continuity: Background/Character fades continue independently across script execution.
 
 --------------------------------------------------------------------------------
 5. AUDIO & ASSET MANAGEMENT
