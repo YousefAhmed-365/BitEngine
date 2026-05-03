@@ -250,6 +250,8 @@ public:
     
     int GetVariable(const std::string& name) const;
     int SafeStoi(const std::string& s) const;
+    int ResolveParamInt(const nlohmann::json& params, const std::string& key, int default_val = 0) const;
+    float ResolveParamFloat(const nlohmann::json& params, const std::string& key, float default_val = 0.0f) const;
     void SetVariable(const std::string& name, int value);
     const std::unordered_map<std::string, int>& GetAllVariables() const { return m_variables; }
     

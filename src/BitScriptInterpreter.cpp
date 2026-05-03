@@ -439,14 +439,18 @@ void BitScriptParser::ParseStatement() {
         Operand intensity = ParseExpression(*m_currentOutput);
         bool wait = match(TokenType::Keyword, "wait");
         expect(TokenType::Symbol, ";");
-        nlohmann::json j; j["op"] = "shake"; j["intensity"] = std::stof(intensity.val);
+        nlohmann::json j; j["op"] = "shake"; 
+        if (intensity.isRef) j["intensity"] = intensity.val;
+        else try { j["intensity"] = std::stof(intensity.val); } catch(...) { j["intensity"] = 5.0f; }
         emit(BitOp::EVENT, {"shake"}, j);
         if (wait) emit(BitOp::WAIT_ACTION, {"all"}); // Shake usually implies all
     }
     else if (match(TokenType::Keyword, "delay")) {
         Operand dur = ParseExpression(*m_currentOutput);
         expect(TokenType::Symbol, ";");
-        nlohmann::json j; j["op"] = "delay"; j["duration"] = ParseTime(dur.val);
+        nlohmann::json j; j["op"] = "delay"; 
+        if (dur.isRef) j["duration"] = dur.val;
+        else j["duration"] = ParseTime(dur.val);
         emit(BitOp::EVENT, {"delay"}, j);
     }
     else if (match(TokenType::Keyword, "play_sfx")) {
@@ -472,9 +476,18 @@ void BitScriptParser::ParseStatement() {
     else if (match(TokenType::Keyword, "pos")) {
         std::string target = consume().value;
         expect(TokenType::Symbol, ",");
-        std::string x = consume().value;
+        std::string x_str;
+        Operand x = {false, "0.5"};
+        if (peek().type == TokenType::Identifier && (peek().value == "left" || peek().value == "right" || peek().value == "center")) {
+            x_str = consume().value;
+            x.val = x_str;
+        } else {
+            x = ParseExpression(*m_currentOutput);
+        }
         expect(TokenType::Symbol, ";");
-        nlohmann::json j; j["op"] = "pos"; j["target"] = target; j["x"] = x;
+        nlohmann::json j; j["op"] = "pos"; j["target"] = target; 
+        if (x.isRef) j["x"] = x.val;
+        else j["x"] = x.val; // BitEngine ParseXParam handles string/float
         emit(BitOp::EVENT, {"pos"}, j);
     }
     else if (match(TokenType::Keyword, "clear")) {
@@ -496,49 +509,71 @@ void BitScriptParser::ParseStatement() {
     else if (match(TokenType::Keyword, "fade")) {
         std::string target = consume().value;
         expect(TokenType::Symbol, ",");
-        std::string valOrId = consume().value;
-        expect(TokenType::Symbol, ",");
-        std::string dur = consume().value;
+        
+        nlohmann::json j; j["op"] = "fade"; j["target"] = target;
+        if (target == "bg") {
+            std::string valOrId = consume().value;
+            expect(TokenType::Symbol, ",");
+            j["id"] = valOrId;
+        } else {
+            Operand alpha = ParseExpression(*m_currentOutput);
+            expect(TokenType::Symbol, ",");
+            if (alpha.isRef) j["alpha"] = alpha.val;
+            else try { j["alpha"] = std::stof(alpha.val); } catch(...) { j["alpha"] = -1.0f; }
+        }
+        
+        Operand dur = ParseExpression(*m_currentOutput);
         
         bool wait = match(TokenType::Keyword, "wait");
         expect(TokenType::Symbol, ";");
         
-        nlohmann::json j; j["op"] = "fade"; j["target"] = target;
-        if (target == "bg") j["id"] = valOrId;
-        else {
-            try { j["alpha"] = std::stof(valOrId); } catch(...) { j["alpha"] = -1.0f; }
-        }
-        j["duration"] = ParseTime(dur);
+        if (dur.isRef) j["duration"] = dur.val;
+        else j["duration"] = ParseTime(dur.val);
+        
         emit(BitOp::EVENT, {"fade"}, j);
         if (wait) emit(BitOp::WAIT_ACTION, {"fade"});
     }
     else if (match(TokenType::Keyword, "move")) {
         std::string target = consume().value;
         expect(TokenType::Symbol, ",");
-        std::string x = consume().value;
+        
+        Operand x = {false, "0.5"};
+        if (peek().type == TokenType::Identifier && (peek().value == "left" || peek().value == "right" || peek().value == "center")) {
+            x.val = consume().value;
+        } else {
+            x = ParseExpression(*m_currentOutput);
+        }
         expect(TokenType::Symbol, ",");
-        std::string dur = consume().value;
+        Operand dur = ParseExpression(*m_currentOutput);
         
         bool wait = match(TokenType::Keyword, "wait");
         expect(TokenType::Symbol, ";");
         
         nlohmann::json j; j["op"] = "move"; j["target"] = target;
-        j["x"] = x;
-        j["duration"] = ParseTime(dur);
+        if (x.isRef) j["x"] = x.val;
+        else j["x"] = x.val;
+        
+        if (dur.isRef) j["duration"] = dur.val;
+        else j["duration"] = ParseTime(dur.val);
+        
         emit(BitOp::EVENT, {"move"}, j);
         if (wait) emit(BitOp::WAIT_ACTION, {"move"});
     }
     else if (match(TokenType::Keyword, "fade_screen")) {
-        std::string alpha = consume().value;
+        Operand alpha = ParseExpression(*m_currentOutput);
         expect(TokenType::Symbol, ",");
-        std::string dur = consume().value;
+        Operand dur = ParseExpression(*m_currentOutput);
         
         bool wait = match(TokenType::Keyword, "wait");
         expect(TokenType::Symbol, ";");
         
         nlohmann::json j; j["op"] = "fade_screen";
-        try { j["alpha"] = std::stof(alpha); } catch(...) { j["alpha"] = -1.0f; }
-        j["duration"] = ParseTime(dur);
+        if (alpha.isRef) j["alpha"] = alpha.val;
+        else try { j["alpha"] = std::stof(alpha.val); } catch(...) { j["alpha"] = -1.0f; }
+        
+        if (dur.isRef) j["duration"] = dur.val;
+        else j["duration"] = ParseTime(dur.val);
+        
         emit(BitOp::EVENT, {"fade_screen"}, j);
         if (wait) emit(BitOp::WAIT_ACTION, {"fade"});
     }
@@ -675,14 +710,19 @@ Operand BitScriptParser::ParseAddExpr(std::vector<BitInstruction>& output) {
         // For literal operations, compute directly
         if (!left.isRef && !right.isRef) {
             try {
-                int lval = std::stoi(left.val);
-                int rval = std::stoi(right.val);
-                int result = (op == "+") ? (lval + rval) : (lval - rval);
-                left.val = std::to_string(result);
+                float lval = std::stof(left.val);
+                float rval = std::stof(right.val);
+                float result = (op == "+") ? (lval + rval) : (lval - rval);
+                if (result == std::floor(result)) left.val = std::to_string((int)result);
+                else left.val = std::to_string(result);
             } catch (...) {
-                // Conversion failed, keep left
+                std::cerr << "[BitScript] Parse error: Cannot perform math on non-numbers ('" << left.val << "' " << op << " '" << right.val << "')\n";
             }
         } else {
+            // Type checking for literal parts
+            if (!left.isRef) { try { std::stof(left.val); } catch(...) { std::cerr << "[BitScript] Parse error: Cannot mix string literal '" << left.val << "' with variable in math.\n"; } }
+            if (!right.isRef) { try { std::stof(right.val); } catch(...) { std::cerr << "[BitScript] Parse error: Cannot mix string literal '" << right.val << "' with variable in math.\n"; } }
+
             // For variable operations, emit instructions
             std::string resultVar = genTempVar();
             if (op == "+") {
@@ -708,7 +748,7 @@ Operand BitScriptParser::ParseAddExpr(std::vector<BitInstruction>& output) {
                     emit(BitOp::SUB_REF, {resultVar, right.val});
                 }
             }
-            left = {false, resultVar};
+            left = {true, resultVar}; // Set isRef to true for temp variables
         }
     }
     return left;
@@ -723,18 +763,23 @@ Operand BitScriptParser::ParseMulExpr(std::vector<BitInstruction>& output) {
         // For literal operations, compute directly
         if (!left.isRef && !right.isRef) {
             try {
-                int lval = std::stoi(left.val);
-                int rval = std::stoi(right.val);
-                if (op == "/" && rval == 0) {
-                    left.val = "0"; // Division by zero at parse time - default to 0
+                float lval = std::stof(left.val);
+                float rval = std::stof(right.val);
+                if (op == "/" && rval == 0.0f) {
+                    left.val = "0"; // Division by zero at parse time
                 } else {
-                    int result = (op == "*") ? (lval * rval) : (lval / rval);
-                    left.val = std::to_string(result);
+                    float result = (op == "*") ? (lval * rval) : (lval / rval);
+                    if (result == std::floor(result)) left.val = std::to_string((int)result);
+                    else left.val = std::to_string(result);
                 }
             } catch (...) {
-                left.val = "0";
+                std::cerr << "[BitScript] Parse error: Cannot perform math on non-numbers ('" << left.val << "' " << op << " '" << right.val << "')\n";
             }
         } else {
+            // Type checking for literal parts
+            if (!left.isRef) { try { std::stof(left.val); } catch(...) { std::cerr << "[BitScript] Parse error: Cannot mix string literal '" << left.val << "' with variable in math.\n"; } }
+            if (!right.isRef) { try { std::stof(right.val); } catch(...) { std::cerr << "[BitScript] Parse error: Cannot mix string literal '" << right.val << "' with variable in math.\n"; } }
+
             // For variable operations, emit instructions
             std::string resultVar = genTempVar();
             if (op == "*") {
@@ -760,7 +805,7 @@ Operand BitScriptParser::ParseMulExpr(std::vector<BitInstruction>& output) {
                     emit(BitOp::DIV_REF, {resultVar, right.val});
                 }
             }
-            left = {false, resultVar};
+            left = {true, resultVar}; // Set isRef to true for temp variables
         }
     }
     return left;
@@ -768,8 +813,20 @@ Operand BitScriptParser::ParseMulExpr(std::vector<BitInstruction>& output) {
 
 Operand BitScriptParser::ParsePrimary() {
     Token t = consume();
-    if (t.type == TokenType::Number) return {false, t.value};
-    if (t.type == TokenType::Identifier) return {true, t.value};
+    if (t.type == TokenType::Number) {
+        if ((t.value.size() > 2 && t.value.substr(t.value.size() - 2) == "ms") ||
+            (t.value.size() > 1 && t.value.back() == 's')) {
+            return {false, std::to_string(ParseTime(t.value))};
+        }
+        return {false, t.value};
+    }
+    if (t.type == TokenType::Identifier) {
+        if (p.variables.find(t.value) == p.variables.end()) {
+            std::cerr << "[BitScript] Parse error line " << t.line 
+                      << ": Undefined variable '" << t.value << "' in expression.\n";
+        }
+        return {true, t.value};
+    }
     if (t.type == TokenType::String) return {false, t.value};
     return {false, "0"};
 }

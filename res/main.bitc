@@ -116,7 +116,7 @@
         "duration": 500,
         "op": "move",
         "target": "akira",
-        "x": "0.5"
+        "x": "0.500000"
       },
       "op": "EVENT"
     },
@@ -467,6 +467,30 @@
     },
     {
       "args": [
+        "__tmp1",
+        "trust_akira"
+      ],
+      "op": "SET_REF"
+    },
+    {
+      "args": [
+        "__tmp1",
+        "500"
+      ],
+      "op": "MUL"
+    },
+    {
+      "args": [
+        "delay"
+      ],
+      "meta": {
+        "duration": "__tmp1",
+        "op": "delay"
+      },
+      "op": "EVENT"
+    },
+    {
+      "args": [
         "akira",
         "Accessing the main terminal... [wait=0.5] [font=dream]ACCESS GRANTED[/font]."
       ],
@@ -496,19 +520,19 @@
         "trust_akira",
         ">=",
         "1",
-        "__tmp1_choice"
+        "__tmp2_choice"
       ],
       "op": "IF"
     },
     {
       "args": [
-        "__tmp2_skip"
+        "__tmp3_skip"
       ],
       "op": "GOTO"
     },
     {
       "args": [
-        "__tmp1_choice"
+        "__tmp2_choice"
       ],
       "op": "LABEL"
     },
@@ -521,7 +545,7 @@
     },
     {
       "args": [
-        "__tmp2_skip"
+        "__tmp3_skip"
       ],
       "op": "LABEL"
     },
@@ -530,19 +554,19 @@
         "trust_akira",
         "<",
         "1",
-        "__tmp3_choice"
+        "__tmp4_choice"
       ],
       "op": "IF"
     },
     {
       "args": [
-        "__tmp4_skip"
+        "__tmp5_skip"
       ],
       "op": "GOTO"
     },
     {
       "args": [
-        "__tmp3_choice"
+        "__tmp4_choice"
       ],
       "op": "LABEL"
     },
@@ -555,7 +579,7 @@
     },
     {
       "args": [
-        "__tmp4_skip"
+        "__tmp5_skip"
       ],
       "op": "LABEL"
     },

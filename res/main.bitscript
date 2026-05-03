@@ -47,7 +47,7 @@ timeline dramatic_intro {
         fade_screen 1.0, 0ms;
         bg = alley_bg;
     }
-    500ms: fade_screen 0.0, 1s;
+    500ms: fade_screen 0.0, 500ms * 2;
     1500ms: shake 10;
 }
 
@@ -86,7 +86,7 @@ scene routine_neural_sync(version) {
     narration [auto_next = true, pre_delay = 1s]: "[speed=0.3]Connecting to neural uplink v{version}...[wait=0.8] established.";
     shake 10;
     narration [auto_next = true]: "[shake]WARNING:[wait=0.5] System integrity compromised.";
-    delay 1.5s;
+    delay 1500ms;
     return;
 };
 
@@ -132,6 +132,7 @@ scene scene_market {
 
     scene market_terminal {
         trust_akira = trust_akira + 1;
+        delay trust_akira * 500ms;
         akira: "Accessing the main terminal... [wait=0.5] [font=dream]ACCESS GRANTED[/font].";
         jump check_ending;
     };
@@ -158,4 +159,4 @@ scene check_ending {
 scene dialog_end_final {
     narration: "End of Demonstration.";
     halt;
-};
+}

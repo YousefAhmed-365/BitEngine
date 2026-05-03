@@ -888,6 +888,7 @@ float DialogEngine::ParsePosition(const std::string& pos) const {
     if (pos == "left") return 0.2f;
     if (pos == "right") return 0.8f;
     if (pos == "center") return 0.5f;
+    if (m_variables.count(pos)) return (float)m_variables.at(pos);
     try { return std::stof(pos); } catch(...) { return 0.5f; }
 }
 
@@ -1165,7 +1166,7 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
 void DialogEngine::ProcessEvents(const std::vector<Event>& events) {
     for (const auto& e : events) {
         auto& p = e.params;
-        if (e.op == "shake")    { TriggerShake(p.value("intensity", 5.0f)); continue; }
+        if (e.op == "shake")    { TriggerShake(ResolveParamFloat(p, "intensity", 5.0f)); continue; }
         if (e.op == "play_sfx") { m_pendingSFX.push_back(p.value("id", "")); continue; }
         if (e.op == "clear")    { m_activeEntities.clear(); continue; }
         if (e.op == "expression") {
@@ -1193,19 +1194,19 @@ void DialogEngine::ProcessEvents(const std::vector<Event>& events) {
             continue;
         }
         if (e.op == "jump")  { m_pendingJumpId = p.value("target", ""); continue; }
-        if (e.op == "delay") { m_engineDelayTimer = p.value("duration", 0) / 1000.0f; continue; }
+        if (e.op == "delay") { m_engineDelayTimer = ResolveParamInt(p, "duration", 0) / 1000.0f; continue; }
         if (e.op == "move") {
             std::string target = p.value("target", "");
             auto& s = m_activeEntities[target];
             float x = ParseXParam(p);
             s.pos = std::to_string(x); s.targetNormX = x; s.startNormX = s.currentNormX;
-            s.moveDuration = p.value("duration", 0) / 1000.0f; s.moveTimer = 0.0f;
+            s.moveDuration = ResolveParamInt(p, "duration", 0) / 1000.0f; s.moveTimer = 0.0f;
             s.visible = true;
             continue;
         }
         if (e.op == "fade") {
             std::string target = p.value("target", "");
-            int duration = p.value("duration", 0);
+            int duration = ResolveParamInt(p, "duration", 0);
             if (target == "bg") {
                 std::string bgId = p.value("id", "");
                 if (!bgId.empty()) {
@@ -1214,17 +1215,17 @@ void DialogEngine::ProcessEvents(const std::vector<Event>& events) {
                 }
             } else {
                 auto& s = m_activeEntities[target];
-                s.targetAlpha = p.value("alpha", 1.0f); s.startAlpha = s.alpha;
+                s.targetAlpha = ResolveParamFloat(p, "alpha", 1.0f); s.startAlpha = s.alpha;
                 s.fadeDuration = std::max(0.01f, duration / 1000.0f); s.fadeTimer = 0.0f;
                 s.visible = true;
             }
             continue;
         }
         if (e.op == "fade_screen") {
-            float alpha = p.value("alpha", 0.0f);
+            float alpha = ResolveParamFloat(p, "alpha", 0.0f);
             alpha = std::max(0.0f, std::min(1.0f, alpha)); // Clamp to [0, 1]
             m_screenFadeTarget = alpha; m_screenFadeStart = m_screenFadeAlpha;
-            int dur = p.value("duration", 0);
+            int dur = ResolveParamInt(p, "duration", 0);
             m_screenFadeDuration = std::max(0.0f, dur / 1000.0f); m_screenFadeTimer = 0.0f;
             continue;
         }
@@ -1237,7 +1238,7 @@ void DialogEngine::ProcessEvents(const std::vector<Event>& events) {
         else if (e.op == "sub")    next = cur - p.value("value", 0);
         else if (e.op == "mul")    next = cur * p.value("value", 1);
         else if (e.op == "random") {
-            int lo = p.value("min", 0), hi = p.value("max", 1);
+            int lo = ResolveParamInt(p, "min", 0), hi = ResolveParamInt(p, "max", 1);
             if (lo > hi) std::swap(lo, hi);
             next = lo + (std::rand() % (hi - lo + 1));
         }
@@ -1251,4 +1252,28 @@ int DialogEngine::SafeStoi(const std::string& s) const {
     } catch (...) {
         return 0;
     }
+}
+
+int DialogEngine::ResolveParamInt(const nlohmann::json& params, const std::string& key, int default_val) const {
+    if (!params.contains(key)) return default_val;
+    const auto& v = params[key];
+    if (v.is_number()) return v.get<int>();
+    if (v.is_string()) {
+        std::string s = v.get<std::string>();
+        if (m_variables.count(s)) return m_variables.at(s);
+        try { return std::stoi(s); } catch(...) { return default_val; }
+    }
+    return default_val;
+}
+
+float DialogEngine::ResolveParamFloat(const nlohmann::json& params, const std::string& key, float default_val) const {
+    if (!params.contains(key)) return default_val;
+    const auto& v = params[key];
+    if (v.is_number()) return v.get<float>();
+    if (v.is_string()) {
+        std::string s = v.get<std::string>();
+        if (m_variables.count(s)) return (float)m_variables.at(s);
+        try { return std::stof(s); } catch(...) { return default_val; }
+    }
+    return default_val;
 }
