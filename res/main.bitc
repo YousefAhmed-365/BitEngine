@@ -669,8 +669,7 @@
           "scale": 3.0,
           "speed": 1.0
         }
-      },
-      "type": "Fixer"
+      }
     },
     "kael": {
       "default_pos_x": 0.20000000298023224,
@@ -683,8 +682,7 @@
           "scale": 3.0,
           "speed": 1.0
         }
-      },
-      "type": "Merchant"
+      }
     }
   },
   "fonts": {

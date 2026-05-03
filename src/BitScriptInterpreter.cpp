@@ -203,7 +203,6 @@ void BitScriptParser::ParseEntities() {
                 expect(TokenType::Symbol, "=");
                 std::string val = consume().value;
                 if (key == "name") e.name = val;
-                else if (key == "type") e.type = val;
                 else if (key == "pos_x" || key == "default_pos_x" || key == "default_pos") {
                     if (val == "left") e.default_pos_x = 0.2f;
                     else if (val == "right") e.default_pos_x = 0.8f;

@@ -245,7 +245,7 @@ bool DialogEngine::SaveBytecode(const std::string& path) const {
         root["variables"][k] = vj;
     }
     for (auto& [k,e] : m_project.entities) {
-        json ej = { {"id",e.id},{"name",e.name},{"type",e.type},{"default_pos_x",e.default_pos_x} };
+        json ej = { {"id",e.id},{"name",e.name},{"default_pos_x",e.default_pos_x} };
         if (!e.aliases.empty()) ej["aliases"] = e.aliases;
         for (auto& [sn,sd] : e.sprites)
             ej["sprites"][sn] = { {"path",sd.path},{"frames",sd.frames},{"speed",sd.speed},{"scale",sd.scale} };
@@ -327,7 +327,7 @@ bool DialogEngine::LoadBytecodeFile(const std::string& path) {
     if (root.contains("entities"))
         for (auto& [k,ej] : root["entities"].items()) {
             Entity e; e.id = ej.value("id",k); e.name = ej.value("name","Unknown");
-            e.type = ej.value("type","char"); e.default_pos_x = ej.value("default_pos_x",0.5f);
+            e.default_pos_x = ej.value("default_pos_x",0.5f);
             if (ej.contains("sprites"))
                 for (auto& [sn,sd] : ej["sprites"].items()) {
                     SpriteDef sdef; sdef.path = sd.value("path","");

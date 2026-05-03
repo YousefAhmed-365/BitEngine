@@ -27,7 +27,6 @@ assets {
 entities {
     akira {
         name = "Akira";
-        type = Fixer;
         default_pos = right;
         sprite idle { path = "assets/akira_idle.png"; frames = 2; speed = 4.0; scale = 3.0; };
         sprite serious { path = "assets/akira_serious.png"; frames = 1; speed = 1.0; scale = 3.0; };
@@ -38,7 +37,6 @@ entities {
     };
     kael {
         name = "Kael";
-        type = Merchant;
         default_pos = left;
         sprite idle { path = "assets/kael_idle.png"; frames = 1; speed = 1.0; scale = 3.0; };
     };

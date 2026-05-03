@@ -127,7 +127,7 @@ struct SpriteDef {
 };
 
 struct Entity { 
-    std::string id = "", name = "Unknown", type = "char"; 
+    std::string id = "", name = "Unknown"; 
     float default_pos_x = 0.5f;
     std::unordered_map<std::string, SpriteDef> sprites = {}; 
     std::unordered_map<std::string, nlohmann::json> aliases = {};
