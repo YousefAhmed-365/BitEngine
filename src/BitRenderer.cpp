@@ -30,6 +30,17 @@ BitRenderer::~BitRenderer() {
 void BitRenderer::Draw() {
     if (!m_engine.IsActive()) return;
 
+    // Toggle element visibilities from the application/renderer level based on engine state
+    if (auto* e = m_layout.FindById("dialog_root")) {
+        e->visible = !m_engine.IsUiHidden();
+    }
+    if (auto* e = m_layout.FindByRole("name_label")) {
+        e->visible = (m_engine.GetCurrentEntity() != nullptr);
+    }
+    if (auto* e = m_layout.FindByRole("choice_list")) {
+        e->visible = !m_engine.GetVisibleOptions().empty() && !m_engine.IsTextRevealing();
+    }
+
     int sw = GetScreenWidth(), sh = GetScreenHeight();
     m_layout.Resolve(sw, sh);
     HandleAudio();
@@ -77,14 +88,6 @@ void BitRenderer::Draw() {
 // ─────────────────────────────────────────────────────────────────────────────
 void BitRenderer::DrawElement(UIElement& elem) {
     if (!elem.visible) return;
-
-    if (elem.resolvedStyle.visibleWhen.has_value()) {
-        const std::string& vw = elem.resolvedStyle.visibleWhen.value();
-        if (vw == "speaker" && !m_engine.GetCurrentEntity()) return;
-        if (vw == "narration" && m_engine.GetCurrentEntity()) return;
-        if (vw == "choices" && m_engine.GetVisibleOptions().empty()) return;
-        if (vw == "ui" && m_engine.IsUiHidden()) return;
-    }
 
     if      (elem.type == "background")    DrawBackgroundElem(elem);
     else if (elem.type == "entity_layer")  DrawEntityLayerElem(elem);

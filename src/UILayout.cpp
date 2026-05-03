@@ -80,6 +80,7 @@ UIStyleBlock UIStyleBlock::MergedWith(const UIStyleBlock& o) const {
     MERGE_OPT(borderColor);
     MERGE_OPT(borderThick);
     MERGE_OPT(roundness);
+    MERGE_OPT(visible);
     MERGE_TEX(texture);
     MERGE_OPT(textColor);
     MERGE_OPT(fontSize);
@@ -105,7 +106,6 @@ UIStyleBlock UIStyleBlock::MergedWith(const UIStyleBlock& o) const {
     MERGE_OPT(clearColor);
     MERGE_STR(mouseCursorPath);
     MERGE_OPT(mouseCursorScale);
-    MERGE_OPT(visibleWhen);
     MERGE_OPT(historyPadding);
     MERGE_OPT(historySpacing);
     MERGE_OPT(historySpeakerFontSize);
@@ -167,6 +167,12 @@ UIStyleBlock StyleSheet::ParseBlock(const json& j) {
 
     getFloat("border_thick",   b.borderThick);
     getFloat("roundness",      b.roundness);
+
+    auto getBool = [&](const char* key, std::optional<bool>& field) {
+        if (j.contains(key)) field = j[key].get<bool>();
+    };
+    getBool("visible", b.visible);
+
     getInt  ("font_size",      b.fontSize);
     getInt  ("line_spacing",   b.lineSpacing);
     getStr  ("font_path",      b.fontPath);
@@ -184,7 +190,6 @@ UIStyleBlock StyleSheet::ParseBlock(const json& j) {
     getFloat("shadow_opacity",   b.shadowOpacity);
     getStr  ("mouse_cursor_path",b.mouseCursorPath);
     getFloat("mouse_cursor_scale",b.mouseCursorScale);
-    if (j.contains("visible_when")) b.visibleWhen = j["visible_when"].get<std::string>();
     getFloat("history_padding",   b.historyPadding);
     getFloat("history_spacing",   b.historySpacing);
     getFloat("history_speaker_font_size", b.historySpeakerFontSize);
@@ -243,7 +248,6 @@ UIElement UILayout::ParseElement(const json& j, const StyleSheet& ss) {
     elem.id      = j.value("id",      "");
     elem.type    = j.value("type",    "group");
     elem.role    = j.value("role",    "");
-    elem.visible = j.value("visible", true);
     elem.content = j.value("content", "");
 
     // Anchor
@@ -276,6 +280,9 @@ UIElement UILayout::ParseElement(const json& j, const StyleSheet& ss) {
     inl = inl.MergedWith(StyleSheet::ParseBlock(j));
     elem.inlineStyle    = inl;
     elem.resolvedStyle  = base.MergedWith(inl);
+
+    // Initial visible state (can be modified dynamically by app)
+    elem.visible = elem.resolvedStyle.visible.value_or(j.value("visible", true));
 
     // Children
     if (j.contains("children") && j["children"].is_array()) {

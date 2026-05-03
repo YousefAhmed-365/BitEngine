@@ -32,7 +32,6 @@
     {
       "id":            "dialog_root",
       "type":          "group",
-      "visible_when":  "ui",
       "anchor_to":     "screen",
       "anchor_point":  "bottom-center",
       "offset":        [0, -20],
@@ -48,7 +47,6 @@
           "id":           "name_label_box",
           "type":         "panel",
           "role":         "name_label",
-          "visible_when": "speaker",
           "style":        "name_panel",
           "anchor_point": "top-left",
           "offset":       [30, -22],
@@ -85,7 +83,6 @@
     {
       "id":           "choice_container",
       "type":         "choices",
-      "visible_when": "choices",
       "role":         "choice_list",
       "style":        "choice_panel",
       "anchor_to":    "screen",
