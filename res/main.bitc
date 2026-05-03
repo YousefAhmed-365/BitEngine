@@ -116,7 +116,7 @@
         "duration": 500,
         "op": "move",
         "target": "akira",
-        "x": "0.0"
+        "x": "0.5"
       },
       "op": "EVENT"
     },
@@ -181,7 +181,7 @@
       ],
       "meta": {
         "auto_next": "true",
-        "pre_delay": "1000"
+        "pre_delay": 1000
       },
       "op": "SAY"
     },

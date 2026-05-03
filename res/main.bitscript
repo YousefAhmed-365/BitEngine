@@ -46,10 +46,10 @@ entities {
 
 timeline dramatic_intro {
     0ms: {
-        fade_screen 1.0, 0;
+        fade_screen 1.0, 0ms;
         bg = alley_bg;
     }
-    500ms: fade_screen 0.0, 1000;
+    500ms: fade_screen 0.0, 1s;
     1500ms: shake 10;
 }
 
@@ -58,24 +58,24 @@ scene scene_alley {
     
     # Nested anonymous timeline example
     play timeline {
-        0ms: fade_screen 1.0, 200;
-        300ms: fade_screen 0.0, 200;
+        0ms: fade_screen 1.0, 200ms;
+        300ms: fade_screen 0.0, 200ms;
     } wait;
     bgm = "neon_noir";
     
     call routine_neural_sync(1);
 
     akira [sprite = serious, pos = left, alpha = 0.0];
-    fade akira, 1.0, 1000 wait;
+    fade akira, 1.0, 1s wait;
     
     akira.angry: "Kael! Stay back! Something is [font=dream]wrong[/font] with the uplink.";
 
     kael [sprite = idle, pos = right, alpha = 0.0];
-    fade kael, 1.0, 800;
+    fade kael, 1.0, 800ms;
     kael: "I can feel it too... it's like a [color=#ff00ff]glitch[/color] in the air.";
 
-    move akira, 0.5, 500;
-    move kael, 0.9, 400 wait;
+    move akira, 0.5, 500ms;
+    move kael, 0.9, 400ms wait;
     
     akira.calm: "Wait, I'm detecting a signature nearby. Let's move in.";
     
@@ -85,25 +85,25 @@ scene scene_alley {
 
 scene routine_neural_sync(version) {
     local sync_status = 1; # Scoped local variable
-    narration [auto_next = true, pre_delay = 1000]: "[speed=0.3]Connecting to neural uplink v{version}...[wait=0.8] established.";
+    narration [auto_next = true, pre_delay = 1s]: "[speed=0.3]Connecting to neural uplink v{version}...[wait=0.8] established.";
     shake 10;
     narration [auto_next = true]: "[shake]WARNING:[wait=0.5] System integrity compromised.";
-    delay 1500;
+    delay 1.5s;
     return;
 };
 
 scene transition{
     ui hide;
-    fade_screen 1.0, 1000 wait;
-    fade_screen 0.0, 1000 wait;
+    fade_screen 1.0, 1s wait;
+    fade_screen 0.0, 1s wait;
     ui show;
 
     return;
 }
 
 scene routine_district_transition {
-    fade akira, 0.0, 1000;
-    fade kael, 0.0, 1000 wait;
+    fade akira, 0.0, 1s;
+    fade kael, 0.0, 1s wait;
     
     leave akira;
     leave kael;
@@ -115,7 +115,7 @@ scene routine_district_transition {
 
 scene scene_market {
     akira [sprite = idle, pos = left, alpha = 0.0];
-    fade akira, 1.0, 500;
+    fade akira, 1.0, 500ms;
     akira {
         "The market is unusually quiet today. [font=dream]Eerily quiet.[/font]";
         .serious: "What's our next move?";

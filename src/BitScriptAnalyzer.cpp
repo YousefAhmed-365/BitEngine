@@ -380,12 +380,22 @@ void BitScriptAnalyzer::CheckInstructions(const DialogProject& project, std::vec
                 }
                 if (ins.metadata.contains("duration")) {
                     try {
-                        int duration = ins.metadata["duration"].get<int>();
+                        int duration = ins.metadata["duration"].is_number() ? ins.metadata["duration"].get<int>() : std::stoi(ins.metadata["duration"].get<std::string>());
                         if (duration < 0) {
-                            messages.push_back({AnalysisMessage::Level::ERROR, "fade_screen: duration must be >= 0, got " + std::to_string(duration), ins.line});
+                            messages.push_back({AnalysisMessage::Level::ERROR, op + ": duration must be >= 0, got " + std::to_string(duration), ins.line});
                         }
                     } catch (...) {
-                        messages.push_back({AnalysisMessage::Level::ERROR, "fade_screen: duration is not a valid number", ins.line});
+                        messages.push_back({AnalysisMessage::Level::ERROR, op + ": duration is not a valid number", ins.line});
+                    }
+                }
+                if (ins.metadata.contains("pre_delay")) {
+                    try {
+                        int pre_delay = ins.metadata["pre_delay"].is_number() ? ins.metadata["pre_delay"].get<int>() : std::stoi(ins.metadata["pre_delay"].get<std::string>());
+                        if (pre_delay < 0) {
+                            messages.push_back({AnalysisMessage::Level::ERROR, op + ": pre_delay must be >= 0, got " + std::to_string(pre_delay), ins.line});
+                        }
+                    } catch (...) {
+                        messages.push_back({AnalysisMessage::Level::ERROR, op + ": pre_delay is not a valid number", ins.line});
                     }
                 }
             }
@@ -405,7 +415,7 @@ void BitScriptAnalyzer::CheckInstructions(const DialogProject& project, std::vec
                 }
                 if (ins.metadata.contains("duration")) {
                     try {
-                        int duration = ins.metadata["duration"].get<int>();
+                        int duration = ins.metadata["duration"].is_number() ? ins.metadata["duration"].get<int>() : std::stoi(ins.metadata["duration"].get<std::string>());
                         if (duration < 0) {
                             messages.push_back({AnalysisMessage::Level::ERROR, "fade: duration must be >= 0, got " + std::to_string(duration), ins.line});
                         }
@@ -429,7 +439,7 @@ void BitScriptAnalyzer::CheckInstructions(const DialogProject& project, std::vec
                 }
                 if (ins.metadata.contains("duration")) {
                     try {
-                        int duration = ins.metadata["duration"].get<int>();
+                        int duration = ins.metadata["duration"].is_number() ? ins.metadata["duration"].get<int>() : std::stoi(ins.metadata["duration"].get<std::string>());
                         if (duration < 0) {
                             messages.push_back({AnalysisMessage::Level::ERROR, "move: duration must be >= 0, got " + std::to_string(duration), ins.line});
                         }
@@ -457,7 +467,7 @@ void BitScriptAnalyzer::CheckInstructions(const DialogProject& project, std::vec
             else if (op == "delay") {
                 if (ins.metadata.contains("duration")) {
                     try {
-                        int duration = ins.metadata["duration"].get<int>();
+                        int duration = ins.metadata["duration"].is_number() ? ins.metadata["duration"].get<int>() : std::stoi(ins.metadata["duration"].get<std::string>());
                         if (duration < 0) {
                             messages.push_back({AnalysisMessage::Level::ERROR, "delay: duration must be >= 0, got " + std::to_string(duration), ins.line});
                         }
@@ -527,12 +537,22 @@ void BitScriptAnalyzer::CheckTimelines(const DialogProject& project, std::vector
                     }
                     if (event.metadata.contains("duration")) {
                         try {
-                            int duration = event.metadata["duration"].get<int>();
+                            int duration = event.metadata["duration"].is_number() ? event.metadata["duration"].get<int>() : std::stoi(event.metadata["duration"].get<std::string>());
                             if (duration < 0) {
                                 messages.push_back({AnalysisMessage::Level::ERROR, "Timeline '" + id + "': fade_screen duration must be >= 0, got " + std::to_string(duration), -1});
                             }
                         } catch (...) {
                             messages.push_back({AnalysisMessage::Level::ERROR, "Timeline '" + id + "': fade_screen duration is not a valid number", -1});
+                        }
+                    }
+                    if (event.metadata.contains("pre_delay")) {
+                        try {
+                            int pre_delay = event.metadata["pre_delay"].is_number() ? event.metadata["pre_delay"].get<int>() : std::stoi(event.metadata["pre_delay"].get<std::string>());
+                            if (pre_delay < 0) {
+                                messages.push_back({AnalysisMessage::Level::ERROR, "Timeline '" + id + "': fade_screen pre_delay must be >= 0, got " + std::to_string(pre_delay), -1});
+                            }
+                        } catch (...) {
+                            messages.push_back({AnalysisMessage::Level::ERROR, "Timeline '" + id + "': fade_screen pre_delay is not a valid number", -1});
                         }
                     }
                 }
@@ -552,7 +572,7 @@ void BitScriptAnalyzer::CheckTimelines(const DialogProject& project, std::vector
                     }
                     if (event.metadata.contains("duration")) {
                         try {
-                            int duration = event.metadata["duration"].get<int>();
+                            int duration = event.metadata["duration"].is_number() ? event.metadata["duration"].get<int>() : std::stoi(event.metadata["duration"].get<std::string>());
                             if (duration < 0) {
                                 messages.push_back({AnalysisMessage::Level::ERROR, "Timeline '" + id + "': fade duration must be >= 0, got " + std::to_string(duration), -1});
                             }
@@ -576,7 +596,7 @@ void BitScriptAnalyzer::CheckTimelines(const DialogProject& project, std::vector
                     }
                     if (event.metadata.contains("duration")) {
                         try {
-                            int duration = event.metadata["duration"].get<int>();
+                            int duration = event.metadata["duration"].is_number() ? event.metadata["duration"].get<int>() : std::stoi(event.metadata["duration"].get<std::string>());
                             if (duration < 0) {
                                 messages.push_back({AnalysisMessage::Level::ERROR, "Timeline '" + id + "': move duration must be >= 0, got " + std::to_string(duration), -1});
                             }
@@ -604,12 +624,11 @@ void BitScriptAnalyzer::CheckTimelines(const DialogProject& project, std::vector
                 else if (op == "delay") {
                     if (event.metadata.contains("duration")) {
                         try {
-                            int duration = event.metadata["duration"].get<int>();
+                            int duration = event.metadata["duration"].is_number() ? event.metadata["duration"].get<int>() : std::stoi(event.metadata["duration"].get<std::string>());
                             if (duration < 0) {
                                 messages.push_back({AnalysisMessage::Level::ERROR, "Timeline '" + id + "': delay duration must be >= 0, got " + std::to_string(duration), -1});
                             }
                         } catch (...) {
-                            messages.push_back({AnalysisMessage::Level::ERROR, "Timeline '" + id + "': delay duration is not a valid number", -1});
                         }
                     }
                 }

@@ -187,7 +187,12 @@ void BitScriptParser::ParseEntities() {
                 while (peek().type != TokenType::EndOfFile && peek().value != "}") {
                     std::string ak = consume().value;
                     expect(TokenType::Symbol, "=");
-                    aj[ak] = consume().value;
+                    std::string av = consume().value;
+                    if (ak == "pre_delay" || ak == "duration" || ak == "wait") {
+                        aj[ak] = ParseTime(av);
+                    } else {
+                        aj[ak] = av;
+                    }
                     match(TokenType::Symbol, ",");
                     match(TokenType::Symbol, ";");
                 }
@@ -269,12 +274,7 @@ std::string BitScriptParser::ParseTimeline() {
     expect(TokenType::Symbol, "{");
     while (peek().type != TokenType::EndOfFile && peek().value != "}") {
         std::string timeStr = consume().value;
-        int time_ms = 0;
-        if (timeStr.size() > 2 && timeStr.substr(timeStr.size() - 2) == "ms") {
-            try { time_ms = std::stoi(timeStr.substr(0, timeStr.size() - 2)); } catch(...) { time_ms = 0; }
-        } else {
-            try { time_ms = std::stoi(timeStr); } catch(...) { time_ms = 0; }
-        }
+        int time_ms = ParseTime(timeStr);
         expect(TokenType::Symbol, ":");
         
         std::vector<BitInstruction> temp;
@@ -323,7 +323,11 @@ void BitScriptParser::ParseStatement() {
                 std::string k = consume().value;
                 expect(TokenType::Symbol, "=");
                 std::string v = consume().value;
-                meta[k] = v;
+                if (k == "pre_delay" || k == "duration" || k == "wait") {
+                    meta[k] = ParseTime(v);
+                } else {
+                    meta[k] = v;
+                }
                 match(TokenType::Symbol, ",");
             }
             expect(TokenType::Symbol, "]");
@@ -358,7 +362,11 @@ void BitScriptParser::ParseStatement() {
                 std::string k = consume().value;
                 expect(TokenType::Symbol, "=");
                 std::string v = consume().value;
-                meta[k] = v;
+                if (k == "pre_delay" || k == "duration" || k == "wait") {
+                    meta[k] = ParseTime(v);
+                } else {
+                    meta[k] = v;
+                }
                 match(TokenType::Symbol, ",");
             }
             expect(TokenType::Symbol, "]");
@@ -381,7 +389,11 @@ void BitScriptParser::ParseStatement() {
                     std::string k = consume().value;
                     expect(TokenType::Symbol, "=");
                     std::string v = consume().value;
-                    optMeta[k] = v;
+                    if (k == "pre_delay" || k == "duration" || k == "wait") {
+                        optMeta[k] = ParseTime(v);
+                    } else {
+                        optMeta[k] = v;
+                    }
                     match(TokenType::Symbol, ",");
                 }
                 expect(TokenType::Symbol, "]");
@@ -435,7 +447,7 @@ void BitScriptParser::ParseStatement() {
     else if (match(TokenType::Keyword, "delay")) {
         Operand dur = ParseExpression(*m_currentOutput);
         expect(TokenType::Symbol, ";");
-        nlohmann::json j; j["op"] = "delay"; j["duration"] = std::stoi(dur.val);
+        nlohmann::json j; j["op"] = "delay"; j["duration"] = ParseTime(dur.val);
         emit(BitOp::EVENT, {"delay"}, j);
     }
     else if (match(TokenType::Keyword, "play_sfx")) {
@@ -497,7 +509,7 @@ void BitScriptParser::ParseStatement() {
         else {
             try { j["alpha"] = std::stof(valOrId); } catch(...) { j["alpha"] = -1.0f; }
         }
-        try { j["duration"] = std::stoi(dur); } catch(...) { j["duration"] = -1; }
+        j["duration"] = ParseTime(dur);
         emit(BitOp::EVENT, {"fade"}, j);
         if (wait) emit(BitOp::WAIT_ACTION, {"fade"});
     }
@@ -513,7 +525,7 @@ void BitScriptParser::ParseStatement() {
         
         nlohmann::json j; j["op"] = "move"; j["target"] = target;
         j["x"] = x;
-        try { j["duration"] = std::stoi(dur); } catch(...) { j["duration"] = -1; }
+        j["duration"] = ParseTime(dur);
         emit(BitOp::EVENT, {"move"}, j);
         if (wait) emit(BitOp::WAIT_ACTION, {"move"});
     }
@@ -527,7 +539,7 @@ void BitScriptParser::ParseStatement() {
         
         nlohmann::json j; j["op"] = "fade_screen";
         try { j["alpha"] = std::stof(alpha); } catch(...) { j["alpha"] = -1.0f; }
-        try { j["duration"] = std::stoi(dur); } catch(...) { j["duration"] = -1; }
+        j["duration"] = ParseTime(dur);
         emit(BitOp::EVENT, {"fade_screen"}, j);
         if (wait) emit(BitOp::WAIT_ACTION, {"fade"});
     }
@@ -761,6 +773,21 @@ Operand BitScriptParser::ParsePrimary() {
     if (t.type == TokenType::Identifier) return {true, t.value};
     if (t.type == TokenType::String) return {false, t.value};
     return {false, "0"};
+}
+
+int BitScriptParser::ParseTime(const std::string& s) {
+    if (s.empty()) return 0;
+    try {
+        if (s.size() > 2 && s.substr(s.size() - 2) == "ms") {
+            return (int)std::stof(s.substr(0, s.size() - 2));
+        }
+        if (s.size() > 1 && s.back() == 's') {
+            return (int)(std::stof(s.substr(0, s.size() - 1)) * 1000.0f);
+        }
+        return (int)std::stof(s); // Default to ms
+    } catch (...) {
+        return 0;
+    }
 }
 
 void BitScriptParser::ParseIfStatement(std::vector<BitInstruction>& output) {

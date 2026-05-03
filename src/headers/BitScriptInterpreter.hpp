@@ -73,6 +73,7 @@ private:
     // Condition Parsing
     void ParseIfStatement(std::vector<BitInstruction>& output);
     
+    int ParseTime(const std::string& s);
     Token previous();
 };
 

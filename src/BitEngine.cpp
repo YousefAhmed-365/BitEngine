@@ -912,7 +912,11 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
                 }
                 if (ins.metadata.contains("bgm")) m_activeBgm = ins.metadata["bgm"];
                 if (ins.metadata.contains("auto_next")) m_isAutoNext = (ins.metadata["auto_next"].get<std::string>() == "true");
-                if (ins.metadata.contains("pre_delay")) m_engineDelayTimer = SafeStoi(ins.metadata["pre_delay"].get<std::string>()) / 1000.0f;
+                if (ins.metadata.contains("pre_delay")) {
+                    auto& pd = ins.metadata["pre_delay"];
+                    float ms = pd.is_number() ? pd.get<float>() : (float)SafeStoi(pd.get<std::string>());
+                    m_engineDelayTimer = ms / 1000.0f;
+                }
             }
 
             // 2. Entity visuals
