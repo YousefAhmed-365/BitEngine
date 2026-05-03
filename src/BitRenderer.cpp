@@ -32,6 +32,9 @@ static UIStyle ParseStyleBlock(const json& j) {
 
     if (j.contains("dialog_box")) {
         auto& b = j["dialog_box"];
+        s.boxVisible      = b.value("visible", s.boxVisible);
+        if (b.contains("hide")) s.boxVisible = !b["hide"].get<bool>();
+
         s.boxAnchor       = b.value("anchor",        s.boxAnchor);
         s.boxNormX        = b.value("pos_x",         s.boxNormX);
         s.boxNormY        = b.value("pos_y",         s.boxNormY);
@@ -44,26 +47,43 @@ static UIStyle ParseStyleBlock(const json& j) {
         s.boxPadding      = b.value("padding",       s.boxPadding);
         if (b.contains("bg_color"))     s.boxBg     = ParseColor(b["bg_color"],     s.boxBg);
         if (b.contains("border_color")) s.boxBorder = ParseColor(b["border_color"], s.boxBorder);
+        if (b.contains("texture"))      s.boxTexture = ParseStyleTexture(b["texture"]);
     }
+
     if (j.contains("dialog_text")) {
         auto& t = j["dialog_text"];
-        s.textFontSize = t.value("font_size", s.textFontSize);
+        s.textVisible = t.value("visible", s.textVisible);
+        if (t.contains("hide")) s.textVisible = !t["hide"].get<bool>();
+
+        s.textFontSize    = t.value("font_size",    s.textFontSize);
+        s.textLineSpacing = t.value("line_spacing", s.textLineSpacing);
+        s.dialogFontPath  = t.value("font_path",    s.dialogFontPath);
         if (t.contains("color")) s.textColor = ParseColor(t["color"], s.textColor);
     }
+
     if (j.contains("name_label")) {
         auto& l = j["name_label"];
+        s.labelVisible = l.value("visible", s.labelVisible);
+        if (l.contains("hide")) s.labelVisible = !l["hide"].get<bool>();
+
         s.labelAlign    = l.value("align",     s.labelAlign);
         s.labelOffsetX  = l.value("offset_x",  s.labelOffsetX);
         s.labelOffsetY  = l.value("offset_y",  s.labelOffsetY);
         s.labelPadding  = l.value("padding",   s.labelPadding);
         s.labelHeight   = l.value("height",    s.labelHeight);
         s.labelFontSize = l.value("font_size", s.labelFontSize);
-        if (l.contains("bg_color"))    s.labelBg        = ParseColor(l["bg_color"],    s.labelBg);
-        if (l.contains("border_color"))s.labelBorder    = ParseColor(l["border_color"],s.labelBorder);
-        if (l.contains("text_color"))  s.labelTextColor = ParseColor(l["text_color"],  s.labelTextColor);
+        s.labelFontPath = l.value("font_path", s.labelFontPath);
+        if (l.contains("bg_color"))     s.labelBg        = ParseColor(l["bg_color"],    s.labelBg);
+        if (l.contains("border_color")) s.labelBorder    = ParseColor(l["border_color"],s.labelBorder);
+        if (l.contains("text_color"))   s.labelTextColor = ParseColor(l["text_color"],  s.labelTextColor);
+        if (l.contains("texture"))      s.labelTexture   = ParseStyleTexture(l["texture"]);
     }
+
     if (j.contains("choice_box")) {
         auto& c = j["choice_box"];
+        s.choiceVisible = c.value("visible", s.choiceVisible);
+        if (c.contains("hide")) s.choiceVisible = !c["hide"].get<bool>();
+
         s.choiceNormX        = c.value("pos_x",            s.choiceNormX);
         s.choiceNormY        = c.value("pos_y",            s.choiceNormY);
         s.choiceOffsetY      = c.value("offset_y",         s.choiceOffsetY);
@@ -73,14 +93,20 @@ static UIStyle ParseStyleBlock(const json& j) {
         s.optionFontSize     = c.value("option_font_size", s.optionFontSize);
         s.optionHeight       = c.value("option_height",    s.optionHeight);
         s.optionGap          = c.value("option_gap",       s.optionGap);
+        s.choiceFontPath     = c.value("font_path",        s.choiceFontPath);
         if (c.contains("bg_color"))       s.choiceBg      = ParseColor(c["bg_color"],       s.choiceBg);
         if (c.contains("border_color"))   s.choiceBorder  = ParseColor(c["border_color"],   s.choiceBorder);
         if (c.contains("option_color"))   s.optionColor   = ParseColor(c["option_color"],   s.optionColor);
         if (c.contains("option_hover"))   s.optionHover   = ParseColor(c["option_hover"],   s.optionHover);
         if (c.contains("option_premium")) s.optionPremium = ParseColor(c["option_premium"], s.optionPremium);
+        if (c.contains("texture"))        s.choiceTexture = ParseStyleTexture(c["texture"]);
     }
+
     if (j.contains("toast")) {
         auto& t = j["toast"];
+        s.toastVisible = t.value("visible", s.toastVisible);
+        if (t.contains("hide")) s.toastVisible = !t["hide"].get<bool>();
+
         s.toastNormX    = t.value("pos_x",    s.toastNormX);
         s.toastNormY    = t.value("pos_y",    s.toastNormY);
         s.toastMarginX  = t.value("margin_x", s.toastMarginX);
@@ -88,15 +114,28 @@ static UIStyle ParseStyleBlock(const json& j) {
         s.toastWidth    = t.value("width",    s.toastWidth);
         s.toastHeight   = t.value("height",   s.toastHeight);
         s.toastFontSize = t.value("font_size",s.toastFontSize);
+        s.toastFontPath = t.value("font_path",s.toastFontPath);
         if (t.contains("bg_color"))    s.toastBg        = ParseColor(t["bg_color"],    s.toastBg);
         if (t.contains("border_color"))s.toastBorder    = ParseColor(t["border_color"],s.toastBorder);
         if (t.contains("text_color"))  s.toastTextColor = ParseColor(t["text_color"],  s.toastTextColor);
+        if (t.contains("texture"))     s.toastTexture   = ParseStyleTexture(t["texture"]);
     }
-    if (j.contains("vignette_opacity"))
+
+    if (j.contains("vignette")) {
+        auto& v = j["vignette"];
+        s.vignetteVisible = v.value("visible", s.vignetteVisible);
+        if (v.contains("hide")) s.vignetteVisible = !v["hide"].get<bool>();
+        s.vignetteOpacity = v.value("opacity", s.vignetteOpacity);
+    } else if (j.contains("vignette_opacity")) {
+        // Legacy support
         s.vignetteOpacity = j["vignette_opacity"].get<float>();
+    }
 
     if (j.contains("history")) {
         auto& h = j["history"];
+        s.historyVisible = h.value("visible", s.historyVisible);
+        if (h.contains("hide")) s.historyVisible = !h["hide"].get<bool>();
+
         s.historyPadding = h.value("padding", s.historyPadding);
         s.historySpacing = h.value("spacing", s.historySpacing);
         s.historySpeakerFontSize = h.value("speaker_font_size", s.historySpeakerFontSize);
@@ -105,22 +144,48 @@ static UIStyle ParseStyleBlock(const json& j) {
         s.historyFooterHeight    = h.value("footer_height", s.historyFooterHeight);
         s.historySidebarWidth    = h.value("sidebar_width", s.historySidebarWidth);
         s.historyEntryGap        = h.value("entry_gap", s.historyEntryGap);
+        s.historyFontPath        = h.value("font_path", s.historyFontPath);
         if (h.contains("bg_color"))      s.historyBg = ParseColor(h["bg_color"], s.historyBg);
         if (h.contains("speaker_color")) s.historySpeakerColor = ParseColor(h["speaker_color"], s.historySpeakerColor);
         if (h.contains("content_color")) s.historyContentColor = ParseColor(h["content_color"], s.historyContentColor);
         if (h.contains("dim_color"))     s.historyDimColor = ParseColor(h["dim_color"], s.historyDimColor);
+        if (h.contains("bg_texture"))    s.historyBgTexture = ParseStyleTexture(h["bg_texture"]);
+        if (h.contains("pill_texture"))  s.historyPillTexture = ParseStyleTexture(h["pill_texture"]);
     }
 
-    if (j.contains("cursor")) {
+    if (j.contains("mouse_cursor")) {
+        auto& c = j["mouse_cursor"];
+        s.mouseCursorVisible = c.value("visible", s.mouseCursorVisible);
+        if (c.contains("hide")) s.mouseCursorVisible = !c["hide"].get<bool>();
+        s.mouseCursorPath  = c.value("path",  s.mouseCursorPath);
+        s.mouseCursorScale = c.value("scale", s.mouseCursorScale);
+    } else if (j.contains("cursor") && j["cursor"].contains("path")) {
+        // Legacy support
         auto& c = j["cursor"];
-        s.cursorPath = c.value("path", s.cursorPath);
-        s.cursorScale = c.value("scale", s.cursorScale);
+        s.mouseCursorPath  = c.value("path", s.mouseCursorPath);
+        s.mouseCursorScale = c.value("scale", s.mouseCursorScale);
     }
 
-    // Feature 1: Custom Font
+    if (j.contains("dialog_cursor")) {
+        auto& c = j["dialog_cursor"];
+        s.dialogCursorVisible = c.value("visible", s.dialogCursorVisible);
+        if (c.contains("hide")) s.dialogCursorVisible = !c["hide"].get<bool>();
+        s.dialogCursorShape     = c.value("shape",      s.dialogCursorShape);
+        s.dialogCursorSize      = c.value("size",       s.dialogCursorSize);
+        s.dialogCursorAnimSpeed = c.value("anim_speed", s.dialogCursorAnimSpeed);
+        if (c.contains("color"))   s.dialogCursorColor   = ParseColor(c["color"], s.dialogCursorColor);
+        if (c.contains("texture")) s.dialogCursorTexture = ParseStyleTexture(c["texture"]);
+    } else if (j.contains("cursor") && !j["cursor"].contains("path")) {
+        // Legacy support
+        auto& c = j["cursor"];
+        s.dialogCursorShape     = c.value("shape",      s.dialogCursorShape);
+        s.dialogCursorSize      = c.value("size",       s.dialogCursorSize);
+        s.dialogCursorAnimSpeed = c.value("anim_speed", s.dialogCursorAnimSpeed);
+        if (c.contains("color")) s.dialogCursorColor = ParseColor(c["color"], s.dialogCursorColor);
+    }
+
     if (j.contains("font")) s.fontPath = j["font"].get<std::string>();
 
-    // Feature 2: Entity Display
     if (j.contains("entity")) {
         auto& e = j["entity"];
         s.entityScale          = e.value("scale",           s.entityScale);
@@ -129,24 +194,14 @@ static UIStyle ParseStyleBlock(const json& j) {
         s.entityShadowOpacity  = e.value("shadow_opacity",  s.entityShadowOpacity);
     }
 
-    // Feature 3: Cursor Style
-    if (j.contains("cursor")) {
-        auto& c = j["cursor"];
-        s.cursorShape     = c.value("shape",      s.cursorShape);
-        s.cursorSize      = c.value("size",       s.cursorSize);
-        s.cursorAnimSpeed = c.value("anim_speed", s.cursorAnimSpeed);
-        if (c.contains("color")) s.cursorColor = ParseColor(c["color"], s.cursorColor);
-    }
-
-    // Feature 5: Background Clear Color
     if (j.contains("clear_color")) s.clearColor = ParseColor(j["clear_color"], s.clearColor);
 
-    // Texture Overrides — parsed last so they can appear anywhere in the JSON block
+    // Legacy/Fallback Texture Overrides
     if (j.contains("box_texture"))          s.boxTexture          = ParseStyleTexture(j["box_texture"]);
     if (j.contains("label_texture"))        s.labelTexture        = ParseStyleTexture(j["label_texture"]);
     if (j.contains("choice_texture"))       s.choiceTexture       = ParseStyleTexture(j["choice_texture"]);
     if (j.contains("toast_texture"))        s.toastTexture        = ParseStyleTexture(j["toast_texture"]);
-    if (j.contains("cursor_texture"))       s.cursorTexture       = ParseStyleTexture(j["cursor_texture"]);
+    if (j.contains("cursor_texture"))       s.dialogCursorTexture = ParseStyleTexture(j["cursor_texture"]);
     if (j.contains("history_bg_texture"))   s.historyBgTexture    = ParseStyleTexture(j["history_bg_texture"]);
     if (j.contains("history_pill_texture")) s.historyPillTexture  = ParseStyleTexture(j["history_pill_texture"]);
 
@@ -202,15 +257,21 @@ void StyleManager::LoadStyle(const std::string& path) {
 
         // Feature 1: Load any new fonts referenced by styles
         for (auto& [name, style] : m_styleLibrary) {
-            if (style.fontPath.empty() || m_fontCache.count(style.fontPath)) continue;
-            if (FileExists(style.fontPath.c_str())) {
-                Font f = LoadFontEx(style.fontPath.c_str(), 96, nullptr, 0);
-                if (f.texture.id > 0) {
-                    SetTextureFilter(f.texture, TEXTURE_FILTER_BILINEAR);
-                    m_fontCache[style.fontPath] = f;
+            std::vector<std::string> paths = { 
+                style.fontPath, style.dialogFontPath, style.labelFontPath, 
+                style.choiceFontPath, style.toastFontPath, style.historyFontPath 
+            };
+            for (const auto& path : paths) {
+                if (path.empty() || m_fontCache.count(path)) continue;
+                if (FileExists(path.c_str())) {
+                    Font f = LoadFontEx(path.c_str(), 96, nullptr, 0);
+                    if (f.texture.id > 0) {
+                        SetTextureFilter(f.texture, TEXTURE_FILTER_BILINEAR);
+                        m_fontCache[path] = f;
+                    }
+                } else {
+                    std::cerr << "[StyleManager] Font not found: " << path << std::endl;
                 }
-            } else {
-                std::cerr << "[StyleManager] Font not found: " << style.fontPath << std::endl;
             }
         }
 
@@ -333,20 +394,21 @@ void BitRenderer::Draw() {
         }
     EndMode2D();
     
-    if (m_showHistory) DrawHistory();
+    if (m_showHistory && style.historyVisible) DrawHistory();
     
     if (m_engine.IsDebugOverlayVisible()) DrawDebugOverlay();
-    DrawCustomCursor();
+    
+    if (style.mouseCursorVisible) DrawCustomCursor();
 
     // Toast notification
-    if (saveToastTimer > 0.0f) {
+    if (saveToastTimer > 0.0f && style.toastVisible) {
         int sw = GetScreenWidth(), sh = GetScreenHeight();
         float tx = sw * style.toastNormX - style.toastWidth - style.toastMarginX;
         float ty = sh * style.toastNormY + style.toastMarginY;
         Rectangle toastRect = { tx, ty, style.toastWidth, style.toastHeight };
         // Texture override for toast panel
         DrawStyledRect(toastRect, style.toastTexture, style.toastBg, style.toastBorder, 0.0f, 1.5f, 4);
-        Font toastFont = m_styleManager.GetCurrentFont();
+        Font toastFont = m_styleManager.GetFont(style.toastFontPath);
         float textY = ty + style.toastHeight / 2.0f - style.toastFontSize / 2.0f;
         DrawTextEx(toastFont, saveToastMsg.c_str(), { tx + 10, textY },
                    (float)style.toastFontSize, 2.0f, style.toastTextColor);
@@ -562,12 +624,14 @@ void BitRenderer::DrawMainBox() {
     Rectangle box = { bx, by, bw, bh };
 
     // Texture override for dialog box (falls back to rounded rect + border)
-    DrawStyledRect(box, style.boxTexture, style.boxBg, style.boxBorder,
-                   style.boxRoundness, style.boxBorderThick, 10);
+    if (style.boxVisible) {
+        DrawStyledRect(box, style.boxTexture, style.boxBg, style.boxBorder,
+                       style.boxRoundness, style.boxBorderThick, 10);
+    }
 
-    if (e) {
-        Font font = m_styleManager.GetCurrentFont();
-        float tw = MeasureTextEx(font, e->name.c_str(), (float)style.labelFontSize, 2).x;
+    if (e && style.labelVisible) {
+        Font lFont = m_styleManager.GetFont(style.labelFontPath);
+        float tw = MeasureTextEx(lFont, e->name.c_str(), (float)style.labelFontSize, 2).x;
         float lw = tw + style.labelPadding * 2;
         
         float lx = box.x + style.labelOffsetX;
@@ -580,23 +644,26 @@ void BitRenderer::DrawMainBox() {
         DrawStyledRect(labelRect, style.labelTexture, style.labelBg, style.labelBorder,
                        0.0f, 1.5f, 4);
         float nameY = ly + style.labelHeight / 2.0f - style.labelFontSize / 2.0f;
-        DrawTextEx(font, e->name.c_str(), { lx + style.labelPadding, nameY },
+        DrawTextEx(lFont, e->name.c_str(), { lx + style.labelPadding, nameY },
                    (float)style.labelFontSize, 2.0f, style.labelTextColor);
     }
 
-    DrawRichText(m_engine.GetParsedContent(), m_engine.GetRevealedCount(),
-                 (int)(box.x + style.boxPadding), (int)(box.y + 40),
-                 style.textFontSize, (int)bw - style.boxPadding * 2, style.textColor, style.textLineSpacing);
+    if (style.textVisible) {
+        DrawRichText(m_engine.GetParsedContent(), m_engine.GetRevealedCount(),
+                     (int)(box.x + style.boxPadding), (int)(box.y + 40),
+                     style.textFontSize, (int)bw - style.boxPadding * 2, style.textColor, style.textLineSpacing,
+                     m_styleManager.GetFont(style.dialogFontPath));
+    }
 
     // Texture override for cursor sprite (replaces all drawn cursor shapes)
-    if (!m_engine.IsTextRevealing()) {
-        float anim  = sinf((float)GetTime() * style.cursorAnimSpeed);
+    if (!m_engine.IsTextRevealing() && style.dialogCursorVisible) {
+        float anim  = sinf((float)GetTime() * style.dialogCursorAnimSpeed);
         float bR    = box.x + box.width  - 18.0f;
         float bB    = box.y + box.height - 14.0f;
-        float sz    = style.cursorSize;
+        float sz    = style.dialogCursorSize;
 
-        if (!style.cursorTexture.path.empty()) {
-            Texture2D ctex = GetTexture(style.cursorTexture.path);
+        if (!style.dialogCursorTexture.path.empty()) {
+            Texture2D ctex = GetTexture(style.dialogCursorTexture.path);
             if (ctex.id > 0) {
                 float scale = (anim * 0.08f + 1.0f);  // gentle breathing pulse
                 float tw = ctex.width  * scale;
@@ -604,13 +671,13 @@ void BitRenderer::DrawMainBox() {
                 DrawTexturePro(ctex,
                     { 0, 0, (float)ctex.width, (float)ctex.height },
                     { bR - tw / 2.0f, bB - th / 2.0f, tw, th },
-                    { 0, 0 }, 0.0f, style.cursorTexture.tint);
+                    { 0, 0 }, 0.0f, style.dialogCursorTexture.tint);
             }
         } else {
-            Color col = Fade(style.cursorColor, 0.9f);
-            if (style.cursorShape == "dot") {
+            Color col = Fade(style.dialogCursorColor, 0.9f);
+            if (style.dialogCursorShape == "dot") {
                 DrawCircle((int)bR, (int)bB, sz * (0.8f + anim * 0.2f), col);
-            } else if (style.cursorShape == "bar") {
+            } else if (style.dialogCursorShape == "bar") {
                 DrawRectangle((int)(bR - sz * 2.0f), (int)bB,
                               (int)(sz * 2.0f), (int)(sz * 0.45f),
                               Fade(col, (anim + 1.0f) * 0.5f));
@@ -625,10 +692,11 @@ void BitRenderer::DrawMainBox() {
 }
 
 void BitRenderer::DrawChoiceBox() {
+    auto& style = m_styleManager.GetStyle();
+    if (!style.choiceVisible) return;
+
     auto& opts = m_engine.GetVisibleOptions();
     if (opts.empty()) return;
-
-    auto& style = m_styleManager.GetStyle();
     int sw = GetScreenWidth(), sh = GetScreenHeight();
     float cw    = style.choiceWidth;
     float itemH = style.optionHeight + style.optionGap;
@@ -642,7 +710,7 @@ void BitRenderer::DrawChoiceBox() {
     DrawStyledRect(r, style.choiceTexture, Fade(style.choiceBg, 0.95f), style.choiceBorder,
                    style.choiceRoundness, style.choiceBorderThick, 10);
 
-    Font font = m_styleManager.GetCurrentFont();
+    Font font = m_styleManager.GetFont(style.choiceFontPath);
     for (int i = 0; i < (int)opts.size(); ++i) {
         Rectangle oRect = { r.x + 20, r.y + pad + (i * itemH), r.width - 40, (float)style.optionHeight };
         Color col = (opts[i].style == "premium") ? style.optionPremium : style.optionColor;
@@ -661,7 +729,7 @@ void BitRenderer::DrawChoiceBox() {
 
 void BitRenderer::DrawVFX() {
     auto& style = m_styleManager.GetStyle();
-    if (m_engine.GetConfigs().enable_vignette)
+    if (m_engine.GetConfigs().enable_vignette && style.vignetteVisible)
         DrawTexturePro(m_vignette, {0,0,64,64},
                        {0,0,(float)GetScreenWidth(),(float)GetScreenHeight()},
                        {0,0}, 0, Fade(WHITE, style.vignetteOpacity));
@@ -868,9 +936,9 @@ void BitRenderer::DrawDebugOverlay() {
 }
 
 
-int BitRenderer::DrawRichText(const std::vector<RichChar>& content, int limit, int x, int y, int fontSize, int maxWidth, Color defaultColor, int lineSpacing) {
-    // Feature 1: Use the active style's custom font
-    Font font = m_styleManager.GetCurrentFont();
+int BitRenderer::DrawRichText(const std::vector<RichChar>& content, int limit, int x, int y, int fontSize, int maxWidth, Color defaultColor, int lineSpacing, Font font) {
+    // Feature 1: Use the provided font, or the active style's custom font as fallback
+    if (font.texture.id == 0) font = m_styleManager.GetCurrentFont();
     int curX = x;
     int curY = y;
     float time = (float)GetTime();
@@ -1026,7 +1094,7 @@ void BitRenderer::DrawStyledRect(Rectangle rect, const StyleTexture& stex,
 void BitRenderer::DrawHistory() {
     UIStyle style = m_styleManager.GetStyle();
     int sw = GetScreenWidth(), sh = GetScreenHeight();
-    Font font = m_styleManager.GetCurrentFont();
+    Font font = m_styleManager.GetFont(style.historyFontPath);
 
     // Backdrop
     DrawStyledRect({ 0, 0, (float)sw, (float)sh }, style.historyBgTexture,
@@ -1077,7 +1145,7 @@ void BitRenderer::DrawHistory() {
             // Draw Rich Content first to get exact height
             int newY = DrawRichText(entry.richContent, (int)entry.richContent.size(),
                                     CONTENT_X, (int)py, (int)CT_SIZE, CONTENT_W,
-                                    style.historyContentColor);
+                                    style.historyContentColor, 6, font);
                                     
             float contentH = (float)newY - py;
             float pillH = SP_SIZE + 8;
@@ -1159,20 +1227,20 @@ void BitRenderer::DrawHistory() {
 
 void BitRenderer::DrawCustomCursor() {
     UIStyle style = m_styleManager.GetStyle();
-    if (style.cursorPath.empty()) {
+    if (style.mouseCursorPath.empty()) {
         ShowCursor();
         return;
     }
 
-    if (m_currentCursorPath != style.cursorPath) {
-        m_currentCursorPath = style.cursorPath;
+    if (m_currentCursorPath != style.mouseCursorPath) {
+        m_currentCursorPath = style.mouseCursorPath;
         m_customCursor = GetTexture(m_currentCursorPath);
         if (m_customCursor.id != 0) HideCursor();
     }
 
     if (m_customCursor.id != 0) {
         Vector2 mpos = GetMousePosition();
-        float scale = style.cursorScale;
+        float scale = style.mouseCursorScale;
         DrawTextureEx(m_customCursor, {mpos.x, mpos.y}, 0.0f, scale, WHITE);
     }
 }

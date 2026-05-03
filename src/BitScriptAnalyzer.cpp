@@ -361,6 +361,110 @@ void BitScriptAnalyzer::CheckInstructions(const DialogProject& project, std::vec
         if (ins.op == BitOp::EVENT) {
             if (ins.args.empty()) {
                 messages.push_back({AnalysisMessage::Level::ERROR, "EVENT instruction requires an operation name", ins.line});
+                continue;
+            }
+
+            std::string op = ins.args[0];
+            
+            // Validate fade_screen parameters
+            if (op == "fade_screen") {
+                if (ins.metadata.contains("alpha")) {
+                    try {
+                        float alpha = ins.metadata["alpha"].get<float>();
+                        if (alpha < 0.0f || alpha > 1.0f) {
+                            messages.push_back({AnalysisMessage::Level::ERROR, "fade_screen: alpha must be between 0.0 and 1.0, got " + std::to_string(alpha), ins.line});
+                        }
+                    } catch (...) {
+                        messages.push_back({AnalysisMessage::Level::ERROR, "fade_screen: alpha is not a valid number", ins.line});
+                    }
+                }
+                if (ins.metadata.contains("duration")) {
+                    try {
+                        int duration = ins.metadata["duration"].get<int>();
+                        if (duration < 0) {
+                            messages.push_back({AnalysisMessage::Level::ERROR, "fade_screen: duration must be >= 0, got " + std::to_string(duration), ins.line});
+                        }
+                    } catch (...) {
+                        messages.push_back({AnalysisMessage::Level::ERROR, "fade_screen: duration is not a valid number", ins.line});
+                    }
+                }
+            }
+            
+            // Validate fade parameters
+            else if (op == "fade") {
+                std::string target = ins.metadata.value("target", "");
+                if (target != "bg" && ins.metadata.contains("alpha")) {
+                    try {
+                        float alpha = ins.metadata["alpha"].get<float>();
+                        if (alpha < 0.0f || alpha > 1.0f) {
+                            messages.push_back({AnalysisMessage::Level::ERROR, "fade: alpha must be between 0.0 and 1.0, got " + std::to_string(alpha), ins.line});
+                        }
+                    } catch (...) {
+                        messages.push_back({AnalysisMessage::Level::ERROR, "fade: alpha is not a valid number", ins.line});
+                    }
+                }
+                if (ins.metadata.contains("duration")) {
+                    try {
+                        int duration = ins.metadata["duration"].get<int>();
+                        if (duration < 0) {
+                            messages.push_back({AnalysisMessage::Level::ERROR, "fade: duration must be >= 0, got " + std::to_string(duration), ins.line});
+                        }
+                    } catch (...) {
+                        messages.push_back({AnalysisMessage::Level::ERROR, "fade: duration is not a valid number", ins.line});
+                    }
+                }
+            }
+            
+            // Validate move parameters
+            else if (op == "move") {
+                if (ins.metadata.contains("x")) {
+                    try {
+                        float x = ins.metadata["x"].is_number() ? ins.metadata["x"].get<float>() : std::stof(ins.metadata["x"].get<std::string>());
+                        if (x < 0.0f || x > 1.0f) {
+                            messages.push_back({AnalysisMessage::Level::ERROR, "move: x position must be between 0.0 and 1.0, got " + std::to_string(x), ins.line});
+                        }
+                    } catch (...) {
+                        messages.push_back({AnalysisMessage::Level::ERROR, "move: x is not a valid number", ins.line});
+                    }
+                }
+                if (ins.metadata.contains("duration")) {
+                    try {
+                        int duration = ins.metadata["duration"].get<int>();
+                        if (duration < 0) {
+                            messages.push_back({AnalysisMessage::Level::ERROR, "move: duration must be >= 0, got " + std::to_string(duration), ins.line});
+                        }
+                    } catch (...) {
+                        messages.push_back({AnalysisMessage::Level::ERROR, "move: duration is not a valid number", ins.line});
+                    }
+                }
+            }
+            
+            // Validate shake parameters
+            else if (op == "shake") {
+                if (ins.metadata.contains("intensity")) {
+                    try {
+                        float intensity = ins.metadata["intensity"].get<float>();
+                        if (intensity < 0.0f) {
+                            messages.push_back({AnalysisMessage::Level::WARNING, "shake: intensity should be positive, got " + std::to_string(intensity), ins.line});
+                        }
+                    } catch (...) {
+                        messages.push_back({AnalysisMessage::Level::ERROR, "shake: intensity is not a valid number", ins.line});
+                    }
+                }
+            }
+            
+            // Validate delay parameters
+            else if (op == "delay") {
+                if (ins.metadata.contains("duration")) {
+                    try {
+                        int duration = ins.metadata["duration"].get<int>();
+                        if (duration < 0) {
+                            messages.push_back({AnalysisMessage::Level::ERROR, "delay: duration must be >= 0, got " + std::to_string(duration), ins.line});
+                        }
+                    } catch (...) {
+                        messages.push_back({AnalysisMessage::Level::ERROR, "delay: duration is not a valid number", ins.line});
+                    }
+                }
             }
         }
 
@@ -403,6 +507,112 @@ void BitScriptAnalyzer::CheckTimelines(const DialogProject& project, std::vector
         for (const auto& event : tl.events) {
             if (event.time_ms < 0) {
                 messages.push_back({AnalysisMessage::Level::ERROR, "Timeline '" + id + "' has event with negative time: " + std::to_string(event.time_ms), -1});
+            }
+            
+            // Validate parameters for timeline events
+            if (event.op == BitOp::EVENT && !event.args.empty()) {
+                std::string op = event.args[0];
+                
+                // Validate fade_screen parameters
+                if (op == "fade_screen") {
+                    if (event.metadata.contains("alpha")) {
+                        try {
+                            float alpha = event.metadata["alpha"].get<float>();
+                            if (alpha < 0.0f || alpha > 1.0f) {
+                                messages.push_back({AnalysisMessage::Level::ERROR, "Timeline '" + id + "': fade_screen alpha must be between 0.0 and 1.0, got " + std::to_string(alpha), -1});
+                            }
+                        } catch (...) {
+                            messages.push_back({AnalysisMessage::Level::ERROR, "Timeline '" + id + "': fade_screen alpha is not a valid number", -1});
+                        }
+                    }
+                    if (event.metadata.contains("duration")) {
+                        try {
+                            int duration = event.metadata["duration"].get<int>();
+                            if (duration < 0) {
+                                messages.push_back({AnalysisMessage::Level::ERROR, "Timeline '" + id + "': fade_screen duration must be >= 0, got " + std::to_string(duration), -1});
+                            }
+                        } catch (...) {
+                            messages.push_back({AnalysisMessage::Level::ERROR, "Timeline '" + id + "': fade_screen duration is not a valid number", -1});
+                        }
+                    }
+                }
+                
+                // Validate fade parameters
+                else if (op == "fade") {
+                    std::string target = event.metadata.value("target", "");
+                    if (target != "bg" && event.metadata.contains("alpha")) {
+                        try {
+                            float alpha = event.metadata["alpha"].get<float>();
+                            if (alpha < 0.0f || alpha > 1.0f) {
+                                messages.push_back({AnalysisMessage::Level::ERROR, "Timeline '" + id + "': fade alpha must be between 0.0 and 1.0, got " + std::to_string(alpha), -1});
+                            }
+                        } catch (...) {
+                            messages.push_back({AnalysisMessage::Level::ERROR, "Timeline '" + id + "': fade alpha is not a valid number", -1});
+                        }
+                    }
+                    if (event.metadata.contains("duration")) {
+                        try {
+                            int duration = event.metadata["duration"].get<int>();
+                            if (duration < 0) {
+                                messages.push_back({AnalysisMessage::Level::ERROR, "Timeline '" + id + "': fade duration must be >= 0, got " + std::to_string(duration), -1});
+                            }
+                        } catch (...) {
+                            messages.push_back({AnalysisMessage::Level::ERROR, "Timeline '" + id + "': fade duration is not a valid number", -1});
+                        }
+                    }
+                }
+                
+                // Validate move parameters
+                else if (op == "move") {
+                    if (event.metadata.contains("x")) {
+                        try {
+                            float x = event.metadata["x"].is_number() ? event.metadata["x"].get<float>() : std::stof(event.metadata["x"].get<std::string>());
+                            if (x < 0.0f || x > 1.0f) {
+                                messages.push_back({AnalysisMessage::Level::ERROR, "Timeline '" + id + "': move x must be between 0.0 and 1.0, got " + std::to_string(x), -1});
+                            }
+                        } catch (...) {
+                            messages.push_back({AnalysisMessage::Level::ERROR, "Timeline '" + id + "': move x is not a valid number", -1});
+                        }
+                    }
+                    if (event.metadata.contains("duration")) {
+                        try {
+                            int duration = event.metadata["duration"].get<int>();
+                            if (duration < 0) {
+                                messages.push_back({AnalysisMessage::Level::ERROR, "Timeline '" + id + "': move duration must be >= 0, got " + std::to_string(duration), -1});
+                            }
+                        } catch (...) {
+                            messages.push_back({AnalysisMessage::Level::ERROR, "Timeline '" + id + "': move duration is not a valid number", -1});
+                        }
+                    }
+                }
+                
+                // Validate shake parameters
+                else if (op == "shake") {
+                    if (event.metadata.contains("intensity")) {
+                        try {
+                            float intensity = event.metadata["intensity"].get<float>();
+                            if (intensity < 0.0f) {
+                                messages.push_back({AnalysisMessage::Level::WARNING, "Timeline '" + id + "': shake intensity should be positive, got " + std::to_string(intensity), -1});
+                            }
+                        } catch (...) {
+                            messages.push_back({AnalysisMessage::Level::ERROR, "Timeline '" + id + "': shake intensity is not a valid number", -1});
+                        }
+                    }
+                }
+                
+                // Validate delay parameters
+                else if (op == "delay") {
+                    if (event.metadata.contains("duration")) {
+                        try {
+                            int duration = event.metadata["duration"].get<int>();
+                            if (duration < 0) {
+                                messages.push_back({AnalysisMessage::Level::ERROR, "Timeline '" + id + "': delay duration must be >= 0, got " + std::to_string(duration), -1});
+                            }
+                        } catch (...) {
+                            messages.push_back({AnalysisMessage::Level::ERROR, "Timeline '" + id + "': delay duration is not a valid number", -1});
+                        }
+                    }
+                }
             }
         }
     }

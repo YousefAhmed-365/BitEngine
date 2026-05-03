@@ -116,7 +116,7 @@
         "duration": 500,
         "op": "move",
         "target": "akira",
-        "x": "center"
+        "x": "0.0"
       },
       "op": "EVENT"
     },
@@ -712,13 +712,6 @@
             "op": "fade_screen"
           },
           "op": "EVENT",
-          "time": 0
-        },
-        {
-          "args": [
-            "fade"
-          ],
-          "op": "WAIT_ACTION",
           "time": 0
         },
         {

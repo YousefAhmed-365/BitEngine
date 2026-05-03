@@ -28,115 +28,122 @@ struct StyleTexture {
 struct UIStyle {
 
     // Dialog Box
-    float boxNormX         = 0.5f;
-    float boxNormY         = 1.0f;
-    float boxWidthNorm     = 0.93f;
-    float boxHeight        = 190.0f;
-    float boxHeightNorm    = 0.0f; // 0 means use fixed boxHeight
-    float boxMarginBottom  = 20.0f;
-    float boxRoundness     = 0.05f;
-    float boxBorderThick   = 3.0f;
-    int   boxPadding       = 40;
-    std::string boxAnchor  = "bottom";
-    Color boxBg            = { 15,  15,  25,  240 };
-    Color boxBorder        = {  0, 210, 255, 255 };
+    bool        boxVisible         = true;
+    float       boxNormX           = 0.5f;
+    float       boxNormY           = 1.0f;
+    float       boxWidthNorm       = 0.93f;
+    float       boxHeight          = 190.0f;
+    float       boxHeightNorm      = 0.0f; // 0 means use fixed boxHeight
+    float       boxMarginBottom    = 20.0f;
+    float       boxRoundness       = 0.05f;
+    float       boxBorderThick     = 3.0f;
+    int         boxPadding         = 40;
+    std::string boxAnchor          = "bottom";
+    Color       boxBg              = { 15,  15,  25,  240 };
+    Color       boxBorder          = {  0, 210, 255, 255 };
+    StyleTexture boxTexture;
 
     // Dialog Text
-    Color textColor        = { 245, 245, 255, 255 };
-    int   textFontSize     = 24;
-    int   textLineSpacing  = 5;
+    bool        textVisible        = true;
+    Color       textColor          = { 245, 245, 255, 255 };
+    int         textFontSize       = 24;
+    int         textLineSpacing    = 5;
+    std::string dialogFontPath     = "";
 
     // Name Label
-    float labelOffsetX     = 30.0f;
-    float labelOffsetY     = -20.0f;
-    int   labelPadding     = 20;
-    int   labelHeight      = 40;
-    std::string labelAlign = "left";
-    Color labelBg          = { 15,  15,  25,  240 };
-    Color labelBorder      = {  0, 210, 255, 255 };
-    Color labelTextColor   = { 255, 215,   0, 255 };
-    int   labelFontSize    = 28;
+    bool        labelVisible       = true;
+    float       labelOffsetX       = 30.0f;
+    float       labelOffsetY       = -20.0f;
+    int         labelPadding       = 20;
+    int         labelHeight        = 40;
+    std::string labelAlign         = "left";
+    Color       labelBg            = { 15,  15,  25,  240 };
+    Color       labelBorder        = {  0, 210, 255, 255 };
+    Color       labelTextColor     = { 255, 215,   0, 255 };
+    int         labelFontSize      = 28;
+    StyleTexture labelTexture;
+    std::string labelFontPath      = "";
 
     // Choice Box
-    float choiceNormX      = 0.5f;
-    float choiceNormY      = 0.5f;
-    float choiceOffsetY    = -100.0f;
-    float choiceWidth      = 440.0f;
-    float choiceRoundness  = 0.1f;
-    float choiceBorderThick= 2.0f;
-    Color choiceBg         = { 15,  15,  25,  242 };
-    Color choiceBorder     = {  0, 210, 255, 255 };
-    Color optionColor      = {  0, 180, 255, 255 };
-    Color optionHover      = { 255, 255, 255, 255 };
-    Color optionPremium    = { 255,   0, 255, 255 };
-    int   optionFontSize   = 20;
-    int   optionHeight     = 35;
-    int   optionGap        = 10;
+    bool        choiceVisible      = true;
+    float       choiceNormX        = 0.5f;
+    float       choiceNormY        = 0.5f;
+    float       choiceOffsetY      = -100.0f;
+    float       choiceWidth        = 440.0f;
+    float       choiceRoundness    = 0.1f;
+    float       choiceBorderThick  = 2.0f;
+    Color       choiceBg           = { 15,  15,  25,  242 };
+    Color       choiceBorder       = {  0, 210, 255, 255 };
+    Color       optionColor        = {  0, 180, 255, 255 };
+    Color       optionHover        = { 255, 255, 255, 255 };
+    Color       optionPremium      = { 255,   0, 255, 255 };
+    int         optionFontSize     = 20;
+    int         optionHeight       = 35;
+    int         optionGap          = 10;
+    StyleTexture choiceTexture;
+    std::string choiceFontPath     = "";
 
     // Toast Notification
-    float toastNormX       = 1.0f;
-    float toastNormY       = 0.0f;
-    float toastMarginX     = 20.0f;
-    float toastMarginY     = 20.0f;
-    float toastWidth       = 200.0f;
-    float toastHeight      = 40.0f;
-    Color toastBg          = { 15,  15,  25,  240 };
-    Color toastBorder      = {  0, 210, 255, 255 };
-    Color toastTextColor   = { 245, 245, 255, 255 };
-    int   toastFontSize    = 16;
+    bool        toastVisible       = true;
+    float       toastNormX         = 1.0f;
+    float       toastNormY         = 0.0f;
+    float       toastMarginX       = 20.0f;
+    float       toastMarginY       = 20.0f;
+    float       toastWidth         = 200.0f;
+    float       toastHeight        = 40.0f;
+    Color       toastBg            = { 15,  15,  25,  240 };
+    Color       toastBorder        = {  0, 210, 255, 255 };
+    Color       toastTextColor     = { 245, 245, 255, 255 };
+    int         toastFontSize      = 16;
+    StyleTexture toastTexture;
+    std::string toastFontPath      = "";
 
     // Vignette
-    float vignetteOpacity  = 0.4f;
+    bool        vignetteVisible    = true;
+    float       vignetteOpacity    = 0.4f;
 
     // Feature: Message History
-    float historyPadding         = 40.0f;
-    float historySpacing         = 20.0f;
-    float historySpeakerFontSize = 14.0f;
-    float historyContentFontSize = 18.0f;
-    int   historyHeaderHeight    = 56;
-    int   historyFooterHeight    = 36;
-    int   historySidebarWidth    = 130;
-    int   historyEntryGap        = 14;
-    Color historyBg              = {0, 0, 0, 200};
-    Color historySpeakerColor    = SKYBLUE;
-    Color historyContentColor    = RAYWHITE;
-    Color historyDimColor        = {245, 245, 255, 30};
+    bool        historyVisible     = true;
+    float       historyPadding         = 40.0f;
+    float       historySpacing         = 20.0f;
+    float       historySpeakerFontSize = 14.0f;
+    float       historyContentFontSize = 18.0f;
+    int         historyHeaderHeight    = 56;
+    int         historyFooterHeight    = 36;
+    int         historySidebarWidth    = 130;
+    int         historyEntryGap        = 14;
+    Color       historyBg              = {0, 0, 0, 200};
+    Color       historySpeakerColor    = SKYBLUE;
+    Color       historyContentColor    = RAYWHITE;
+    Color       historyDimColor        = {245, 245, 255, 30};
+    StyleTexture historyBgTexture;
+    StyleTexture historyPillTexture;
+    std::string historyFontPath    = "";
 
-    // Feature: Custom Cursor
-    std::string cursorPath = "";
-    float cursorScale = 1.0f;
+    // Mouse Cursor
+    bool        mouseCursorVisible = true;
+    std::string mouseCursorPath    = "";
+    float       mouseCursorScale   = 1.0f;
 
-    // Feature 1: Custom Font
-    std::string fontPath   = "";
+    // Dialog Cursor (Waiting-for-input)
+    bool        dialogCursorVisible = true;
+    std::string dialogCursorShape   = "triangle";
+    Color       dialogCursorColor   = {  0, 210, 255, 255 };
+    float       dialogCursorSize    = 8.0f;
+    float       dialogCursorAnimSpeed = 10.0f;
+    StyleTexture dialogCursorTexture;
+
+    // Global Font fallback
+    std::string fontPath = "";
 
     // Entity Display
-    float entityScale          = 3.0f;   // Sprite render scale multiplier
-    float entityFloatAmplitude = 10.0f;  // Pixels of vertical floating movement
-    float entityFloatSpeed     = 2.0f;   // Hz of the floating sine wave
-    float entityShadowOpacity  = 0.4f;   // Alpha of the ellipse shadow beneath sprites
-
-    // Cursor / Waiting Indicator
-    // shape: "triangle" | "dot" | "bar"
-    std::string cursorShape     = "triangle";
-    Color       cursorColor     = {  0, 210, 255, 255 };
-    float       cursorSize      = 8.0f;
-    float       cursorAnimSpeed = 10.0f;
+    float       entityScale          = 3.0f;
+    float       entityFloatAmplitude = 10.0f;
+    float       entityFloatSpeed     = 2.0f;
+    float       entityShadowOpacity  = 0.4f;
 
     // Background Clear Color
-    // Drawn as the very first layer of each frame — eliminates ghosting when no bg image is set.
-    Color clearColor            = { 18, 18, 30, 255 };
-
-    // Texture Overrides
-    // For each element: if path is non-empty the texture is used instead of the
-    // default solid/rounded-rect rendering. Nine-slice is recommended for panels
-    // so borders scale correctly at any dialog box size.
-    StyleTexture boxTexture;        // Dialog box panel
-    StyleTexture labelTexture;      // Character name label
-    StyleTexture choiceTexture;     // Choice/options panel
-    StyleTexture toastTexture;      // Toast notification panel
-    StyleTexture cursorTexture;     // Waiting-for-input cursor sprite
-    StyleTexture historyBgTexture;  // History background
-    StyleTexture historyPillTexture;// History speaker pill
+    Color       clearColor           = { 18, 18, 30, 255 };
 };
 
 class StyleManager {
@@ -193,7 +200,7 @@ protected:
     virtual void DrawDebugOverlay();
     virtual void HandleAudio();
 
-    int DrawRichText(const std::vector<RichChar>& content, int limit, int x, int y, int fontSize, int maxWidth, Color defaultColor = RAYWHITE, int lineSpacing = 6);
+    int DrawRichText(const std::vector<RichChar>& content, int limit, int x, int y, int fontSize, int maxWidth, Color defaultColor = RAYWHITE, int lineSpacing = 6, Font font = { 0 });
     void DrawHistory();
     void DrawCustomCursor();
     Texture2D GetTexture(const std::string& path);

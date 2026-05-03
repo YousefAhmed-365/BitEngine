@@ -271,7 +271,7 @@ std::string BitScriptParser::ParseTimeline() {
         std::string timeStr = consume().value;
         int time_ms = 0;
         if (timeStr.size() > 2 && timeStr.substr(timeStr.size() - 2) == "ms") {
-            time_ms = std::stoi(timeStr.substr(0, timeStr.size() - 2));
+            try { time_ms = std::stoi(timeStr.substr(0, timeStr.size() - 2)); } catch(...) { time_ms = 0; }
         } else {
             try { time_ms = std::stoi(timeStr); } catch(...) { time_ms = 0; }
         }
@@ -494,8 +494,10 @@ void BitScriptParser::ParseStatement() {
         
         nlohmann::json j; j["op"] = "fade"; j["target"] = target;
         if (target == "bg") j["id"] = valOrId;
-        else j["alpha"] = std::stof(valOrId);
-        j["duration"] = std::stoi(dur);
+        else {
+            try { j["alpha"] = std::stof(valOrId); } catch(...) { j["alpha"] = -1.0f; }
+        }
+        try { j["duration"] = std::stoi(dur); } catch(...) { j["duration"] = -1; }
         emit(BitOp::EVENT, {"fade"}, j);
         if (wait) emit(BitOp::WAIT_ACTION, {"fade"});
     }
@@ -510,7 +512,8 @@ void BitScriptParser::ParseStatement() {
         expect(TokenType::Symbol, ";");
         
         nlohmann::json j; j["op"] = "move"; j["target"] = target;
-        j["x"] = x; j["duration"] = std::stoi(dur);
+        j["x"] = x;
+        try { j["duration"] = std::stoi(dur); } catch(...) { j["duration"] = -1; }
         emit(BitOp::EVENT, {"move"}, j);
         if (wait) emit(BitOp::WAIT_ACTION, {"move"});
     }
@@ -522,7 +525,9 @@ void BitScriptParser::ParseStatement() {
         bool wait = match(TokenType::Keyword, "wait");
         expect(TokenType::Symbol, ";");
         
-        nlohmann::json j; j["op"] = "fade_screen"; j["alpha"] = std::stof(alpha); j["duration"] = std::stoi(dur);
+        nlohmann::json j; j["op"] = "fade_screen";
+        try { j["alpha"] = std::stof(alpha); } catch(...) { j["alpha"] = -1.0f; }
+        try { j["duration"] = std::stoi(dur); } catch(...) { j["duration"] = -1; }
         emit(BitOp::EVENT, {"fade_screen"}, j);
         if (wait) emit(BitOp::WAIT_ACTION, {"fade"});
     }

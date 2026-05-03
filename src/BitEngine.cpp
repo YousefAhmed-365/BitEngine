@@ -1204,7 +1204,7 @@ void DialogEngine::ProcessEvents(const std::vector<Event>& events) {
             int duration = p.value("duration", 0);
             if (target == "bg") {
                 std::string bgId = p.value("id", "");
-                if (!bgId.empty() && m_activeBg != bgId) {
+                if (!bgId.empty()) {
                     m_prevBg = m_activeBg; m_activeBg = bgId;
                     m_bgFadeAlpha = 0.0f; m_bgFadeTimer = 0.0f; m_bgFadeDuration = std::max(0.01f, duration / 1000.0f);
                 }
@@ -1217,8 +1217,11 @@ void DialogEngine::ProcessEvents(const std::vector<Event>& events) {
             continue;
         }
         if (e.op == "fade_screen") {
-            m_screenFadeTarget = p.value("alpha", 0.0f); m_screenFadeStart = m_screenFadeAlpha;
-            m_screenFadeDuration = p.value("duration", 0) / 1000.0f; m_screenFadeTimer = 0.0f;
+            float alpha = p.value("alpha", 0.0f);
+            alpha = std::max(0.0f, std::min(1.0f, alpha)); // Clamp to [0, 1]
+            m_screenFadeTarget = alpha; m_screenFadeStart = m_screenFadeAlpha;
+            int dur = p.value("duration", 0);
+            m_screenFadeDuration = std::max(0.0f, dur / 1000.0f); m_screenFadeTimer = 0.0f;
             continue;
         }
         

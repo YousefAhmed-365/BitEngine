@@ -58,7 +58,7 @@ scene scene_alley {
     
     # Nested anonymous timeline example
     play timeline {
-        0ms: fade_screen 1.0, 200 wait;
+        0ms: fade_screen 1.0, 200;
         300ms: fade_screen 0.0, 200;
     } wait;
     bgm = "neon_noir";
@@ -74,7 +74,7 @@ scene scene_alley {
     fade kael, 1.0, 800;
     kael: "I can feel it too... it's like a [color=#ff00ff]glitch[/color] in the air.";
 
-    move akira, center, 500;
+    move akira, 0.5, 500;
     move kael, 0.9, 400 wait;
     
     akira.calm: "Wait, I'm detecting a signature nearby. Let's move in.";
@@ -93,7 +93,7 @@ scene routine_neural_sync(version) {
 };
 
 scene transition{
-    ui hide
+    ui hide;
     fade_screen 1.0, 1000 wait;
     fade_screen 0.0, 1000 wait;
     ui show;
