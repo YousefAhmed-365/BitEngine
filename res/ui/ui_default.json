@@ -1,0 +1,125 @@
+{
+  "style_sheet": "res/ui/ui_neon_noir_style.json",
+
+  "elements": [
+    {
+      "id":            "background_layer",
+      "type":          "background",
+      "role":          "background",
+      "style":         "background_style",
+      "anchor_to":     "screen",
+      "anchor_point":  "fill"
+    },
+
+    {
+      "id":            "entity_layer",
+      "type":          "entity_layer",
+      "role":          "entity_layer",
+      "style":         "entity_style",
+      "anchor_to":     "screen",
+      "anchor_point":  "fill"
+    },
+
+    {
+      "id":            "vignette_layer",
+      "type":          "vignette",
+      "role":          "screen_fade",
+      "style":         "vignette_style",
+      "anchor_to":     "screen",
+      "anchor_point":  "fill"
+    },
+
+    {
+      "id":            "dialog_root",
+      "type":          "group",
+      "anchor_to":     "screen",
+      "anchor_point":  "bottom-center",
+      "offset":        [0, -20],
+      "size":          { "w": "94%", "h": 180 },
+      "children": [
+        {
+          "id":           "dialog_box",
+          "type":         "panel",
+          "style":        "dialog_panel",
+          "anchor_point": "fill"
+        },
+        {
+          "id":           "name_label_box",
+          "type":         "panel",
+          "role":         "name_label",
+          "style":        "name_panel",
+          "anchor_point": "top-left",
+          "offset":       [30, -22],
+          "size":         { "w": "auto", "h": 40 },
+          "padding":      [0, 20, 0, 20],
+          "children": [
+            {
+              "id":           "name_text",
+              "type":         "text",
+              "style":        "name_text_style",
+              "anchor_point": "fill"
+            }
+          ]
+        },
+        {
+          "id":           "dialog_text",
+          "type":         "rich_text",
+          "role":         "dialog_text",
+          "style":        "dialog_text_style",
+          "anchor_point": "top-left",
+          "padding":      [40, 40, 20, 40]
+        },
+        {
+          "id":           "dialog_cursor",
+          "type":         "cursor",
+          "role":         "dialog_cursor",
+          "style":        "cursor_style",
+          "anchor_point": "bottom-right",
+          "offset":       [-18, -14]
+        }
+      ]
+    },
+
+    {
+      "id":           "choice_container",
+      "type":         "panel",
+      "role":         "choice_list",
+      "style":        "choice_panel",
+      "anchor_to":    "screen",
+      "anchor_point": "center",
+      "offset":       [0, -80],
+      "size":         { "w": 450, "h": "auto" },
+      "padding":      [25, 20, 25, 20]
+    },
+
+    {
+      "id":           "toast_panel",
+      "type":         "panel",
+      "role":         "toast",
+      "style":        "toast_style",
+      "anchor_to":    "screen",
+      "anchor_point": "top-right",
+      "offset":       [-20, 20],
+      "size":         { "w": 200, "h": 40 }
+    },
+
+    {
+      "id":           "history_panel",
+      "type":         "group",
+      "role":         "history_panel",
+      "style":        "history_style",
+      "anchor_to":    "screen",
+      "anchor_point": "fill",
+      "visible":      true
+    },
+
+    {
+      "id":           "mouse_cursor",
+      "type":         "image",
+      "role":         "mouse_cursor",
+      "style":        "mouse_cursor_style",
+      "anchor_to":    "screen",
+      "anchor_point": "top-left"
+    }
+  ]
+}

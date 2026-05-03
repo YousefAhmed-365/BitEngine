@@ -3,241 +3,92 @@
 
 #include "raylib.h"
 #include "BitEngine.hpp"
+#include "UILayout.hpp"
+
 #include <unordered_map>
-#include <map>
-#include <vector>
 #include <string>
+#include <vector>
 
-
-// Texture override for any UI element.
-// If 'path' is empty the element falls back to its default rendering.
-// When 'nineSlice' is true the texture is stretched using Raylib's
-// NPatch system so borders don't distort on resize.
-
-struct StyleTexture {
-    std::string path      = "";                       // File path; empty = disabled
-    bool        nineSlice = false;                    // Use nine-slice (NPatch) scaling
-    int         sliceLeft = 0, sliceTop    = 0,       // Border sizes in pixels
-                sliceRight= 0, sliceBottom = 0;
-    Color       tint      = { 255, 255, 255, 255 };   // Multiplicative tint
-};
-
-
-// Full UI Style — all values are data-driven from style.json
-
-struct UIStyle {
-
-    // Dialog Box
-    bool        boxVisible         = true;
-    float       boxNormX           = 0.5f;
-    float       boxNormY           = 1.0f;
-    float       boxWidthNorm       = 0.93f;
-    float       boxHeight          = 190.0f;
-    float       boxHeightNorm      = 0.0f; // 0 means use fixed boxHeight
-    float       boxMarginBottom    = 20.0f;
-    float       boxRoundness       = 0.05f;
-    float       boxBorderThick     = 3.0f;
-    int         boxPadding         = 40;
-    std::string boxAnchor          = "bottom";
-    Color       boxBg              = { 15,  15,  25,  240 };
-    Color       boxBorder          = {  0, 210, 255, 255 };
-    StyleTexture boxTexture;
-
-    // Dialog Text
-    bool        textVisible        = true;
-    Color       textColor          = { 245, 245, 255, 255 };
-    int         textFontSize       = 24;
-    int         textLineSpacing    = 5;
-    std::string dialogFontPath     = "";
-
-    // Name Label
-    bool        labelVisible       = true;
-    float       labelOffsetX       = 30.0f;
-    float       labelOffsetY       = -20.0f;
-    int         labelPadding       = 20;
-    int         labelHeight        = 40;
-    std::string labelAlign         = "left";
-    Color       labelBg            = { 15,  15,  25,  240 };
-    Color       labelBorder        = {  0, 210, 255, 255 };
-    Color       labelTextColor     = { 255, 215,   0, 255 };
-    int         labelFontSize      = 28;
-    StyleTexture labelTexture;
-    std::string labelFontPath      = "";
-
-    // Choice Box
-    bool        choiceVisible      = true;
-    float       choiceNormX        = 0.5f;
-    float       choiceNormY        = 0.5f;
-    float       choiceOffsetY      = -100.0f;
-    float       choiceWidth        = 440.0f;
-    float       choiceRoundness    = 0.1f;
-    float       choiceBorderThick  = 2.0f;
-    Color       choiceBg           = { 15,  15,  25,  242 };
-    Color       choiceBorder       = {  0, 210, 255, 255 };
-    Color       optionColor        = {  0, 180, 255, 255 };
-    Color       optionHover        = { 255, 255, 255, 255 };
-    Color       optionPremium      = { 255,   0, 255, 255 };
-    int         optionFontSize     = 20;
-    int         optionHeight       = 35;
-    int         optionGap          = 10;
-    StyleTexture choiceTexture;
-    std::string choiceFontPath     = "";
-
-    // Toast Notification
-    bool        toastVisible       = true;
-    float       toastNormX         = 1.0f;
-    float       toastNormY         = 0.0f;
-    float       toastMarginX       = 20.0f;
-    float       toastMarginY       = 20.0f;
-    float       toastWidth         = 200.0f;
-    float       toastHeight        = 40.0f;
-    Color       toastBg            = { 15,  15,  25,  240 };
-    Color       toastBorder        = {  0, 210, 255, 255 };
-    Color       toastTextColor     = { 245, 245, 255, 255 };
-    int         toastFontSize      = 16;
-    StyleTexture toastTexture;
-    std::string toastFontPath      = "";
-
-    // Vignette
-    bool        vignetteVisible    = true;
-    float       vignetteOpacity    = 0.4f;
-
-    // Feature: Message History
-    bool        historyVisible     = true;
-    float       historyPadding         = 40.0f;
-    float       historySpacing         = 20.0f;
-    float       historySpeakerFontSize = 14.0f;
-    float       historyContentFontSize = 18.0f;
-    int         historyHeaderHeight    = 56;
-    int         historyFooterHeight    = 36;
-    int         historySidebarWidth    = 130;
-    int         historyEntryGap        = 14;
-    Color       historyBg              = {0, 0, 0, 200};
-    Color       historySpeakerColor    = SKYBLUE;
-    Color       historyContentColor    = RAYWHITE;
-    Color       historyDimColor        = {245, 245, 255, 30};
-    StyleTexture historyBgTexture;
-    StyleTexture historyPillTexture;
-    std::string historyFontPath    = "";
-
-    // Mouse Cursor
-    bool        mouseCursorVisible = true;
-    std::string mouseCursorPath    = "";
-    float       mouseCursorScale   = 1.0f;
-
-    // Dialog Cursor (Waiting-for-input)
-    bool        dialogCursorVisible = true;
-    std::string dialogCursorShape   = "triangle";
-    Color       dialogCursorColor   = {  0, 210, 255, 255 };
-    float       dialogCursorSize    = 8.0f;
-    float       dialogCursorAnimSpeed = 10.0f;
-    StyleTexture dialogCursorTexture;
-
-    // Global Font fallback
-    std::string fontPath = "";
-
-    // Entity Display
-    float       entityScale          = 3.0f;
-    float       entityFloatAmplitude = 10.0f;
-    float       entityFloatSpeed     = 2.0f;
-    float       entityShadowOpacity  = 0.4f;
-
-    // Background Clear Color
-    Color       clearColor           = { 18, 18, 30, 255 };
-};
-
-class StyleManager {
-public:
-    StyleManager() = default;
-    ~StyleManager();  // Unloads cached fonts
-
-    void LoadStyle(const std::string& path);  // Load all named styles from file; enables hot-reload
-    void Update();                            // Hot-reload check (call every frame)
-    void Shutdown();                          // Explicitly unload GPU resources (call before CloseWindow)
-
-    void SetStyle(const std::string& name);   // Switch to a named style block
-    void NextStyle();                         // Cycle forward through loaded styles
-    void PrevStyle();                         // Cycle backward through loaded styles
-
-    std::string GetCurrentStyleName() const { return m_currentStyleName; }
-    std::vector<std::string> GetStyleNames() const { return m_styleOrder; }
-    UIStyle& GetStyle() { return m_activeStyle; }
-
-    // Returns the loaded Font for the active style, or Raylib's default if none is configured.
-    Font GetCurrentFont() const;
-    Font GetFont(const std::string& path); // Expose cache access
-
-private:
-    UIStyle m_activeStyle;
-
-    std::unordered_map<std::string, UIStyle> m_styleLibrary;
-    std::unordered_map<std::string, Font>    m_fontCache;  // Owns all loaded Font GPU resources
-    std::vector<std::string>  m_styleOrder;
-    std::string               m_currentStyleName;
-    std::string               m_stylePath;
-    long                      m_styleLastModTime = 0;
-    float                     m_hotReloadTimer   = 0.0f;
-};
-
+// ─────────────────────────────────────────────────────────────────────────────
+// BitRenderer
+// Drives all visual and audio output for BitEngine.
+// The UI is fully data-driven through UILayout / UIElement — no hardcoded
+// element-specific draw functions exist at the top level.
+// ─────────────────────────────────────────────────────────────────────────────
 class BitRenderer {
 public:
-    BitRenderer(DialogEngine& engine);
+    explicit BitRenderer(DialogEngine& engine);
     virtual ~BitRenderer();
 
     void Draw();
     void HandleInput();
-    void PreloadAssets();  // Eagerly load all assets from engine registries
+    void PreloadAssets();
 
-    // Expose StyleManager for external configuration / input handling
-    StyleManager& GetStyleManager() { return m_styleManager; }
+    UILayout& GetLayout() { return m_layout; }
 
 protected:
-    virtual void DrawBackground();
-    virtual void DrawMainBox();
-    virtual void DrawChoiceBox();
-    virtual void DrawEntitySprites();
-    virtual void DrawVFX();
-    virtual void DrawDebugOverlay();
-    virtual void HandleAudio();
+    // ── Generic element dispatcher ─────────────────────────────────────────
+    void DrawElement(UIElement& elem);
 
-    int DrawRichText(const std::vector<RichChar>& content, int limit, int x, int y, int fontSize, int maxWidth, Color defaultColor = RAYWHITE, int lineSpacing = 6, Font font = { 0 });
+    // ── Per-type draw functions ────────────────────────────────────────────
+    void DrawGroupElem      (UIElement& elem);
+    void DrawPanelElem      (UIElement& elem);
+    void DrawTextElem       (UIElement& elem);
+    void DrawRichTextElem   (UIElement& elem);
+    void DrawCursorElem     (UIElement& elem);
+    void DrawChoicesElem    (UIElement& elem);
+    void DrawVignetteElem   (UIElement& elem);
+    void DrawImageElem      (UIElement& elem);
+    void DrawBackgroundElem (UIElement& elem);
+    void DrawEntityLayerElem(UIElement& elem);
+
+    // ── Specialised draw helpers (history, debug, cursor) ─────────────────
     void DrawHistory();
-    void DrawCustomCursor();
+    void DrawDebugOverlay();
+    void DrawCustomCursor(UIElement* mouseCursorElem);
+
+    // ── Shared rendering utilities ─────────────────────────────────────────
+    int DrawRichText(const std::vector<RichChar>& content, int limit,
+                     int x, int y, int fontSize, int maxWidth,
+                     Color defaultColor = RAYWHITE, int lineSpacing = 6,
+                     Font font = { 0 });
+
+    void DrawStyledPanel(Rectangle rect, const UIStyleBlock& style);
+
     Texture2D GetTexture(const std::string& path);
-    Font GetFont(const std::string& path) { return m_styleManager.GetFont(path); }
-    void PlaySFX(const std::string& path);
+    Font      GetFont   (const std::string& path);
+    void      PlaySFX   (const std::string& path);
+
     void CreateFallbackTexture();
     void CreateVignetteTexture();
-    // Draw a rectangle using a StyleTexture if set, otherwise use solid/rounded-rect fallback.
-    // When the texture is active no separate border is drawn (the texture provides it).
-    void DrawStyledRect(Rectangle rect, const StyleTexture& stex,
-                        Color fallbackBg, Color fallbackBorder,
-                        float roundness = 0.0f, float borderThick = 1.5f, int segments = 8);
 
+    // ── Audio ───────────────────────────────────────────────────────────────
+    void HandleAudio();
+
+    // ── Members ─────────────────────────────────────────────────────────────
     DialogEngine& m_engine;
-    StyleManager  m_styleManager;
+    UILayout      m_layout;
 
     std::unordered_map<std::string, Texture2D> m_textureCache;
     std::unordered_map<std::string, Music>     m_musicCache;
     std::unordered_map<std::string, Sound>     m_sfxCache;
-    std::string m_currentMusicPath = "";
-    Music       m_currentMusic;
+    std::string m_currentMusicPath;
+    Music       m_currentMusic  = {};
     bool        m_isMusicPlaying = false;
 
-    Texture2D m_fallbackTexture;
-    Texture2D m_vignette;
-    Texture2D m_customCursor;
-    std::string m_currentCursorPath = "";
-    bool m_showHistory = false;
-    float m_historyScroll = 0.0f;
+    Texture2D   m_fallbackTexture = {};
+    Texture2D   m_vignette        = {};
+    Texture2D   m_customCursor    = {};
+    std::string m_currentCursorPath;
 
-    float m_animTimer    = 0.0f;
-    int   m_animFrame    = 0;
-    float m_debugScroll  = 0.0f;
-    std::string m_lastSFX       = "";
-    std::string m_lastSFXNodeId = "";
-    std::string m_lastSpritePath= "";
-    float m_floatOffset  = 0.0f;
+    bool  m_showHistory   = false;
+    float m_historyScroll = 0.0f;
+    float m_debugScroll   = 0.0f;
+    float m_floatOffset   = 0.0f;
+
+    // Toast state
+    float       m_toastTimer = 0.0f;
+    std::string m_toastMsg;
 };
 
-#endif
+#endif // BIT_RENDERER_HPP

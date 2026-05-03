@@ -643,12 +643,6 @@
       "op": "HALT"
     },
     {
-      "args": [
-        "broken"
-      ],
-      "op": "LABEL"
-    },
-    {
       "args": [],
       "op": "HALT"
     }

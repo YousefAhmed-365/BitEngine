@@ -258,15 +258,14 @@ void BitApp::Run(const std::string& projectPath) {
     DialogEngine dialogSystem;
     BitRenderer uiBridge(dialogSystem);
     bool loaded = dialogSystem.LoadProject(projectPath);
-    uiBridge.GetStyleManager().LoadStyle("res/style.json");
+    uiBridge.GetLayout().Load("res/ui/ui_default.json");
     uiBridge.PreloadAssets();
     if (loaded) dialogSystem.StartDialog();
 
     while (!WindowShouldClose()) {
         dialogSystem.Update(GetFrameTime());
         if (IsKeyPressed(KEY_TAB)) {
-            if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)) uiBridge.GetStyleManager().PrevStyle();
-            else uiBridge.GetStyleManager().NextStyle();
+            // Tab no longer cycles styles — reserved for future use
         }
         uiBridge.HandleInput();
         BeginDrawing();
@@ -275,19 +274,8 @@ void BitApp::Run(const std::string& projectPath) {
         for (int i = 0; i < GetScreenHeight(); i += 80) DrawLine(0, i, GetScreenWidth(), i,  Fade(Color{ 80, 80, 120, 255 }, 0.05f));
         DrawText(TextFormat("BITENGINE v%s", ENGINE_VERSION), 30, 30, 22, Color{ 80, 80, 120, 255 });
         uiBridge.Draw();
-        
-        {
-            std::string styleName = uiBridge.GetStyleManager().GetCurrentStyleName();
-            auto names = uiBridge.GetStyleManager().GetStyleNames();
-            int total = (int)names.size(), idx = 0;
-            for (int i = 0; i < total; ++i) if (names[i] == styleName) { idx = i; break; }
-            std::string label = "STYLE [" + std::to_string(idx + 1) + "/" + std::to_string(total) + "]: " + styleName;
-            int tw = MeasureText(label.c_str(), 14);
-            DrawRectangle(20, GetScreenHeight() - 46, tw + 24, 30, Fade(BLACK, 0.6f));
-            DrawRectangleLines(20, GetScreenHeight() - 46, tw + 24, 30, Fade(WHITE, 0.15f));
-            DrawText(label.c_str(), 32, GetScreenHeight() - 38, 14, Color{ 160, 160, 200, 255 });
-            DrawText("Tab / Shift+Tab to switch", 32, GetScreenHeight() - 18, 11, Fade(Color{ 120, 120, 160, 255 }, 0.8f));
-        }
         EndDrawing();
     }
 }
+
+

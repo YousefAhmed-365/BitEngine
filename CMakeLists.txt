@@ -21,10 +21,11 @@ set(CORE_SOURCES
     src/BitEngine.cpp
     src/BitScriptInterpreter.cpp
     src/BitScriptAnalyzer.cpp
+    src/UILayout.cpp
 )
 
 # --- BitEngine (The Game) ---
-add_executable(BitEngine src/main.cpp src/BitApp.cpp src/BitRenderer.cpp ${CORE_SOURCES})
+add_executable(BitEngine src/main.cpp src/BitApp.cpp src/BitRenderer.cpp src/BitRendererDraw.cpp ${CORE_SOURCES})
 target_include_directories(BitEngine PRIVATE src src/headers)
 target_link_libraries(BitEngine PRIVATE raylib)
 
