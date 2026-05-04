@@ -660,8 +660,15 @@ UIManager::LayerEntry* UIManager::FindLayer(const std::string& name) {
 }
 
 bool UIManager::Load(const std::string& name, const std::string& path, int layer) {
-    // Replace if already loaded
+    // Optimization: If already loaded with the same path, just activate and update layer
     auto* existing = FindLayer(name);
+    if (existing && existing->path == path) {
+        existing->layer = layer;
+        existing->active = true;
+        existing->visible = true;
+        return true;
+    }
+
     if (existing) {
         existing->layout.Shutdown();
         m_layers.erase(std::remove_if(m_layers.begin(), m_layers.end(),
@@ -669,7 +676,10 @@ bool UIManager::Load(const std::string& name, const std::string& path, int layer
     }
     LayerEntry entry;
     entry.name  = name;
+    entry.path  = path;
     entry.layer = layer;
+    entry.active = true;
+    entry.visible = true;
     if (!entry.layout.Load(path)) {
         std::cerr << "[UIManager] Failed to load: " << path << "\n";
         return false;
@@ -745,19 +755,43 @@ bool UIManager::SetContent(const std::string& scopedId, const std::string& conte
 }
 
 void UIManager::Resolve(int sw, int sh, const UIDataStore* data) {
-    for (auto& e : m_layers) e.layout.Resolve(sw, sh, data);
+    for (auto& e : m_layers) {
+        if (e.active) e.layout.Resolve(sw, sh, data);
+    }
 }
 
 std::vector<UILayout*> UIManager::GetSortedLayers() {
     std::vector<LayerEntry*> sorted;
     sorted.reserve(m_layers.size());
-    for (auto& e : m_layers) sorted.push_back(&e);
+    for (auto& e : m_layers) {
+        if (e.active && e.visible) sorted.push_back(&e);
+    }
     std::sort(sorted.begin(), sorted.end(),
               [](const LayerEntry* a, const LayerEntry* b) { return a->layer < b->layer; });
     std::vector<UILayout*> out;
     out.reserve(sorted.size());
     for (auto* e : sorted) out.push_back(&e->layout);
     return out;
+}
+
+void UIManager::SetActive(const std::string& name, bool active) {
+    auto* l = FindLayer(name);
+    if (l) l->active = active;
+}
+
+void UIManager::SetLayerVisible(const std::string& name, bool visible) {
+    auto* l = FindLayer(name);
+    if (l) l->visible = visible;
+}
+
+bool UIManager::IsActive(const std::string& name) const {
+    for (const auto& e : m_layers) if (e.name == name) return e.active;
+    return false;
+}
+
+bool UIManager::IsLayerVisible(const std::string& name) const {
+    for (const auto& e : m_layers) if (e.name == name) return e.visible;
+    return false;
 }
 
 Font UIManager::GetFont(const std::string& path) {

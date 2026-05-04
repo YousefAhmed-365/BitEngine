@@ -215,18 +215,46 @@ The engine exposes internal state through **System Variables** prefixed with `va
 
 ---
 
-## 🖼️ UI Management & Scoped IDs
-BitEngine uses a data-driven UI system. Layouts are defined in JSON and managed via script.
-
-- **`ui_load "name", "path", layer;`**: Mounts a new layout.
-- **`ui_unload "name";`**: Unmounts a layout.
-- **`ui_set "scoped_id", "property", value;`**: Modifies a specific element.
-  - *Scoped ID*: Format `layout_name.element_id` (e.g. `inventory.gold_label`).
-  - *Properties*: `visible`, `content`, `opacity`, `x`, `y`, `w`, `h`.
+### 🎨 UI Asset Management
+UI layouts can be registered as complex assets with default layers and initial states.
 
 ```bitscript
-ui_load "hud", "res/ui/hud.json", 10;
-ui_set "hud.gold_label", "content", "{gold}G";
+assets {
+    ui {
+        # Simple registration (name = path)
+        inventory = "res/ui/inventory.json";
+
+        # Complex registration (block syntax)
+        hud {
+            path    = "res/ui/hud.json";
+            layer   = 10;      # Default Z-index
+            active  = true;    # Process bindings/input immediately
+            visible = true;    # Show on screen immediately
+        }
+    }
+}
+```
+
+---
+
+## 🎭 UI & Cinematic Commands
+
+### 1. UI Lifecycle
+UI commands use unquoted identifiers for UI names.
+
+| Command | Arguments | Description |
+| :--- | :--- | :--- |
+| **`ui_activate`** | `ui_id [, layer]` | Activates a registered UI. If `layer` is provided, it forces a load/remount. |
+| **`ui_deactivate`** | `ui_id` | Suspends a UI. It stops rendering, reacting to input, and updating data. |
+| **`ui_unload`** | `ui_id` | Completely removes a UI from memory. |
+| **`ui_set`** | `ui_id.elem_id, prop, val` | Modifies a property of a specific UI element. |
+
+**Example:**
+```bitscript
+ui_activate hud;
+ui_set hud.label_gold, "content", "{gold}";
+wait 2s;
+ui_deactivate hud;
 ```
 
 ---

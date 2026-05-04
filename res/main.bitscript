@@ -22,6 +22,13 @@ assets {
     fonts {
         dream = "assets/fonts/dream.ttf";
     }
+    ui {
+        dialog_ui {
+            path = "res/ui/ui_default.json";
+            layer = 10;
+            active = false; # We will activate it manually in init
+        }
+    }
 }
 
 entities {
@@ -57,12 +64,12 @@ timeline dramatic_intro {
 # touching the C++ renderer.
 ─────────────────────────────────────────────────────────────────── -#
 scene init {
-    ui_load "dialog_ui", "res/ui/ui_default.json", 10;
+    ui_activate dialog_ui;
     jump scene_alley;
 }
 
 scene scene_alley {
-    ui hide;
+    ui hide dialog_ui;
     bgm = "neon_noir";
     play timeline dramatic_intro wait;
     
@@ -94,7 +101,7 @@ scene scene_alley {
 
 scene routine_neural_sync(version) {
     local sync_status = 1; # Scoped local variable
-    ui visible;
+    ui show dialog_ui;
     narration [auto_next = true, pre_delay = 300ms]: "[speed=0.3]Connecting to neural uplink v{version}...[wait=0.8] established.";
     shake 10;
     narration [auto_next = true]: "[shake]WARNING:[wait=0.5] System integrity compromised.";
@@ -103,10 +110,10 @@ scene routine_neural_sync(version) {
 }
 
 scene transition{
-    ui hide;
+    ui hide dialog_ui;
     fade_screen 1.0, 1s wait;
     fade_screen 0.0, 1s wait;
-    ui show;
+    ui show dialog_ui;
 
     return;
 }

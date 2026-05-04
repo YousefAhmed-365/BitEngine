@@ -26,8 +26,10 @@ The BitEngine VM is a register-based virtual machine that executes strictly-type
 | **`WAIT_EVENT`** | `event_id` | Pauses VM until an external event is received. |
 | **`EMIT`** | `event_id` | Triggers a global event block. |
 | **`PLAY_TIMELINE`**| `id`, `blocking` | Starts a timeline sequence. |
-| **`UI_LOAD`** | `name`, `path`, `layer` | Requests the renderer to load a layout. |
+| **`UI_ACTIVATE`** | `name`, `layer`? | Activates/mounts a registered UI asset. |
+| **`UI_DEACTIVATE`** | `name` | Suspends UI (draw/input/update disabled). |
 | **`UI_SET`** | `id`, `prop`, `val` | Modifies a UI element property. |
+| **`UI_UNLOAD`** | `name` | Removes a UI from memory. |
 | **`HALT`** | (none) | Immediately terminates VM execution. |
 
 ### 2. Narrative Stack & Scoping

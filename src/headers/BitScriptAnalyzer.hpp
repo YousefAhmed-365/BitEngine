@@ -28,6 +28,7 @@ private:
     static void CheckTimelines(const DialogProject& project, std::vector<AnalysisMessage>& messages);
     static void CheckSprites(const DialogProject& project, std::vector<AnalysisMessage>& messages);
     static void CheckEvents(const DialogProject& project, std::vector<AnalysisMessage>& messages);
+    static void CheckUIAssets(const DialogProject& project, std::vector<AnalysisMessage>& messages);
     static void CheckUICommands(const DialogProject& project, std::vector<AnalysisMessage>& messages);
 };
 

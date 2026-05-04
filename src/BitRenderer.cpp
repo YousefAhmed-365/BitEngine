@@ -41,9 +41,18 @@ void BitRenderer::Draw() {
                 break;
             case UICommand::Type::Set:
                 if (cmd.arg1 == "visible")
-                    m_uiManager.SetVisible(cmd.name, cmd.arg2 == "true" || cmd.arg2 == "1");
+                    m_uiManager.SetLayerVisible(cmd.name, cmd.arg2 == "true" || cmd.arg2 == "1");
+                else if (cmd.arg1 == "active")
+                    m_uiManager.SetActive(cmd.name, cmd.arg2 == "true" || cmd.arg2 == "1");
                 else if (cmd.arg1 == "content")
                     m_uiManager.SetContent(cmd.name, cmd.arg2);
+                break;
+            case UICommand::Type::Activate:
+                m_uiManager.SetActive(cmd.name, true);
+                m_uiManager.SetLayerVisible(cmd.name, true);
+                break;
+            case UICommand::Type::Deactivate:
+                m_uiManager.SetActive(cmd.name, false);
                 break;
         }
     }

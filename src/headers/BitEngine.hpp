@@ -41,6 +41,8 @@ enum class BitOp {
     UI_VISIBLE,
     UI_LOAD,    // name, path, layer
     UI_UNLOAD,  // name
+    UI_ACTIVATE,   // name, (optional) layer
+    UI_DEACTIVATE, // name
     UI_SET,     // scoped_id, property, value
     CALL,
     RETURN,
@@ -195,6 +197,14 @@ struct DialogConfigs {
     int max_slots = 5;
 };
 
+struct UILayoutDef {
+    std::string id = "";
+    std::string path = "";
+    int layer = 0;
+    bool active = true;
+    bool visible = true;
+};
+
 struct DialogProject {
     DialogConfigs configs;
     std::unordered_map<std::string, Entity> entities;
@@ -205,6 +215,7 @@ struct DialogProject {
     std::unordered_map<std::string, std::string> music;
     std::unordered_map<std::string, std::string> sfx;
     std::unordered_map<std::string, std::string> fonts;
+    std::unordered_map<std::string, UILayoutDef> uiLayouts;
     
     // Bytecode
     std::vector<BitInstruction> bytecode;
@@ -223,7 +234,7 @@ struct ValidationResult {
 
 // UI command queued by the VM for the renderer to drain each frame
 struct UICommand {
-    enum class Type { Load, Unload, Set } type;
+    enum class Type { Load, Unload, Set, Activate, Deactivate } type;
     std::string name;     // UI namespace / scoped element id
     std::string arg1;     // path (Load) | property (Set)
     std::string arg2;     // value (Set)

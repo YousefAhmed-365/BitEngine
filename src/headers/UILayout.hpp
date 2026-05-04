@@ -236,6 +236,12 @@ public:
     bool       SetVisible(const std::string& scopedId, bool visible);
     bool       SetContent(const std::string& scopedId, const std::string& content);
 
+    // Per-layer lifecycle control
+    void       SetActive(const std::string& name, bool active);
+    void       SetLayerVisible(const std::string& name, bool visible);
+    bool       IsActive(const std::string& name) const;
+    bool       IsLayerVisible(const std::string& name) const;
+
     // Update all layouts (resolve rects, apply bindings)
     void Resolve(int sw, int sh, const UIDataStore* data = nullptr);
 
@@ -248,7 +254,10 @@ public:
 private:
     struct LayerEntry {
         std::string name;
+        std::string path;
         int         layer = 0;
+        bool        active = true;
+        bool        visible = true;
         UILayout    layout;
     };
     std::vector<LayerEntry> m_layers;

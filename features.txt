@@ -71,10 +71,14 @@ B. DYNAMIC FEATURES
 Comprehensive JSON-driven layout and styling architecture completely decoupled from engine logic.
 
 A. HIERARCHICAL LAYOUT SYSTEM (`ui_default.json`)
-   - Tree-Based Elements: True parent-child nested UI components (`group`, `panel`, `text`, `choices`).
-   - Adaptive Anchor Framework: Supports `top`, `bottom`, `left`, `right`, and `center` anchors (`anchor_to` & `anchor_point`).
-   - Resolution Independent Sizing: Supports explicit pixels, `auto` (content wrap), and normalized percentages (e.g. `"94%"`).
-   - Component Binding: Abstract rendering that maps engine data dynamically to elements based on a `role` (e.g., `choice_list`, `name_label`).
+   - Adaptive Anchor Framework: Supports 10 anchor points (e.g., `top-center`, `fill`).
+   - Resolution Independent Sizing: Supports pixels, `auto` (content wrap), and percentages (`"50%"`).
+   - Component Binding: maps engine data to elements based on a `role`.
+   - List Templating: `bind_items` allows generating lists from engine arrays using an `item_template`.
+   - Reactive Data Binding: Standard JSON pointer syntax (`var.player.health`) for all properties.
+   - Lifecycle Management: `ui_activate` and `ui_deactivate` commands with suspension support.
+   - Advanced Asset Registration: Define UI path, layer, and initial state in the `assets` block.
+   - Identifier Syntax: UI commands now use clean identifiers instead of quoted strings.
 
 B. GLOBAL STYLESHEETS (`style.json`)
    - Reusable Property Blocks: Named style presets that define borders, colors, text sizing, and textures.

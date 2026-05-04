@@ -20,6 +20,7 @@ std::vector<AnalysisMessage> BitScriptAnalyzer::Analyze(const DialogProject& pro
     CheckTimelines(project, messages);
     CheckSprites(project, messages);
     CheckEvents(project, messages);
+    CheckUIAssets(project, messages);
     CheckUICommands(project, messages);
     
     return messages;
@@ -798,27 +799,56 @@ void BitScriptAnalyzer::CheckEvents(const DialogProject& project, std::vector<An
 // ─────────────────────────────────────────────────────────────────────────────
 // CheckUICommands — validate ui_load / ui_set / ui_unload sequences
 // ─────────────────────────────────────────────────────────────────────────────
-void BitScriptAnalyzer::CheckUICommands(const DialogProject& project, std::vector<AnalysisMessage>& messages) {
-    static const std::unordered_set<std::string> validProps = {
-        "visible", "content", "opacity", "x", "y", "w", "h"
-    };
+void BitScriptAnalyzer::CheckUIAssets(const DialogProject& project, std::vector<AnalysisMessage>& messages) {
+    for (const auto& [id, def] : project.uiLayouts) {
+        if (def.path.empty()) {
+            messages.push_back({AnalysisMessage::Level::ERROR, "UI Asset '" + id + "': path is empty", -1});
+        }
+        if (def.layer < 0) {
+            messages.push_back({AnalysisMessage::Level::WARNING, "UI Asset '" + id + "': layer should be non-negative", -1});
+        }
+    }
+}
 
-    std::unordered_set<std::string> loadedLayouts;
+void BitScriptAnalyzer::CheckUICommands(const DialogProject& project, std::vector<AnalysisMessage>& messages) {
+    std::unordered_set<std::string> knownUIs;
+    for (const auto& [id, def] : project.uiLayouts) knownUIs.insert(id);
 
     for (const auto& ins : project.bytecode) {
-        if (ins.op == BitOp::UI_LOAD && ins.args.size() >= 2)
-            loadedLayouts.insert(ins.args[0]);
+        if (ins.op == BitOp::UI_LOAD && ins.args.size() >= 1)
+            knownUIs.insert(ins.args[0]);
 
-        if (ins.op == BitOp::UI_UNLOAD && !ins.args.empty()
-            && loadedLayouts.find(ins.args[0]) == loadedLayouts.end())
-            messages.push_back({AnalysisMessage::Level::WARNING,
-                "UI_UNLOAD for layout '" + ins.args[0] + "' which was not loaded via UI_LOAD", ins.line});
+        if (ins.op == BitOp::UI_UNLOAD && !ins.args.empty()) {
+            if (knownUIs.find(ins.args[0]) == knownUIs.end()) {
+                messages.push_back({AnalysisMessage::Level::WARNING,
+                    "UI_UNLOAD for layout '" + ins.args[0] + "' which was not registered in assets or loaded via UI_LOAD", ins.line});
+            }
+        }
 
-        if (ins.op == BitOp::UI_SET && ins.args.size() >= 3) {
-            const std::string& prop = ins.args[1];
-            if (validProps.find(prop) == validProps.end())
-                messages.push_back({AnalysisMessage::Level::INFO,
-                    "UI_SET uses non-standard property '" + prop + "'", ins.line});
+        if (ins.op == BitOp::UI_ACTIVATE && !ins.args.empty()) {
+            if (knownUIs.find(ins.args[0]) == knownUIs.end()) {
+                messages.push_back({AnalysisMessage::Level::ERROR,
+                    "UI_ACTIVATE for unregistered UI asset: '" + ins.args[0] + "'", ins.line});
+            }
+        }
+
+        if (ins.op == BitOp::UI_DEACTIVATE && !ins.args.empty()) {
+            if (knownUIs.find(ins.args[0]) == knownUIs.end()) {
+                messages.push_back({AnalysisMessage::Level::WARNING,
+                    "UI_DEACTIVATE for unregistered UI asset: '" + ins.args[0] + "'", ins.line});
+            }
+        }
+
+        if (ins.op == BitOp::UI_SET && ins.args.size() >= 1) {
+            std::string scopedId = ins.args[0];
+            auto dot = scopedId.find('.');
+            if (dot != std::string::npos) {
+                std::string uiName = scopedId.substr(0, dot);
+                if (knownUIs.find(uiName) == knownUIs.end()) {
+                    messages.push_back({AnalysisMessage::Level::WARNING,
+                        "UI_SET targets UI '" + uiName + "' which was not registered or loaded", ins.line});
+                }
+            }
         }
     }
 }

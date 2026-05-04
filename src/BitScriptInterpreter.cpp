@@ -77,7 +77,7 @@ bool BitScriptLexer::IsKeyword(const std::string& s) {
         "bg", "bgm", "ui", "halt", "return", "call", "local", "wait", "shake", "delay", "play_sfx", 
         "expression", "hide", "pos", "clear", "random", "fade", "move", "fade_screen", "narration", "alias",
         "timeline", "play", "leave",
-        "ui_load", "ui_unload", "ui_set",
+        "ui_load", "ui_unload", "ui_set", "ui_activate", "ui_deactivate",
         "event", "emit"
     };
     return std::find(keywords.begin(), keywords.end(), s) != keywords.end();
@@ -248,12 +248,28 @@ void BitScriptParser::ParseAssets() {
         expect(TokenType::Symbol, "{");
         while (peek().type != TokenType::EndOfFile && peek().value != "}") {
             std::string id = consume().value;
-            expect(TokenType::Symbol, "=");
-            std::string path = consume().value;
-            if (type == "bg" || type == "backgrounds") p.backgrounds[id] = path;
-            else if (type == "music") p.music[id] = path;
-            else if (type == "sfx") p.sfx[id] = path;
-            else if (type == "fonts") p.fonts[id] = path;
+            if (match(TokenType::Symbol, "{")) {
+                UILayoutDef def; def.id = id;
+                while (peek().type != TokenType::EndOfFile && peek().value != "}") {
+                    std::string key = consume().value;
+                    expect(TokenType::Symbol, "=");
+                    if (key == "path") def.path = consume().value;
+                    else if (key == "layer") def.layer = std::stoi(consume().value);
+                    else if (key == "active") def.active = (consume().value == "true");
+                    else if (key == "visible") def.visible = (consume().value == "true");
+                    match(TokenType::Symbol, ";");
+                }
+                expect(TokenType::Symbol, "}");
+                p.uiLayouts[id] = def;
+            } else {
+                expect(TokenType::Symbol, "=");
+                std::string path = consume().value;
+                if (type == "bg" || type == "backgrounds") p.backgrounds[id] = path;
+                else if (type == "music") p.music[id] = path;
+                else if (type == "sfx") p.sfx[id] = path;
+                else if (type == "fonts") p.fonts[id] = path;
+                else if (type == "ui") p.uiLayouts[id] = {id, path, 0, true, true};
+            }
             match(TokenType::Symbol, ";");
         }
         expect(TokenType::Symbol, "}");
@@ -332,29 +348,56 @@ void BitScriptParser::ParseStatement() {
         emit(BitOp::EVENT, {"leave"}, j);
     }
     else if (match(TokenType::Keyword, "ui")) {
-        std::string action = consume().value;
-        expect(TokenType::Symbol, ";");
-        emit(BitOp::UI_VISIBLE, {action});
+        std::string action = consume().value; // "hide", "show", "visible"
+        if (peek().type == TokenType::Identifier) {
+            std::string id = consume().value;
+            expect(TokenType::Symbol, ";");
+            
+            std::string val = (action == "hide" ? "false" : "true");
+            emit(BitOp::UI_SET, {id, "visible", val});
+        } else {
+            expect(TokenType::Symbol, ";");
+            emit(BitOp::UI_VISIBLE, {action});
+        }
     }
     else if (match(TokenType::Keyword, "ui_load")) {
-        // ui_load "name", "path", layer;
         std::string name = consume().value;
         expect(TokenType::Symbol, ",");
         std::string path = consume().value;
-        expect(TokenType::Symbol, ",");
-        Operand layer = ParseExpression(*m_currentOutput);
+        std::string layer = "0";
+        if (match(TokenType::Symbol, ",")) {
+            Operand l = ParseExpression(*m_currentOutput);
+            layer = l.val;
+        }
         expect(TokenType::Symbol, ";");
-        emit(BitOp::UI_LOAD, {name, path, layer.val});
+        emit(BitOp::UI_LOAD, {name, path, layer});
     }
     else if (match(TokenType::Keyword, "ui_unload")) {
-        // ui_unload "name";
         std::string name = consume().value;
         expect(TokenType::Symbol, ";");
         emit(BitOp::UI_UNLOAD, {name});
     }
+    else if (match(TokenType::Keyword, "ui_activate")) {
+        std::string name = consume().value;
+        std::vector<std::string> args = { name };
+        if (match(TokenType::Symbol, ",")) {
+            Operand layer = ParseExpression(*m_currentOutput);
+            args.push_back(layer.val);
+        }
+        expect(TokenType::Symbol, ";");
+        emit(BitOp::UI_ACTIVATE, args);
+    }
+    else if (match(TokenType::Keyword, "ui_deactivate")) {
+        std::string name = consume().value;
+        expect(TokenType::Symbol, ";");
+        emit(BitOp::UI_DEACTIVATE, {name});
+    }
     else if (match(TokenType::Keyword, "ui_set")) {
-        // ui_set "scoped_id", "property", value_or_expr;
-        std::string scopedId = consume().value;
+        std::string name = consume().value;
+        std::string scopedId = name;
+        if (match(TokenType::Symbol, ".")) {
+            scopedId += "." + consume().value;
+        }
         expect(TokenType::Symbol, ",");
         std::string prop = consume().value;
         expect(TokenType::Symbol, ",");

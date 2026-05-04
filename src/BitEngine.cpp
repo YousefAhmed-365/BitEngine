@@ -124,7 +124,20 @@ bool DialogEngine::LoadProject(const std::string& configFilePath) {
 
     if (configFilePath.size() > 10 && configFilePath.substr(configFilePath.size() - 10) == ".bitscript") {
         bool result = BitScriptInterpreter::LoadScriptFile(configFilePath, m_project);
-        if (result) BuildLabelIndex();
+        if (result) {
+            BuildLabelIndex();
+            // Initial UI loads for active layouts in registry
+            for (auto& [id, def] : m_project.uiLayouts) {
+                if (def.active) {
+                    UICommand cmd;
+                    cmd.type = UICommand::Type::Load;
+                    cmd.name = id;
+                    cmd.arg1 = def.path;
+                    cmd.layer = def.layer;
+                    m_pendingUICommands.push_back(cmd);
+                }
+            }
+        }
         return result;
     }
 
@@ -178,6 +191,8 @@ static std::string OpToStr(BitOp op) {
         case BitOp::PLAY_TIMELINE: return "PLAY_TIMELINE";
         case BitOp::UI_LOAD:     return "UI_LOAD";
         case BitOp::UI_UNLOAD:   return "UI_UNLOAD";
+        case BitOp::UI_ACTIVATE: return "UI_ACTIVATE";
+        case BitOp::UI_DEACTIVATE: return "UI_DEACTIVATE";
         case BitOp::UI_SET:      return "UI_SET";
         case BitOp::EMIT:        return "EMIT";
         case BitOp::WAIT_EVENT:  return "WAIT_EVENT";
@@ -217,6 +232,8 @@ static BitOp StrToOp(const std::string& s) {
     if (s=="PLAY_TIMELINE") return BitOp::PLAY_TIMELINE;
     if (s=="UI_LOAD")    return BitOp::UI_LOAD;
     if (s=="UI_UNLOAD")  return BitOp::UI_UNLOAD;
+    if (s=="UI_ACTIVATE") return BitOp::UI_ACTIVATE;
+    if (s=="UI_DEACTIVATE") return BitOp::UI_DEACTIVATE;
     if (s=="UI_SET")     return BitOp::UI_SET;
     if (s=="EMIT")       return BitOp::EMIT;
     if (s=="WAIT_EVENT") return BitOp::WAIT_EVENT;
@@ -250,6 +267,9 @@ bool DialogEngine::SaveBytecode(const std::string& path) const {
     for (auto& [k,v] : m_project.music)        root["music"][k]       = v;
     for (auto& [k,v] : m_project.sfx)          root["sfx"][k]         = v;
     for (auto& [k,v] : m_project.fonts)        root["fonts"][k]       = v;
+    for (auto& [k,v] : m_project.uiLayouts) {
+        root["ui_layouts"][k] = { {"id",v.id}, {"path",v.path}, {"layer",v.layer}, {"active",v.active}, {"visible",v.visible} };
+    }
     for (auto& [k,v] : m_project.variables) {
         json vj = { {"id", v.id}, {"initial_value", v.initial_value} };
         if (v.min.has_value()) vj["min"] = v.min.value();
@@ -329,6 +349,17 @@ bool DialogEngine::LoadBytecodeFile(const std::string& path) {
     if (root.contains("music"))        for (auto& [k,v] : root["music"].items())        m_project.music[k]       = v;
     if (root.contains("sfx"))          for (auto& [k,v] : root["sfx"].items())          m_project.sfx[k]         = v;
     if (root.contains("fonts"))        for (auto& [k,v] : root["fonts"].items())        m_project.fonts[k]       = v;
+    if (root.contains("ui_layouts")) {
+        for (auto& [k,vj] : root["ui_layouts"].items()) {
+            UILayoutDef def;
+            def.id = vj.value("id", k);
+            def.path = vj.value("path", "");
+            def.layer = vj.value("layer", 0);
+            def.active = vj.value("active", true);
+            def.visible = vj.value("visible", true);
+            m_project.uiLayouts[k] = def;
+        }
+    }
     if (root.contains("variables"))
         for (auto& [k,vj] : root["variables"].items()) {
             VariableDef vd; vd.id = vj.value("id",k); vd.initial_value = vj.value("initial_value",0);
@@ -1122,6 +1153,34 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
         case BitOp::UI_UNLOAD: {
             UICommand cmd;
             cmd.type = UICommand::Type::Unload;
+            cmd.name = args[0];
+            m_pendingUICommands.push_back(cmd);
+            break;
+        }
+        case BitOp::UI_ACTIVATE: {
+            // args: [name, layer(optional)]
+            UICommand cmd;
+            cmd.name = args[0];
+            
+            // If registered, always use the registered path/layer as default
+            if (m_project.uiLayouts.count(cmd.name)) {
+                cmd.type = UICommand::Type::Load;
+                cmd.arg1 = m_project.uiLayouts[cmd.name].path;
+                cmd.layer = (args.size() > 1) ? std::stoi(args[1]) : m_project.uiLayouts[cmd.name].layer;
+            } else {
+                if (args.size() > 1) {
+                    cmd.type = UICommand::Type::Load;
+                    cmd.layer = std::stoi(args[1]);
+                } else {
+                    cmd.type = UICommand::Type::Activate;
+                }
+            }
+            m_pendingUICommands.push_back(cmd);
+            break;
+        }
+        case BitOp::UI_DEACTIVATE: {
+            UICommand cmd;
+            cmd.type = UICommand::Type::Deactivate;
             cmd.name = args[0];
             m_pendingUICommands.push_back(cmd);
             break;

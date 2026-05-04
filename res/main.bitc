@@ -12,11 +12,9 @@
     },
     {
       "args": [
-        "dialog_ui",
-        "res/ui/ui_default.json",
-        "10"
+        "dialog_ui"
       ],
-      "op": "UI_LOAD"
+      "op": "UI_ACTIVATE"
     },
     {
       "args": [
@@ -32,9 +30,11 @@
     },
     {
       "args": [
-        "hide"
+        "dialog_ui",
+        "visible",
+        "false"
       ],
-      "op": "UI_VISIBLE"
+      "op": "UI_SET"
     },
     {
       "args": [
@@ -202,9 +202,11 @@
     },
     {
       "args": [
-        "visible"
+        "dialog_ui",
+        "visible",
+        "true"
       ],
-      "op": "UI_VISIBLE"
+      "op": "UI_SET"
     },
     {
       "args": [
@@ -259,9 +261,11 @@
     },
     {
       "args": [
-        "hide"
+        "dialog_ui",
+        "visible",
+        "false"
       ],
-      "op": "UI_VISIBLE"
+      "op": "UI_SET"
     },
     {
       "args": [
@@ -299,9 +303,11 @@
     },
     {
       "args": [
-        "show"
+        "dialog_ui",
+        "visible",
+        "true"
       ],
-      "op": "UI_VISIBLE"
+      "op": "UI_SET"
     },
     {
       "args": [],
@@ -829,6 +835,15 @@
         }
       ],
       "id": "dramatic_intro"
+    }
+  },
+  "ui_layouts": {
+    "dialog_ui": {
+      "active": false,
+      "id": "dialog_ui",
+      "layer": 10,
+      "path": "res/ui/ui_default.json",
+      "visible": true
     }
   },
   "variables": {
