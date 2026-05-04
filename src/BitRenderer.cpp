@@ -78,8 +78,6 @@ void BitRenderer::Draw() {
     UIElement* hist = m_uiManager.FindByRole("history_panel");
     if (m_showHistory && hist && hist->visible) DrawHistory();
 
-    if (m_engine.IsDebugOverlayVisible()) DrawDebugOverlay();
-
     // Choice Panel (direct rendering, bypasses UI layout system)
     DrawChoicesPanel();
     if (m_toastTimer > 0.0f) {
@@ -94,6 +92,8 @@ void BitRenderer::Draw() {
         }
         m_toastTimer -= GetFrameTime();
     }
+
+    if (m_engine.IsDebugOverlayVisible()) DrawDebugOverlay();
 
     UIElement* cur = m_uiManager.FindByRole("mouse_cursor");
     DrawCustomCursor(cur);
