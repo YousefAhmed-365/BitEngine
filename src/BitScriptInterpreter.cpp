@@ -76,7 +76,9 @@ bool BitScriptLexer::IsKeyword(const std::string& s) {
         "config", "var", "entities", "assets", "scene", "sprite", "choice", "jump", "if", "and", "or", "true", "false", 
         "bg", "bgm", "ui", "halt", "return", "call", "local", "wait", "shake", "delay", "play_sfx", 
         "expression", "hide", "pos", "clear", "random", "fade", "move", "fade_screen", "narration", "alias",
-        "timeline", "play", "leave"
+        "timeline", "play", "leave",
+        "ui_load", "ui_unload", "ui_set",
+        "event", "emit"
     };
     return std::find(keywords.begin(), keywords.end(), s) != keywords.end();
 }
@@ -126,9 +128,27 @@ void BitScriptParser::Parse() {
         else if (match(TokenType::Keyword, "assets")) ParseAssets();
         else if (match(TokenType::Keyword, "scene")) ParseScene();
         else if (match(TokenType::Keyword, "timeline")) ParseTimeline();
+        else if (match(TokenType::Keyword, "event")) ParseEvent();
         else consume(); // skip unknown
     }
     emit(BitOp::HALT);
+}
+
+void BitScriptParser::ParseEvent() {
+    std::string evtName = consume().value;
+    expect(TokenType::Symbol, "{");
+    
+    // Store previous output
+    auto* prevOutput = m_currentOutput;
+    m_currentOutput = &p.events[evtName];
+    
+    while (peek().type != TokenType::EndOfFile && peek().value != "}") {
+        ParseStatement();
+    }
+    expect(TokenType::Symbol, "}");
+    
+    // Restore output
+    m_currentOutput = prevOutput;
 }
 
 void BitScriptParser::ParseConfig() {
@@ -315,6 +335,32 @@ void BitScriptParser::ParseStatement() {
         std::string action = consume().value;
         expect(TokenType::Symbol, ";");
         emit(BitOp::UI_VISIBLE, {action});
+    }
+    else if (match(TokenType::Keyword, "ui_load")) {
+        // ui_load "name", "path", layer;
+        std::string name = consume().value;
+        expect(TokenType::Symbol, ",");
+        std::string path = consume().value;
+        expect(TokenType::Symbol, ",");
+        Operand layer = ParseExpression(*m_currentOutput);
+        expect(TokenType::Symbol, ";");
+        emit(BitOp::UI_LOAD, {name, path, layer.val});
+    }
+    else if (match(TokenType::Keyword, "ui_unload")) {
+        // ui_unload "name";
+        std::string name = consume().value;
+        expect(TokenType::Symbol, ";");
+        emit(BitOp::UI_UNLOAD, {name});
+    }
+    else if (match(TokenType::Keyword, "ui_set")) {
+        // ui_set "scoped_id", "property", value_or_expr;
+        std::string scopedId = consume().value;
+        expect(TokenType::Symbol, ",");
+        std::string prop = consume().value;
+        expect(TokenType::Symbol, ",");
+        Operand val = ParseExpression(*m_currentOutput);
+        expect(TokenType::Symbol, ";");
+        emit(BitOp::UI_SET, {scopedId, prop, val.val});
     }
     else if (match(TokenType::Keyword, "narration")) {
         nlohmann::json meta;
@@ -589,6 +635,29 @@ void BitScriptParser::ParseStatement() {
         std::string val = consume().value;
         expect(TokenType::Symbol, ";");
         emit(BitOp::BGM, {val});
+    }
+    else if (match(TokenType::Keyword, "emit")) {
+        std::string target = consume().value; // event name (string literal or unquoted)
+        // strip quotes if any
+        if (target.size() >= 2 && target.front() == '"' && target.back() == '"') {
+            target = target.substr(1, target.size() - 2);
+        }
+        expect(TokenType::Symbol, ";");
+        emit(BitOp::EMIT, {target});
+    }
+    else if (match(TokenType::Keyword, "wait")) {
+        if (match(TokenType::Keyword, "event")) {
+            std::string target = consume().value;
+            if (target.size() >= 2 && target.front() == '"' && target.back() == '"') {
+                target = target.substr(1, target.size() - 2);
+            }
+            expect(TokenType::Symbol, ";");
+            emit(BitOp::WAIT_EVENT, {target});
+        } else {
+            // Error or fallback if wait time was here, but BitScript doesn't have `wait 1.0;`
+            // Wait, does it? Wait, BitScript currently has `delay` for time.
+            consume();
+        }
     }
     else if (match(TokenType::Keyword, "jump")) {
         std::string target = consume().value;

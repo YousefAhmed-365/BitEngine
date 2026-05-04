@@ -39,12 +39,17 @@ enum class BitOp {
     LABEL,      // marker (no-op)
     TRANSITION,
     UI_VISIBLE,
+    UI_LOAD,    // name, path, layer
+    UI_UNLOAD,  // name
+    UI_SET,     // scoped_id, property, value
     CALL,
     RETURN,
     WAIT_INPUT,
     WAIT_ACTION,
     SET_LOCAL,
     PLAY_TIMELINE,
+    WAIT_EVENT,
+    EMIT,
     HALT
 };
 
@@ -204,8 +209,9 @@ struct DialogProject {
     // Bytecode
     std::vector<BitInstruction> bytecode;
     
-    // Timelines
+    // Timelines & Events
     std::unordered_map<std::string, Timeline> timelines;
+    std::unordered_map<std::string, std::vector<BitInstruction>> events;
 
     // Parse errors caught during compilation
     std::vector<std::string> parseErrors;
@@ -213,6 +219,15 @@ struct DialogProject {
 
 struct ValidationResult {
     std::vector<std::string> errors;
+};
+
+// UI command queued by the VM for the renderer to drain each frame
+struct UICommand {
+    enum class Type { Load, Unload, Set } type;
+    std::string name;     // UI namespace / scoped element id
+    std::string arg1;     // path (Load) | property (Set)
+    std::string arg2;     // value (Set)
+    int         layer = 0;
 };
 
 // Event Trace Entry
@@ -240,6 +255,7 @@ public:
     void StartDialog(const std::string& startId = ""); 
     void SelectOption(int index);
     void Next(); 
+    void EmitEvent(const std::string& evt);
     
     void Update(float deltaTime);
     void SkipReveal(); 
@@ -301,6 +317,7 @@ public:
     bool IsAutoPlaying() const { return m_isAutoPlaying; }
     void ToggleAutoPlay() { m_isAutoPlaying = !m_isAutoPlaying; }
 
+    bool IsInputLocked() const { return m_inputLockoutTimer > 0.0f; }
     bool IsChoiceVisible() const { return !m_visibleOptions.empty(); }
 
     // Delay State
@@ -326,6 +343,13 @@ public:
     bool HasErrors() const { return !m_errors.empty(); }
     const std::vector<std::string>& GetErrors() const { return m_errors; }
 
+    // UI Command queue — drained by BitRenderer each frame
+    std::vector<UICommand> DrainUICommands();
+
+    // System variables (set automatically by the VM, readable by UI bindings)
+    // Keys: "var.entity_name", "var.entity_id", "var.dialog", "var.is_revealing", "var.ui_hidden"
+    const nlohmann::json& GetSystemVars() const { return m_sysVars; }
+
     // v0.2 Debug Getters
     const std::vector<int>& GetCallStack() const { return m_callStack; }
     const std::vector<std::unordered_map<std::string, int>>& GetLocalScopes() const { return m_localVariables; }
@@ -349,6 +373,7 @@ private:
     float m_engineDelayTimer = 0.0f;
     std::string m_pendingJumpId = "";
     std::vector<std::string> m_pendingSFX;
+    std::string m_waitingForEventId = "";
 
     std::string m_activeBg = "";
     std::string m_prevBg = "";
@@ -383,6 +408,12 @@ private:
     std::vector<std::unordered_map<std::string, int>> m_localVariables;
     std::string m_waitingForActionType = ""; // "sfx", "move", "fade", "all"
 
+    // Pending UI commands queued by VM opcodes, drained by BitRenderer
+    std::vector<UICommand> m_pendingUICommands;
+    // System string variables exposed to UIDataStore for data bindings
+    nlohmann::json m_sysVars;
+    void UpdateSysVars(); // called after SAY/TEXT to refresh sysVars
+
     void RecordError(const std::string& context, const std::string& msg);
     void ProcessEvents(const std::vector<Event>& events);
     bool EvalConditionNode(const ConditionNode& node) const;
@@ -401,6 +432,10 @@ private:
     bool m_vmDelayed = false;
     void RunVM();
     void ExecuteInstruction(const BitInstruction& ins);
+    
+    // Label index for O(1) label lookups
+    std::unordered_map<std::string, int> m_labelIndex;
+    void BuildLabelIndex();
 };
 
 #endif

@@ -2,36 +2,11 @@
   "style_sheet": "res/ui/ui_neon_noir_style.json",
 
   "elements": [
-    {
-      "id":            "background_layer",
-      "type":          "background",
-      "role":          "background",
-      "style":         "background_style",
-      "anchor_to":     "screen",
-      "anchor_point":  "fill"
-    },
-
-    {
-      "id":            "entity_layer",
-      "type":          "entity_layer",
-      "role":          "entity_layer",
-      "style":         "entity_style",
-      "anchor_to":     "screen",
-      "anchor_point":  "fill"
-    },
-
-    {
-      "id":            "vignette_layer",
-      "type":          "vignette",
-      "role":          "screen_fade",
-      "style":         "vignette_style",
-      "anchor_to":     "screen",
-      "anchor_point":  "fill"
-    },
 
     {
       "id":            "dialog_root",
       "type":          "group",
+      "bind_visible":  "var.ui_visible", 
       "anchor_to":     "screen",
       "anchor_point":  "bottom-center",
       "offset":        [0, -20],
@@ -47,6 +22,8 @@
           "id":           "name_label_box",
           "type":         "panel",
           "role":         "name_label",
+          "bind_visible": "var.entity_name",
+          "bind_content": "var.entity_name",
           "style":        "name_panel",
           "anchor_point": "top-left",
           "offset":       [30, -22],
@@ -56,6 +33,7 @@
             {
               "id":           "name_text",
               "type":         "text",
+              "bind_content": "var.entity_name",
               "style":        "name_text_style",
               "anchor_point": "fill"
             }
@@ -65,6 +43,7 @@
           "id":           "dialog_text",
           "type":         "rich_text",
           "role":         "dialog_text",
+          "bind_content": "var.dialog",
           "style":        "dialog_text_style",
           "anchor_point": "top-left",
           "padding":      [40, 40, 20, 40]
@@ -73,23 +52,43 @@
           "id":           "dialog_cursor",
           "type":         "cursor",
           "role":         "dialog_cursor",
+          "bind_visible": "var.is_waiting_input",
           "style":        "cursor_style",
           "anchor_point": "bottom-right",
-          "offset":       [-18, -14]
+          "offset":       [-18, -14],
+          "animations": [
+            {
+              "type": "pulse",
+              "target": "opacity",
+              "speed": 10.0,
+              "min": 0.2,
+              "max": 1.0
+            }
+          ]
         }
       ]
     },
 
     {
       "id":           "choice_container",
-      "type":         "choices",
+      "type":         "group",
       "role":         "choice_list",
+      "bind_visible": "var.choices_visible",
       "style":        "choice_panel",
       "anchor_to":    "screen",
       "anchor_point": "center",
       "offset":       [0, -80],
       "size":         { "w": 450, "h": "auto" },
-      "padding":      [25, 20, 25, 20]
+      "padding":      [10, 10, 10, 10],
+      "bind_items":   "var.choices",
+      "item_template": {
+        "type":         "button",
+        "role":         "choice_item",
+        "bind_content": "$item.text",
+        "style":        "choice_button",
+        "anchor_point": "top-center",
+        "size":         { "w": "100%" }
+      }
     },
 
     {

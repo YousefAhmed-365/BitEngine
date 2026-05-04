@@ -245,10 +245,18 @@ UIStyleBlock UILayout::ParseInlineStyle(const json& j) {
 UIElement UILayout::ParseElement(const json& j, const StyleSheet& ss) {
     UIElement elem;
 
-    elem.id      = j.value("id",      "");
-    elem.type    = j.value("type",    "group");
-    elem.role    = j.value("role",    "");
-    elem.content = j.value("content", "");
+    elem.id          = j.value("id",           "");
+    elem.type        = j.value("type",         "group");
+    elem.role        = j.value("role",         "");
+    elem.content     = j.value("content",      "");
+    elem.bindContent = j.value("bind_content", "");
+    elem.bindVisible = j.value("bind_visible", "");
+    elem.bindItems   = j.value("bind_items",   "");
+    if (j.contains("item_template")) {
+        elem.itemTemplateJson = j["item_template"];
+    }
+    elem.onClick     = j.value("on_click",     "");
+    elem.displayContent = elem.content; // initialise from static content
 
     // Anchor
     elem.anchorTo    = j.value("anchor_to",    "parent");
@@ -284,6 +292,19 @@ UIElement UILayout::ParseElement(const json& j, const StyleSheet& ss) {
     // Initial visible state (can be modified dynamically by app)
     elem.visible = elem.resolvedStyle.visible.value_or(j.value("visible", true));
 
+    // Animations
+    if (j.contains("animations") && j["animations"].is_array()) {
+        for (const auto& anim : j["animations"]) {
+            UIAnimation a;
+            a.type   = anim.value("type", "pulse");
+            a.target = anim.value("target", "opacity");
+            a.speed  = anim.value("speed", 1.0f);
+            a.minVal = anim.value("min", 0.0f);
+            a.maxVal = anim.value("max", 1.0f);
+            elem.animations.push_back(a);
+        }
+    }
+
     // Children
     if (j.contains("children") && j["children"].is_array()) {
         for (const auto& child : j["children"])
@@ -291,6 +312,21 @@ UIElement UILayout::ParseElement(const json& j, const StyleSheet& ss) {
     }
 
     return elem;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UILayout — SetVisible / SetContent
+// ─────────────────────────────────────────────────────────────────────────────
+bool UILayout::SetVisible(const std::string& id, bool vis) {
+    UIElement* e = FindById(id);
+    if (e) { e->visible = vis; return true; }
+    return false;
+}
+
+bool UILayout::SetContent(const std::string& id, const std::string& content) {
+    UIElement* e = FindById(id);
+    if (e) { e->displayContent = content; return true; }
+    return false;
 }
 
 bool UILayout::Load(const std::string& layoutPath) {
@@ -391,7 +427,73 @@ Rectangle UILayout::ComputeRect(const UIElement& elem, Rectangle parent, int sw,
     return { ax + elem.offsetX, ay + elem.offsetY, w, h };
 }
 
-void UILayout::ResolveElement(UIElement& elem, Rectangle parentRect, int sw, int sh) {
+void UILayout::ResolveElement(UIElement& elem, Rectangle parentRect, int sw, int sh, const UIDataStore* data) {
+    // ── Data Bindings ────────────────────────────────────────────────────────
+    auto getVal = [&](const std::string& key) -> nlohmann::json {
+        if (!data || key.empty()) return nlohmann::json();
+        try {
+            std::string ptrPath = "/";
+            std::string current;
+            for (char c : key) {
+                if (c == '.' || c == '[') {
+                    if (!current.empty()) { ptrPath += current + "/"; current.clear(); }
+                } else if (c == ']') {
+                    if (!current.empty()) { ptrPath += current + "/"; current.clear(); }
+                } else {
+                    current += c;
+                }
+            }
+            if (!current.empty()) ptrPath += current;
+            else if (ptrPath.size() > 1 && ptrPath.back() == '/') ptrPath.pop_back();
+
+            auto ptr = nlohmann::json::json_pointer(ptrPath);
+            if (data->contains(ptr)) return data->at(ptr);
+        } catch (...) {}
+        if (data->contains(key)) return (*data)[key];
+        return nlohmann::json();
+    };
+
+    if (data) {
+        if (!elem.bindContent.empty()) {
+            auto v = getVal(elem.bindContent);
+            if (!v.is_null()) {
+                if (v.is_string()) elem.displayContent = v.get<std::string>();
+                else elem.displayContent = v.dump();
+            }
+        }
+        if (!elem.bindVisible.empty()) {
+            auto v = getVal(elem.bindVisible);
+            if (!v.is_null()) {
+                if (v.is_boolean())    elem.visible = v.get<bool>();
+                else if (v.is_number()) elem.visible = (v.get<float>() != 0.0f);
+                else if (v.is_string()) {
+                    const std::string s = v.get<std::string>();
+                    elem.visible = !s.empty() && s != "false" && s != "0";
+                }
+            }
+        }
+    }
+    if (!elem.bindContent.empty() && elem.displayContent.empty() && data == nullptr)
+        elem.displayContent = elem.content;
+
+    // ── Auto Size Resolution ─────────────────────────────────────────────────
+    if (elem.sizeWAuto && !elem.displayContent.empty()) {
+        Font f = GetFont(elem.resolvedStyle.fontPath);
+        int fs = elem.resolvedStyle.fontSize.value_or(20);
+        Vector2 sz = MeasureTextEx(f, elem.displayContent.c_str(), (float)fs, 2.0f);
+        elem.sizeWPx = sz.x + elem.padLeft + elem.padRight;
+    }
+    if (elem.sizeHAuto && !elem.bindItems.empty() && data) {
+        auto itemsVal = getVal(elem.bindItems);
+        if (itemsVal.is_array()) {
+            size_t count = itemsVal.size();
+            float itemH  = elem.resolvedStyle.optionHeight.value_or(44.0f);
+            float gap    = elem.resolvedStyle.optionGap.value_or(10.0f);
+            float itemsH = (count > 0) ? (count * itemH + (count - 1) * gap) : 0;
+            elem.sizeHPx = elem.padTop + itemsH + elem.padBottom;
+        }
+    }
+
     elem.computedRect = ComputeRect(elem, parentRect, sw, sh);
     elem.contentRect  = {
         elem.computedRect.x + elem.padLeft,
@@ -400,14 +502,80 @@ void UILayout::ResolveElement(UIElement& elem, Rectangle parentRect, int sw, int
         elem.computedRect.height - elem.padTop  - elem.padBottom
     };
 
+    // ── Animations ───────────────────────────────────────────────────────────
+    for (const auto& anim : elem.animations) {
+        float time = (float)GetTime();
+        float val = 0.0f;
+        if (anim.type == "pulse") {
+            val = anim.minVal + (anim.maxVal - anim.minVal) * (sinf(time * anim.speed) * 0.5f + 0.5f);
+        } else if (anim.type == "wave") {
+            val = anim.minVal + (anim.maxVal - anim.minVal) * sinf(time * anim.speed);
+        } else {
+            val = anim.maxVal;
+        }
+
+        if (anim.target == "offset_x") {
+            elem.computedRect.x += val; elem.contentRect.x += val;
+        } else if (anim.target == "offset_y") {
+            elem.computedRect.y += val; elem.contentRect.y += val;
+        } else if (anim.target == "opacity") {
+            elem.resolvedStyle.opacity = val;
+        } else if (anim.target == "scale") {
+            float diffW = elem.computedRect.width  * (val - 1.0f);
+            float diffH = elem.computedRect.height * (val - 1.0f);
+            elem.computedRect.x -= diffW * 0.5f; elem.computedRect.y -= diffH * 0.5f;
+            elem.computedRect.width += diffW;     elem.computedRect.height += diffH;
+        }
+    }
+
+    // ── Phase 7: Dynamic List Instancing (bind_items) ────────────────────────
+    if (data && !elem.bindItems.empty() && !elem.itemTemplateJson.empty()) {
+        auto itemsVal = getVal(elem.bindItems);
+        if (itemsVal.is_array()) {
+            const auto& items = itemsVal;
+            size_t count = items.size();
+            elem.children.clear();
+
+            float itemH = elem.resolvedStyle.optionHeight.value_or(44.0f);
+            float gap   = elem.resolvedStyle.optionGap.value_or(10.0f);
+            
+            float totalItemsH = (count > 0) ? (count * itemH + (count - 1) * gap) : 0;
+            elem.sizeHPx = elem.padTop + totalItemsH + elem.padBottom;
+
+            float yOff  = 0.0f;
+            for (size_t idx = 0; idx < count; ++idx) {
+                nlohmann::json childJ = elem.itemTemplateJson;
+                UIDataStore itemContext = *data;
+                const auto& itemData = items[idx];
+                if (itemData.is_object()) {
+                    for (auto& [ik, iv] : itemData.items()) itemContext["$item." + ik] = iv;
+                } else {
+                    itemContext["$item"] = itemData;
+                }
+
+                UIElement child = ParseElement(childJ, m_styleSheet);
+                child.onClick = "select_choice " + std::to_string(idx);
+                child.offsetY = yOff;
+                if (child.anchorPoint.empty()) child.anchorPoint = "top-left";
+                if (child.sizeHPx == 0 && child.sizeHNorm == 0 && !child.sizeHAuto) child.sizeHPx = itemH;
+
+                ResolveElement(child, elem.contentRect, sw, sh, &itemContext);
+                elem.children.push_back(std::move(child));
+                yOff += itemH + gap;
+            }
+            return; 
+        }
+    }
+
+    // ── Generic children ─────────────────────────────────────────────────────
     for (auto& child : elem.children)
-        ResolveElement(child, elem.computedRect, sw, sh);
+        ResolveElement(child, elem.computedRect, sw, sh, data);
 }
 
-void UILayout::Resolve(int sw, int sh) {
+void UILayout::Resolve(int sw, int sh, const UIDataStore* data) {
     Rectangle screenRect = { 0, 0, (float)sw, (float)sh };
     for (auto& root : m_roots)
-        ResolveElement(root, screenRect, sw, sh);
+        ResolveElement(root, screenRect, sw, sh, data);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -475,4 +643,128 @@ Font UILayout::GetFont(const std::string& path) {
 void UILayout::Shutdown() {
     for (auto& [p, font] : m_fontCache) UnloadFont(font);
     m_fontCache.clear();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UIManager implementation
+// ─────────────────────────────────────────────────────────────────────────────
+std::pair<std::string,std::string> UIManager::SplitScopedId(const std::string& id) {
+    auto dot = id.find('.');
+    if (dot == std::string::npos) return {"", id};
+    return {id.substr(0, dot), id.substr(dot + 1)};
+}
+
+UIManager::LayerEntry* UIManager::FindLayer(const std::string& name) {
+    for (auto& e : m_layers) if (e.name == name) return &e;
+    return nullptr;
+}
+
+bool UIManager::Load(const std::string& name, const std::string& path, int layer) {
+    // Replace if already loaded
+    auto* existing = FindLayer(name);
+    if (existing) {
+        existing->layout.Shutdown();
+        m_layers.erase(std::remove_if(m_layers.begin(), m_layers.end(),
+            [&](const LayerEntry& e) { return e.name == name; }), m_layers.end());
+    }
+    LayerEntry entry;
+    entry.name  = name;
+    entry.layer = layer;
+    if (!entry.layout.Load(path)) {
+        std::cerr << "[UIManager] Failed to load: " << path << "\n";
+        return false;
+    }
+    m_layers.push_back(std::move(entry));
+    std::cout << "[UIManager] Loaded UI \"" << name << "\" (layer " << layer << ") from " << path << "\n";
+    return true;
+}
+
+void UIManager::Unload(const std::string& name) {
+    m_layers.erase(std::remove_if(m_layers.begin(), m_layers.end(),
+        [&](LayerEntry& e) { if (e.name == name) { e.layout.Shutdown(); return true; } return false; }),
+        m_layers.end());
+    std::cout << "[UIManager] Unloaded UI \"" << name << "\"\n";
+}
+
+bool UIManager::IsLoaded(const std::string& name) const {
+    for (const auto& e : m_layers) if (e.name == name) return true;
+    return false;
+}
+
+void UIManager::Shutdown() {
+    for (auto& e : m_layers) e.layout.Shutdown();
+    m_layers.clear();
+}
+
+UIElement* UIManager::FindById(const std::string& scopedId) {
+    auto [ns, id] = SplitScopedId(scopedId);
+    if (!ns.empty()) {
+        auto* layer = FindLayer(ns);
+        return layer ? layer->layout.FindById(id) : nullptr;
+    }
+    for (auto& e : m_layers) {
+        UIElement* found = e.layout.FindById(id);
+        if (found) return found;
+    }
+    return nullptr;
+}
+
+UIElement* UIManager::FindByRole(const std::string& scopedId) {
+    auto [ns, role] = SplitScopedId(scopedId);
+    if (!ns.empty()) {
+        auto* layer = FindLayer(ns);
+        return layer ? layer->layout.FindByRole(role) : nullptr;
+    }
+    for (auto& e : m_layers) {
+        UIElement* found = e.layout.FindByRole(role);
+        if (found) return found;
+    }
+    return nullptr;
+}
+
+bool UIManager::SetVisible(const std::string& scopedId, bool visible) {
+    auto [ns, id] = SplitScopedId(scopedId);
+    if (!ns.empty()) {
+        auto* layer = FindLayer(ns);
+        return layer ? layer->layout.SetVisible(id, visible) : false;
+    }
+    bool any = false;
+    for (auto& e : m_layers) any |= e.layout.SetVisible(id, visible);
+    return any;
+}
+
+bool UIManager::SetContent(const std::string& scopedId, const std::string& content) {
+    auto [ns, id] = SplitScopedId(scopedId);
+    if (!ns.empty()) {
+        auto* layer = FindLayer(ns);
+        return layer ? layer->layout.SetContent(id, content) : false;
+    }
+    bool any = false;
+    for (auto& e : m_layers) any |= e.layout.SetContent(id, content);
+    return any;
+}
+
+void UIManager::Resolve(int sw, int sh, const UIDataStore* data) {
+    for (auto& e : m_layers) e.layout.Resolve(sw, sh, data);
+}
+
+std::vector<UILayout*> UIManager::GetSortedLayers() {
+    std::vector<LayerEntry*> sorted;
+    sorted.reserve(m_layers.size());
+    for (auto& e : m_layers) sorted.push_back(&e);
+    std::sort(sorted.begin(), sorted.end(),
+              [](const LayerEntry* a, const LayerEntry* b) { return a->layer < b->layer; });
+    std::vector<UILayout*> out;
+    out.reserve(sorted.size());
+    for (auto* e : sorted) out.push_back(&e->layout);
+    return out;
+}
+
+Font UIManager::GetFont(const std::string& path) {
+    // Ask the first layer that has the font
+    for (auto& e : m_layers) {
+        Font f = e.layout.GetFont(path);
+        if (f.texture.id > 0) return f;
+    }
+    return GetFontDefault();
 }

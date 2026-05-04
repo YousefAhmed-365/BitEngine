@@ -258,7 +258,7 @@ void BitApp::Run(const std::string& projectPath) {
     DialogEngine dialogSystem;
     BitRenderer uiBridge(dialogSystem);
     bool loaded = dialogSystem.LoadProject(projectPath);
-    uiBridge.GetLayout().Load("res/ui/ui_default.json");
+    // UI is now loaded via ui_load commands in BitScript (no hardcoded layout)
     uiBridge.PreloadAssets();
     if (loaded) dialogSystem.StartDialog();
 

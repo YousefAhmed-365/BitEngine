@@ -107,6 +107,14 @@ private:
     static Color        ParseColor(const nlohmann::json& j, Color def = {255,255,255,255});
 };
 
+struct UIAnimation {
+    std::string type;   // "pulse", "wave", "fade"
+    std::string target; // "offset_x", "offset_y", "opacity", "scale"
+    float speed = 1.0f;
+    float minVal = 0.0f;
+    float maxVal = 1.0f;
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // UIElement  — one node in the UI tree
 // ─────────────────────────────────────────────────────────────────────────────
@@ -139,25 +147,42 @@ struct UIElement {
     UIStyleBlock inlineStyle;   // Inline overrides declared on the element
     UIStyleBlock resolvedStyle; // = styleSheet[styleRef].MergedWith(inlineStyle) — built at Load()
 
-    // ── Content ──────────────────────────────────────────────────────────────
-    std::string content; // Static text (for "text" type); empty = engine-driven
+    // ── Data Bindings (resolved from a DataStore at render time) ───────────────
+    std::string    bindContent;      // e.g. "var.entity_name" → reads from data store
+    std::string    bindVisible;      // e.g. "var.entity_name" → visible if non-empty/non-zero
+    std::string    bindItems;        // e.g. "var.choices" → repeat itemTemplate for each item
+    nlohmann::json itemTemplateJson; // JSON definition of the repeated child template
 
-    // ── Children ─────────────────────────────────────────────────────────────
+    // ── Content ──────────────────────────────────────────────────────────────
+    std::string content; // Static text (for "text" type); empty = engine-driven or bound
+
+    // ── Children & Animations ────────────────────────────────────────────────
     std::vector<UIElement> children;
+    std::vector<UIAnimation> animations;
+
+    // ── Input ────────────────────────────────────────────────────────────────
+    std::string onClick; // BitScript event to emit when clicked, e.g. "open_inventory"
 
     // ── Computed rect (filled by UILayout::Resolve() each frame) ─────────────
     Rectangle computedRect = { 0, 0, 0, 0 };
     // Inner content rect (computedRect minus padding)
     Rectangle contentRect  = { 0, 0, 0, 0 };
+    // Resolved display content (populated from bindContent or static content)
+    std::string displayContent;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // UILayout  — loads the element tree, resolves rects each frame
 // ─────────────────────────────────────────────────────────────────────────────
+
+// DataStore: JSON object shared between the application and UILayout.
+// Keys follow "var.name" convention (e.g. "var.entity_name", "var.credits").
+using UIDataStore = nlohmann::json;
+
 class UILayout {
 public:
     bool Load(const std::string& layoutPath);   // Load ui_*.json (also loads referenced style sheet)
-    void Resolve(int screenW, int screenH);     // Recompute all rects — call once per frame before draw
+    void Resolve(int screenW, int screenH, const UIDataStore* data = nullptr); // Recompute rects + bind data
     void Shutdown();
 
     // Traversal
@@ -168,6 +193,10 @@ public:
     // Font cache (shared across the layout)
     Font GetFont(const std::string& path);
     Font GetDefaultFont() const { return m_defaultFont; }
+
+    // Runtime visibility + property control
+    bool SetVisible(const std::string& id, bool visible);
+    bool SetContent(const std::string& id, const std::string& content);
 
 private:
     std::vector<UIElement> m_roots;
@@ -180,13 +209,53 @@ private:
     UIStyleBlock ParseInlineStyle(const nlohmann::json& j);
 
     // Layout resolution helpers
-    void      ResolveElement(UIElement& elem, Rectangle parentRect, int sw, int sh);
+    void      ResolveElement(UIElement& elem, Rectangle parentRect, int sw, int sh, const UIDataStore* data);
     Rectangle ComputeRect(const UIElement& elem, Rectangle parentRect, int sw, int sh) const;
     float     ResolveSize(float px, float norm, bool autoSize, float parentSize) const;
 
     // Tree search helpers
     UIElement* FindByRoleInTree(UIElement& elem, const std::string& role);
     UIElement* FindByIdInTree(UIElement& elem, const std::string& id);
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UIManager  — manages multiple named UILayout instances with Z-ordering
+// This is the single point of contact for BitRenderer.
+// ─────────────────────────────────────────────────────────────────────────────
+class UIManager {
+public:
+    // Load/unload named layouts
+    bool Load(const std::string& name, const std::string& path, int layer);
+    void Unload(const std::string& name);
+    bool IsLoaded(const std::string& name) const;
+    void Shutdown();
+
+    // Forward to correct layout — id can be "layout_name.element_id" or bare "element_id"
+    UIElement* FindById(const std::string& scopedId);
+    UIElement* FindByRole(const std::string& scopedId);
+    bool       SetVisible(const std::string& scopedId, bool visible);
+    bool       SetContent(const std::string& scopedId, const std::string& content);
+
+    // Update all layouts (resolve rects, apply bindings)
+    void Resolve(int sw, int sh, const UIDataStore* data = nullptr);
+
+    // Get all layouts sorted by layer (ascending = back to front)
+    std::vector<UILayout*> GetSortedLayers();
+
+    // Font cache access (for BitRenderer compatibility)
+    Font GetFont(const std::string& path);
+
+private:
+    struct LayerEntry {
+        std::string name;
+        int         layer = 0;
+        UILayout    layout;
+    };
+    std::vector<LayerEntry> m_layers;
+
+    // Helper: split "layout_name.element_id" → {"layout_name", "element_id"}
+    static std::pair<std::string,std::string> SplitScopedId(const std::string& scopedId);
+    LayerEntry* FindLayer(const std::string& name);
 };
 
 #endif // UI_LAYOUT_HPP

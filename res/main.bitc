@@ -6,6 +6,26 @@
   "bytecode": [
     {
       "args": [
+        "init"
+      ],
+      "op": "LABEL"
+    },
+    {
+      "args": [
+        "dialog_ui",
+        "res/ui/ui_default.json",
+        "10"
+      ],
+      "op": "UI_LOAD"
+    },
+    {
+      "args": [
+        "scene_alley"
+      ],
+      "op": "GOTO"
+    },
+    {
+      "args": [
         "scene_alley"
       ],
       "op": "LABEL"
@@ -658,7 +678,7 @@
     "mode": "typewriter",
     "reveal_speed": 45.0,
     "save_prefix": "save_slot_",
-    "start_node": "scene_alley"
+    "start_node": "init"
   },
   "entities": {
     "akira": {

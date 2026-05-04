@@ -123,7 +123,9 @@ bool DialogEngine::LoadProject(const std::string& configFilePath) {
     Log("Loading project from: " + configFilePath);
 
     if (configFilePath.size() > 10 && configFilePath.substr(configFilePath.size() - 10) == ".bitscript") {
-        return BitScriptInterpreter::LoadScriptFile(configFilePath, m_project);
+        bool result = BitScriptInterpreter::LoadScriptFile(configFilePath, m_project);
+        if (result) BuildLabelIndex();
+        return result;
     }
 
     if (configFilePath.size() > 5 && configFilePath.substr(configFilePath.size() - 5) == ".bitc") {
@@ -174,8 +176,13 @@ static std::string OpToStr(BitOp op) {
         case BitOp::WAIT_ACTION: return "WAIT_ACTION";
         case BitOp::SET_LOCAL:   return "SET_LOCAL";
         case BitOp::PLAY_TIMELINE: return "PLAY_TIMELINE";
-        case BitOp::HALT:    return "HALT";
-        default:             return "NOP";
+        case BitOp::UI_LOAD:     return "UI_LOAD";
+        case BitOp::UI_UNLOAD:   return "UI_UNLOAD";
+        case BitOp::UI_SET:      return "UI_SET";
+        case BitOp::EMIT:        return "EMIT";
+        case BitOp::WAIT_EVENT:  return "WAIT_EVENT";
+        case BitOp::HALT:        return "HALT";
+        default:                 return "NOP";
     }
 }
 
@@ -208,7 +215,12 @@ static BitOp StrToOp(const std::string& s) {
     if (s=="WAIT_ACTION") return BitOp::WAIT_ACTION;
     if (s=="SET_LOCAL")  return BitOp::SET_LOCAL;
     if (s=="PLAY_TIMELINE") return BitOp::PLAY_TIMELINE;
-    if (s=="HALT")    return BitOp::HALT;
+    if (s=="UI_LOAD")    return BitOp::UI_LOAD;
+    if (s=="UI_UNLOAD")  return BitOp::UI_UNLOAD;
+    if (s=="UI_SET")     return BitOp::UI_SET;
+    if (s=="EMIT")       return BitOp::EMIT;
+    if (s=="WAIT_EVENT") return BitOp::WAIT_EVENT;
+    if (s=="HALT")       return BitOp::HALT;
     return BitOp::HALT;
 }
 
@@ -369,7 +381,17 @@ bool DialogEngine::LoadBytecodeFile(const std::string& path) {
     }
 
     Log("Loaded " + std::to_string(m_project.bytecode.size()) + " bytecode instructions and " + std::to_string(m_project.timelines.size()) + " timelines from " + path);
+    BuildLabelIndex();
     return true;
+}
+
+void DialogEngine::BuildLabelIndex() {
+    m_labelIndex.clear();
+    for (int i = 0; i < (int)m_project.bytecode.size(); ++i) {
+        if (m_project.bytecode[i].op == BitOp::LABEL && !m_project.bytecode[i].args.empty()) {
+            m_labelIndex[m_project.bytecode[i].args[0]] = i;
+        }
+    }
 }
 
 // Redundant methods removed.
@@ -538,11 +560,9 @@ void DialogEngine::StartDialog(const std::string& startId) {
     std::string id = startId.empty() ? m_project.configs.start_node : startId;
     Log("Starting dialog sequence: " + id);
     
-    for (int i = 0; i < (int)m_project.bytecode.size(); ++i) {
-        if (m_project.bytecode[i].op == BitOp::LABEL && m_project.bytecode[i].args[0] == id) {
-            m_pc = i;
-            break;
-        }
+    auto it = m_labelIndex.find(id);
+    if (it != m_labelIndex.end()) {
+        m_pc = it->second;
     }
     
     m_vmWaiting = false;
@@ -555,11 +575,10 @@ void DialogEngine::SelectOption(int index) {
     std::string target = m_visibleOptions[index].next_id;
     m_visibleOptions.clear();
     
-    for (int i = 0; i < (int)m_project.bytecode.size(); ++i) {
-        if (m_project.bytecode[i].op == BitOp::LABEL && m_project.bytecode[i].args[0] == target) {
-            m_pc = i;
-            break;
-        }
+    // Use label index map for O(1) lookup instead of linear search
+    auto it = m_labelIndex.find(target);
+    if (it != m_labelIndex.end()) {
+        m_pc = it->second;
     }
     
     m_vmWaiting = false;
@@ -581,6 +600,21 @@ void DialogEngine::Next() {
     m_vmWaiting = false;
     m_vmDelayed = false;
     RunVM();
+}
+
+void DialogEngine::EmitEvent(const std::string& evt) {
+    if (!m_isActive) return;
+    if (m_waitingForEventId == evt) {
+        m_waitingForEventId = "";
+        m_vmWaiting = false;
+        RunVM(); // Resume VM immediately
+    }
+    if (!m_project.events.count(evt)) return;
+    int saved_pc = m_pc;
+    for (const auto& ins : m_project.events.at(evt)) {
+        ExecuteInstruction(ins);
+    }
+    m_pc = saved_pc; // Restore PC
 }
 
 void DialogEngine::RunVM() {
@@ -737,6 +771,7 @@ void DialogEngine::Update(float dt) {
         m_autoPlayTimer = 0.0f;
     }
 
+    UpdateSysVars();
 }
 
 void DialogEngine::SkipReveal() { 
@@ -992,6 +1027,7 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
             }
 
             if (m_project.configs.auto_save) SaveGame(0);
+            UpdateSysVars();
             break;
         }
         case BitOp::SET:     SetVariable(args[0], SafeStoi(args[1])); break;
@@ -1015,11 +1051,10 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
             break;
         }
         case BitOp::GOTO: {
-            for (int i = 0; i < (int)m_project.bytecode.size(); ++i) {
-                if (m_project.bytecode[i].op == BitOp::LABEL && m_project.bytecode[i].args[0] == args[0]) {
-                    m_eventTrace.push_back({std::to_string(m_pc-1), "JUMP", args[0], 0, i});
-                    m_pc = i; break;
-                }
+            auto it = m_labelIndex.find(args[0]);
+            if (it != m_labelIndex.end()) {
+                m_eventTrace.push_back({std::to_string(m_pc-1), "JUMP", args[0], 0, it->second});
+                m_pc = it->second;
             }
             break;
         }
@@ -1038,10 +1073,9 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
             
             m_eventTrace.push_back({std::to_string(m_pc-1), "IF", pass ? "TRUE" : "FALSE", v, val});
             if (pass) {
-                for (int i = 0; i < (int)m_project.bytecode.size(); ++i) {
-                    if (m_project.bytecode[i].op == BitOp::LABEL && m_project.bytecode[i].args[0] == args[3]) {
-                        m_pc = i; break;
-                    }
+                auto it = m_labelIndex.find(args[3]);
+                if (it != m_labelIndex.end()) {
+                    m_pc = it->second;
                 }
             }
             break;
@@ -1072,6 +1106,34 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
             break;
         case BitOp::UI_VISIBLE: {
             m_isUiHidden = (args[0] == "hide");
+            UpdateSysVars();
+            break;
+        }
+        case BitOp::UI_LOAD: {
+            // args: [name, path, layer]
+            UICommand cmd;
+            cmd.type  = UICommand::Type::Load;
+            cmd.name  = args[0];
+            cmd.arg1  = args[1];
+            cmd.layer = (args.size() > 2) ? std::stoi(args[2]) : 0;
+            m_pendingUICommands.push_back(cmd);
+            break;
+        }
+        case BitOp::UI_UNLOAD: {
+            UICommand cmd;
+            cmd.type = UICommand::Type::Unload;
+            cmd.name = args[0];
+            m_pendingUICommands.push_back(cmd);
+            break;
+        }
+        case BitOp::UI_SET: {
+            // args: [scoped_id, property, value]
+            UICommand cmd;
+            cmd.type = UICommand::Type::Set;
+            cmd.name = args[0];
+            cmd.arg1 = args[1]; // property
+            cmd.arg2 = (args.size() > 2) ? args[2] : "";
+            m_pendingUICommands.push_back(cmd);
             break;
         }
         case BitOp::EVENT: {
@@ -1088,12 +1150,10 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
             int targetPC = -1;
             const BitInstruction* labelIns = nullptr;
 
-            for (int i = 0; i < (int)m_project.bytecode.size(); ++i) {
-                if (m_project.bytecode[i].op == BitOp::LABEL && m_project.bytecode[i].args[0] == labelId) {
-                    targetPC = i;
-                    labelIns = &m_project.bytecode[i];
-                    break;
-                }
+            auto it = m_labelIndex.find(labelId);
+            if (it != m_labelIndex.end()) {
+                targetPC = it->second;
+                labelIns = &m_project.bytecode[targetPC];
             }
 
             if (targetPC != -1) {
@@ -1156,6 +1216,15 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
                     m_vmWaiting = true;
                 }
             }
+            break;
+        }
+        case BitOp::WAIT_EVENT: {
+            m_waitingForEventId = args[0];
+            m_vmWaiting = true;
+            break;
+        }
+        case BitOp::EMIT: {
+            EmitEvent(args[0]);
             break;
         }
         case BitOp::HALT: m_isActive = false; break;
@@ -1276,4 +1345,47 @@ float DialogEngine::ResolveParamFloat(const nlohmann::json& params, const std::s
         try { return std::stof(s); } catch(...) { return default_val; }
     }
     return default_val;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// System variables
+// ─────────────────────────────────────────────────────────────────────────────
+void DialogEngine::UpdateSysVars() {
+    // Speaker
+    if (!m_currentSpeakerId.empty() && m_project.entities.count(m_currentSpeakerId)) {
+        m_sysVars["var.entity_name"] = m_project.entities.at(m_currentSpeakerId).name;
+        m_sysVars["var.entity_id"]   = m_currentSpeakerId;
+    } else {
+        m_sysVars["var.entity_name"] = "";
+        m_sysVars["var.entity_id"]   = "";
+    }
+    // Dialog content
+    m_sysVars["var.dialog"]       = m_cachedInterpolatedContent;
+    // Flags
+    m_sysVars["var.is_revealing"] = IsTextRevealing()  ? "true" : "false";
+    m_sysVars["var.is_waiting_input"] = (!IsTextRevealing() && !m_cachedInterpolatedContent.empty()) ? "true" : "false";
+    m_sysVars["var.ui_visible"]   = !m_isUiHidden       ? "true" : "false";
+    m_sysVars["var.choices_visible"] = (!m_visibleOptions.empty() && !IsTextRevealing()) ? "true" : "false";
+    m_sysVars["var.choices"] = nlohmann::json::array();
+    if (!m_visibleOptions.empty() && !IsTextRevealing()) {
+        for (size_t i = 0; i < m_visibleOptions.size(); ++i) {
+            m_sysVars["var.choices"].push_back({
+                {"text", m_visibleOptions[i].content},
+                {"index", i}
+            });
+        }
+    }
+    // Expose all integer game variables too under their own name
+    for (const auto& [k, v] : m_variables) {
+        m_sysVars["var." + k] = std::to_string(v);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UI command queue
+// ─────────────────────────────────────────────────────────────────────────────
+std::vector<UICommand> DialogEngine::DrainUICommands() {
+    std::vector<UICommand> out;
+    std::swap(out, m_pendingUICommands);
+    return out;
 }

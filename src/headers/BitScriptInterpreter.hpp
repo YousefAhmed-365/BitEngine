@@ -58,6 +58,7 @@ private:
     void ParseVariable();
     void ParseEntities();
     void ParseAssets();
+    void ParseEvent();
     void ParseScene();
     std::string ParseTimeline();
     void ParseStatement();

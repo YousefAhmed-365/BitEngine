@@ -19,6 +19,8 @@ std::vector<AnalysisMessage> BitScriptAnalyzer::Analyze(const DialogProject& pro
     CheckInstructions(project, messages);
     CheckTimelines(project, messages);
     CheckSprites(project, messages);
+    CheckEvents(project, messages);
+    CheckUICommands(project, messages);
     
     return messages;
 }
@@ -517,6 +519,44 @@ void BitScriptAnalyzer::CheckInstructions(const DialogProject& project, std::vec
                 }
             }
         }
+
+        // EMIT — verify target event is declared
+        if (ins.op == BitOp::EMIT) {
+            if (ins.args.empty()) {
+                messages.push_back({AnalysisMessage::Level::ERROR, "EMIT requires an event name", ins.line});
+            } else if (project.events.find(ins.args[0]) == project.events.end()) {
+                messages.push_back({AnalysisMessage::Level::WARNING,
+                    "EMIT references undeclared event block: '" + ins.args[0] + "'", ins.line});
+            }
+        }
+
+        // WAIT_EVENT — verify event name is non-empty
+        if (ins.op == BitOp::WAIT_EVENT) {
+            if (ins.args.empty()) {
+                messages.push_back({AnalysisMessage::Level::ERROR, "WAIT_EVENT requires an event name", ins.line});
+            }
+        }
+
+        // UI_LOAD — path and name must be present
+        if (ins.op == BitOp::UI_LOAD) {
+            if (ins.args.size() < 2) {
+                messages.push_back({AnalysisMessage::Level::ERROR, "UI_LOAD requires at least (name, path)", ins.line});
+            }
+        }
+
+        // UI_UNLOAD — name must be present
+        if (ins.op == BitOp::UI_UNLOAD) {
+            if (ins.args.empty()) {
+                messages.push_back({AnalysisMessage::Level::ERROR, "UI_UNLOAD requires a layout name", ins.line});
+            }
+        }
+
+        // UI_SET — scoped_id + property + value
+        if (ins.op == BitOp::UI_SET) {
+            if (ins.args.size() < 3) {
+                messages.push_back({AnalysisMessage::Level::ERROR, "UI_SET requires (id, property, value)", ins.line});
+            }
+        }
     }
 }
 
@@ -720,3 +760,65 @@ void BitScriptAnalyzer::CheckSprites(const DialogProject& project, std::vector<A
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// CheckEvents — validate event blocks declared with `event name { }`
+// ─────────────────────────────────────────────────────────────────────────────
+void BitScriptAnalyzer::CheckEvents(const DialogProject& project, std::vector<AnalysisMessage>& messages) {
+    std::unordered_set<std::string> emittedEvents;
+    std::unordered_set<std::string> waitedEvents;
+
+    auto scanCode = [&](const std::vector<BitInstruction>& code) {
+        for (const auto& ins : code) {
+            if (ins.op == BitOp::EMIT && !ins.args.empty())      emittedEvents.insert(ins.args[0]);
+            if (ins.op == BitOp::WAIT_EVENT && !ins.args.empty()) waitedEvents.insert(ins.args[0]);
+        }
+    };
+
+    scanCode(project.bytecode);
+    for (const auto& [tid, tl] : project.timelines)
+        for (const auto& ev : tl.events)
+            if (ev.op == BitOp::EMIT && !ev.args.empty())
+                emittedEvents.insert(ev.args[0]);
+
+    for (const auto& [evtId, code] : project.events) {
+        if (emittedEvents.find(evtId) == emittedEvents.end())
+            messages.push_back({AnalysisMessage::Level::INFO,
+                "Event block '" + evtId + "' is declared but never emitted", -1});
+        if (code.empty())
+            messages.push_back({AnalysisMessage::Level::WARNING,
+                "Event block '" + evtId + "' is empty", -1});
+    }
+
+    for (const auto& ev : waitedEvents)
+        if (project.events.find(ev) == project.events.end())
+            messages.push_back({AnalysisMessage::Level::WARNING,
+                "WAIT_EVENT waits for event '" + ev + "' which has no event block", -1});
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CheckUICommands — validate ui_load / ui_set / ui_unload sequences
+// ─────────────────────────────────────────────────────────────────────────────
+void BitScriptAnalyzer::CheckUICommands(const DialogProject& project, std::vector<AnalysisMessage>& messages) {
+    static const std::unordered_set<std::string> validProps = {
+        "visible", "content", "opacity", "x", "y", "w", "h"
+    };
+
+    std::unordered_set<std::string> loadedLayouts;
+
+    for (const auto& ins : project.bytecode) {
+        if (ins.op == BitOp::UI_LOAD && ins.args.size() >= 2)
+            loadedLayouts.insert(ins.args[0]);
+
+        if (ins.op == BitOp::UI_UNLOAD && !ins.args.empty()
+            && loadedLayouts.find(ins.args[0]) == loadedLayouts.end())
+            messages.push_back({AnalysisMessage::Level::WARNING,
+                "UI_UNLOAD for layout '" + ins.args[0] + "' which was not loaded via UI_LOAD", ins.line});
+
+        if (ins.op == BitOp::UI_SET && ins.args.size() >= 3) {
+            const std::string& prop = ins.args[1];
+            if (validProps.find(prop) == validProps.end())
+                messages.push_back({AnalysisMessage::Level::INFO,
+                    "UI_SET uses non-standard property '" + prop + "'", ins.line});
+        }
+    }
+}

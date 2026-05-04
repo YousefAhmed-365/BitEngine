@@ -1,5 +1,5 @@
 config {
-    start_node = scene_alley;
+    start_node = init;
     mode = typewriter;
     reveal_speed = 45;
 }
@@ -49,6 +49,16 @@ timeline dramatic_intro {
     }
     500ms: fade_screen 0.0, 500ms * 2;
     1500ms: shake 10;
+}
+
+#- ─────────────────────────────────────────────────────────────────────
+# UI Initialisation
+# Load UI layouts here so they can be swapped at runtime without
+# touching the C++ renderer.
+─────────────────────────────────────────────────────────────────── -#
+scene init {
+    ui_load "dialog_ui", "res/ui/ui_default.json", 10;
+    jump scene_alley;
 }
 
 scene scene_alley {

@@ -21,10 +21,11 @@ public:
     virtual ~BitRenderer();
 
     void Draw();
+    void DrawScene();
     void HandleInput();
     void PreloadAssets();
 
-    UILayout& GetLayout() { return m_layout; }
+    UIManager& GetManager() { return m_uiManager; }
 
 protected:
     // ── Generic element dispatcher ─────────────────────────────────────────
@@ -36,16 +37,15 @@ protected:
     void DrawTextElem       (UIElement& elem);
     void DrawRichTextElem   (UIElement& elem);
     void DrawCursorElem     (UIElement& elem);
-    void DrawChoicesElem    (UIElement& elem);
-    void DrawVignetteElem   (UIElement& elem);
+    void DrawButtonElem     (UIElement& elem);
     void DrawImageElem      (UIElement& elem);
-    void DrawBackgroundElem (UIElement& elem);
-    void DrawEntityLayerElem(UIElement& elem);
 
     // ── Specialised draw helpers (history, debug, cursor) ─────────────────
     void DrawHistory();
     void DrawDebugOverlay();
     void DrawCustomCursor(UIElement* mouseCursorElem);
+    void DrawChoicesPanel();  // Direct choice rendering (bypasses UI system)
+    void HandleChoiceInput(); // Direct choice input (bypasses UI system)
 
     // ── Shared rendering utilities ─────────────────────────────────────────
     int DrawRichText(const std::vector<RichChar>& content, int limit,
@@ -67,7 +67,8 @@ protected:
 
     // ── Members ─────────────────────────────────────────────────────────────
     DialogEngine& m_engine;
-    UILayout      m_layout;
+    UIManager     m_uiManager;
+    UIDataStore   m_dataStore; // populated from engine every frame, passed to UIManager::Resolve
 
     std::unordered_map<std::string, Texture2D> m_textureCache;
     std::unordered_map<std::string, Music>     m_musicCache;
@@ -89,6 +90,9 @@ protected:
     // Toast state
     float       m_toastTimer = 0.0f;
     std::string m_toastMsg;
+    
+    // Direct choice panel state (bypasses UI layout system)
+    std::vector<Rectangle> m_choiceRects;
 };
 
 #endif // BIT_RENDERER_HPP

@@ -43,6 +43,16 @@
     "option_height":    38,
     "option_gap":       10
   },
+  
+  "choice_button": {
+    "bg_color":       [0, 180, 255, 40],
+    "border_color":   [0, 210, 255, 120],
+    "border_thick":   1.0,
+    "roundness":      0.1,
+    "option_color":   [0, 210, 255, 255],
+    "option_hover":   [255, 255, 255, 255],
+    "option_font_size": 20
+  },
 
   "vignette_style": {
     "opacity": 0.45
