@@ -1,77 +1,67 @@
-# BitEngine Studio & Narrative Core
+# 🌌 BitEngine v0.2
+**The High-Performance, Bytecode-Driven Narrative Engine**
 
-**BitEngine** is a lightweight, high-performance narrative engine and visual development suite built with C++17. It is designed to bridge the gap between hard-coded narrative logic and professional-grade visual storytelling.
-
-The project is split into two primary components:
-1. **BitEngine Core**: A modular, hardware-agnostic narrative runtime.
-2. **BitEngine Studio (BitTool)**: A complete visual IDE for editing dialog graphs, managing global variables, and defining entity registries.
+BitEngine is a modern, modular visual novel and narrative adventure engine built with C++17 and Raylib. It features a custom virtual machine, a data-driven UI system, and a robust cinematic pipeline.
 
 ---
 
-## 💎 Key Features
+## 🚀 Key Features
 
-### 🎬 Visual Studio (BitTool)
-The **BitEngine Studio** is no longer just a compiler; it's a full-featured visual editor:
-- **Infinite Canvas Graph Editor**: Visual node-based workflow for complex branching narratives.
-- **Asset Pipeline**: Integrated editors for **Entities** (sprite-mapping, framing, scaling) and **Variables** (global state with min/max constraints).
-- **Project Hub**: Manage multiple narrative projects from a single tile-based launcher.
-- **Smart Logic**: Real-time validation and automatic persistence to the project's data schema.
-
-### 🧠 Decoupled Core Architecture
-The engine's logic layer is entirely independent of the rendering framework:
-- **Core Logic**: Handles state, variable manipulation, branching, and binary serialization without any graphic library dependencies.
-- **Rich Text Parser**: Support for in-line styling tags: `[color=#hex]`, `[shake]`, `[wave]`, `[speed=2.0]`, and `[wait=1.0]`.
-- **Hardware-Agnostic State**: The engine uses a custom `BitColor` system, allowing it to be easily ported to other rendering backends (SDL, SFML, etc.).
-
-### 🎭 Data-Driven Rendering (BitRenderer)
-A highly flexible rendering layer driven by a modular **Style System**:
-- **Hot-Reloadable Themes**: Define entire UI looks (dialog boxes, choice panels, toast notifications) in `style.json` and watch changes reflect instantly without restarting.
-- **Style Manager**: Switch between themes (e.g., `neon_noir`, `minimal`, `vertical_left`) at runtime.
-- **Dynamic VFX**: Integrated sprite floating, screen-shakes, and vignette systems.
+- **Bytecode VM**: Executes strictly-typed `.bitc` binaries for O(1) instruction dispatch and native performance.
+- **BitScript Language**: A declarative scripting language designed for narrative branching, complex logic, and cinematic control.
+- **Neural Typewriter**: A procedural rich-text rendering system with per-character formatting (shake, wave, speed, color).
+- **Decoupled UI**: Interaction logic is completely independent of narrative processing, ensuring zero-latency responsiveness.
+- **Static Analysis**: Proactive compiler validation for referential integrity, variable auditing, and asset consistency.
+- **Cinematic Pipeline**: Manual alpha interpolation for screens and entities, procedural breathing effects, and dynamic shadows.
+- **Unified Debugging**: F3 overlay for real-time VM inspection, variable watching, and bytecode tracing.
 
 ---
 
-## 🛠️ Building & Running
+## 🎮 Controls & Shortcuts
 
-### Prerequisites
-- **Compiler**: C++17 compatible (GCC 9+, Clang 10+, MSVC 2019+)
-- **CMake**: 3.16 or higher
-- **Raylib**: Standard installation for windowing and graphics.
+| Key | Action |
+| :--- | :--- |
+| **SPACE / ENTER / CLICK** | Advance dialogue / Select option / Skip reveal. |
+| **H** | Toggle scrollable Message History. |
+| **TAB** | Toggle Cinematic Mode (Hide UI). |
+| **A** | Toggle Auto-Play mode. |
+| **F5** | Quick Save to Slot 1. |
+| **F9** | Quick Load from Slot 1. |
+| **F3** | Toggle Unified Debug Overlay. |
+| **ESC** | Open System Menu / Close History. |
 
-### Quick Build
-Use the provided automation script:
+---
+
+## 🛠️ Getting Started
+
+### 1. Build Requirements
+- **Compiler**: C++17 compatible (GCC 9+, Clang 10+, MSVC 2019+).
+- **Libraries**: Raylib 4.5+, `nlohmann/json`.
+- **System**: Linux, Windows, or macOS.
+
+### 2. Compilation
 ```bash
-./build.sh
+./build.sh debug    # Build with debug symbols and instrumentation
+./build.sh release  # Build optimized production binary
 ```
 
-### Modes of Execution
-1. **BitEngine**: The game client. It automatically attempts to load XOR-encrypted `data.bin` for production or falls back to raw `/res` files for development.
-2. **BitTool**: The Engine Studio. Use this to create new projects or visually edit your scripts.
+### 3. Usage
+```bash
+# Compile a BitScript project
+./BitEngine --compile scripts/main.bitscript scripts/main.bitc
+
+# Run the project
+./BitEngine --run scripts/main.bitc
+```
 
 ---
 
-## 📂 Project Structure
-
-- **`/src`**: Modular source code.
-  - `BitEngine`: Core logic and narrative state.
-  - `BitRenderer`: High-level UI and graphics bridge.
-  - `BitEditor`: The logic for the Visual Studio canvas.
-- **`/res`**: Project configuration, global variables, and engine settings.
-- **`/assets`**: Textures, soundtracks, and sound effects.
+## 📂 Documentation
+- [🧩 BitScript Specification](docs/BitScript_doc.md): Language syntax and usage.
+- [⚙️ Engine Internals](docs/Engine_Internals.md): Technical VM specs and internal architecture.
+- [📁 Features List](features.txt): Comprehensive breakdown of all v0.2 capabilities.
 
 ---
 
-## ⌨️ Studio Controls
-| Action | Hardware |
-| :--- | :--- |
-| **Pan Canvas** | Right-Click + Drag |
-| **Zoom** | Mouse Wheel |
-| **Add Node** | Top bar button or `A` key |
-| **Select Node** | Left Click |
-| **Link Nodes** | Click & Drag from **Circle Pin** to another Node |
-| **Hot-Reload Styles** | Press `TAB` in BitEngine |
-
----
-
-> [!TIP]
-> To create your first project, launch **BitTool** and use the bottom-bar creation wizard. It will automatically scaffold the necessary directory structures for you.
+## 📜 License
+MIT License - Copyright (c) 2026 Yousef Ahmed.

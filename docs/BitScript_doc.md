@@ -7,11 +7,14 @@ BitScript is a lightweight, high-performance narrative scripting language design
 
 ## 🎮 Language Overview
 
-A BitScript project is composed of four primary global blocks:
+A BitScript project is composed of several global blocks:
 1.  **`config`**: Global engine settings and project metadata.
 2.  **`var`**: Global state variables (persistent across saves).
-3.  **`entities`**: Definitions for characters, system actors, and props.
-4.  **`scene`**: The core execution nodes containing dialogue and logic.
+3.  **`entities`**: Definitions for characters, system actors, and moods.
+4.  **`assets`**: Registry for backgrounds, music, sfx, and fonts.
+5.  **`event`**: Named logic blocks that can be triggered externally or via `emit`.
+6.  **`timeline`**: Time-precise sequences of commands for complex cutscenes.
+7.  **`scene`**: The core execution nodes containing dialogue and logic.
 
 ---
 
@@ -23,26 +26,44 @@ Program             = { GlobalStatement } ;
 GlobalStatement     = ConfigBlock
                     | VariableDecl
                     | EntityBlock
+                    | AssetBlock
+                    | EventBlock
+                    | TimelineBlock
                     | SceneBlock
                     | [ ";" ] ;
 
 ConfigBlock         = "config" "{" { ConfigEntry } "}" ";" ;
 ConfigEntry         = Identifier "=" Expression ";" ;
 
-VariableDecl        = "var" Identifier "=" Expression ";" ;
-Assignment          = Identifier "=" Expression ";" ;
+VariableDecl        = "var" Identifier [ "=" Expression ] [ "{" { RangeProp } "}" ] ";" ;
+RangeProp           = ("min" | "max") "=" Expression ";" ;
+
+Assignment          = Identifier ( "=" | "+=" | "-=" | "*=" | "/=" ) Expression ";" ;
 
 EntityBlock         = "entities" "{" { Entity } "}" [ ";" ] ;
 Entity              = Identifier "{" { EntityProperty } "}" [ ";" ] ;
 EntityProperty      = "name" "=" String ";"
                     | "default_pos" "=" Position ";"
-                    | SpriteBlock ;
+                    | SpriteBlock
+                    | AliasBlock ;
 
 SpriteBlock         = "sprite" Identifier "{" { SpriteProperty } "}" [ ";" ] ;
 SpriteProperty      = "path" "=" String ";"
                     | "frames" "=" Expression ";"
                     | "speed" "=" Expression ";"
                     | "scale" "=" Expression ";" ;
+
+AliasBlock          = "alias" Identifier "{" { AliasProperty } "}" [ ";" ] ;
+AliasProperty       = Identifier "=" Expression [ "," ] ;
+
+AssetBlock          = "assets" "{" { AssetTypeBlock } "}" [ ";" ] ;
+AssetTypeBlock      = ("bg" | "music" | "sfx" | "fonts") "{" { AssetEntry } "}" ;
+AssetEntry          = Identifier "=" String ";" ;
+
+EventBlock          = "event" Identifier "{" { SceneStatement } "}" [ ";" ] ;
+
+TimelineBlock       = "timeline" [ Identifier ] "{" { TimelineEntry } "}" [ ";" ] ;
+TimelineEntry       = TimeValue ":" ( SceneStatement | "{" { SceneStatement } "}" ) ;
 
 SceneBlock          = "scene" Identifier [ "(" { Identifier } ")" ] "{" { SceneStatement } "}" [ ";" ] ;
 SceneStatement      = Dialogue
@@ -53,28 +74,46 @@ SceneStatement      = Dialogue
                     | JoinStatement
                     | LeaveStatement
                     | StackStatement
-                    | TransitionStatement
+                    | CinematicStatement
                     | UiStatement
                     | NarrationStatement
-                    | ExpressionStatement ;
+                    | ExpressionStatement
+                    | PlayTimelineStatement
+                    | EmitStatement
+                    | WaitEventStatement ;
 
 Dialogue            = Identifier [ "." Identifier ] [ "[" { Modifier } "]" ] ":" String ";" ;
 NarrationStatement  = "narration" [ "[" { Modifier } "]" ] ":" String ";" ;
 JoinStatement       = ">" Identifier [ "[" { Modifier } "]" ] ";" ;
-LeaveStatement      = "<" Identifier ";" ;
+LeaveStatement      = "leave" Identifier ";" ;
 StackStatement      = "call" Identifier [ "(" { Expression } ")" ] ";" | "return" ";" ;
-TransitionStatement = "transition" Identifier "," Number "," Number ";" ;
-UiStatement         = "ui" ("show" | "hide") ";" ;
+
+CinematicStatement  = "fade_screen" Expression "," Expression [ "wait" ] ";"
+                    | "fade" Identifier "," Expression "," Expression [ "wait" ] ";"
+                    | "move" Identifier "," Position "," Expression [ "wait" ] ";"
+                    | "shake" Expression [ "wait" ] ";"
+                    | "delay" Expression ";"
+                    | "expression" Identifier "," Identifier ";"
+                    | "play_sfx" Identifier ";" ;
+
+UiStatement         = "ui" ("show" | "hide") ";"
+                    | "ui_load" String "," String "," Expression ";"
+                    | "ui_unload" String ";"
+                    | "ui_set" String "," String "," Expression ";" ;
+
+PlayTimelineStatement = "play" "timeline" ( Identifier | TimelineBlock ) [ "wait" ] ";" ;
+EmitStatement         = "emit" String ";" ;
+WaitEventStatement    = "wait" "event" String ";" ;
+
 Modifier            = Identifier "=" Expression ;
 
 ChoiceBlock         = "choice" "{" { ChoiceOption } "}" [ ";" ] ;
-ChoiceOption        = String "->" Identifier [ "if" Expression ] ";" ;
+ChoiceOption        = String [ "[" { Modifier } "]" ] "->" Identifier [ "if" Expression ] ";" ;
 
 JumpStatement       = "jump" Identifier ";" ;
 IfStatement         = "if" "(" Expression ")" "{" { SceneStatement } "}" [ ";" ] ;
 LocalDecl           = "local" Identifier "=" Expression ";" ;
-WaitStatement       = "wait" ("move" | "fade" | "all" | "sfx") ";" ;
-StackStatement      = "call" Identifier [ "(" { Expression } ")" ] ";" | "return" ";" ;
+WaitStatement       = "wait" ("move" | "fade" | "all" | "sfx" | "timeline") ";" ;
 
 Expression          = LogicalExpr ;
 LogicalExpr         = ComparisonExpr { ("and" | "or") ComparisonExpr } ;
@@ -86,6 +125,7 @@ Primary             = Number | String | Identifier | Boolean | "(" Expression ")
 
 CompareOp           = "==" | "!=" | "<" | ">" | "<=" | ">=" ;
 Position            = "left" | "right" | "center" | Number ;
+TimeValue           = Number [ "ms" | "s" ] ;
 Number              = Digit { Digit } [ "." Digit { Digit } ] [ "ms" | "s" ] ;
 String              = "\"" { AnyChar } "\"" ;
 Boolean             = "true" | "false" ;
@@ -99,179 +139,126 @@ Identifier          = Letter { Letter | Digit | "_" } ;
 ### 1. Config Block
 Sets engine-level parameters. 
 - `start_node`: The ID of the first scene to execute.
-- `mode`: Interaction mode (e.g., `typewriter`).
-- `reveal_speed`: Characters per second.
+- `mode`: Interaction mode (`typewriter` or `instant`).
+- `reveal_speed`: Characters per second (base speed).
+- `auto_save`: Enable automatic binary state persistence on every dialogue block.
+- `max_slots`: Number of manual save slots available (default 5).
+- `enable_floating`: Globally toggle character breathing animations.
+- `enable_shadows`: Globally toggle character drop shadows.
 
 ```bitscript
 config {
     start_node = intro_scene;
     reveal_speed = 45;
+    auto_save = true;
+    max_slots = 10;
 };
 ```
 
-### 2. Entities & Sprites
-Entities represent characters. They can have multiple **sprites** mapped to "expressions".
+### 2. Variables & Constraints
+Variables are global state registers. They support optional min/max constraints.
+```bitscript
+var gold = 100 { min = 0; max = 9999; };
+var visited_castle = false;
+```
+
+### 3. Entities, Sprites & Aliases
+Entities define characters. **Aliases** allow mapping a "mood" to multiple properties at once.
+- **`sprite`**: Define frame-based animations or static textures.
+- **`alias`**: A shortcut that can set `sprite`, `pos`, `alpha`, or other modifiers when used in dialogue.
+
 ```bitscript
 entities {
     akira {
         name = "Akira";
         default_pos = right;
 
-        sprite idle {
-            path = "assets/akira_idle.png";
-            frames = 2;
-            speed = 4.0;
-        };
+        sprite idle { path = "assets/akira_idle.png"; frames = 2; speed = 4.0; };
+        sprite angry_sp { path = "assets/akira_angry.png"; frames = 1; };
 
         alias angry {
-            sprite = serious,
+            sprite = angry_sp,
+            pos = center,
             shake = true
         };
     };
 };
 ```
 
-### 3. Scenes & Dialogue
-Scenes support parameters and character **aliases** (moods).
+### 4. Rich Text Tags
+BitScript dialogue supports inline formatting tags parsed by the **Neural Typewriter**.
+
+| Tag | Example | Description |
+| :--- | :--- | :--- |
+| `[color=...]` | `[color=RED]` or `[color=#FF0000]` | Changes text color. |
+| `[speed=...]` | `[speed=0.5]` | Multiplier for reveal speed. |
+| `[wait=...]` | `[wait=1.0]` | Pauses reveal for X seconds. |
+| `[shake]` | `[shake]Intensity![/shake]` | Procedural positional jitter. |
+| `[wave]` | `[wave]Ethereal...[/wave]` | Procedural sine-wave offset. |
+| `[font=...]` | `[font=cursive]` | Switches font to a registered ID. |
+
+---
+
+## 📊 System Variables & Data Binding
+The engine exposes internal state through **System Variables** prefixed with `var.`. These can be used in expressions or UI bindings.
+
+| Variable | Type | Description |
+| :--- | :--- | :--- |
+| `var.entity_name` | String | Name of the current speaker. |
+| `var.entity_id` | String | ID of the current speaker. |
+| `var.dialog` | String | The fully interpolated text of the current dialogue. |
+| `var.is_revealing` | Boolean | `true` if text is still typing. |
+| `var.is_waiting_input`| Boolean | `true` if text finished and waiting for click. |
+| `var.ui_visible` | Boolean | `true` unless `ui hide` was called. |
+| `var.choices_visible` | Boolean | `true` if a choice panel is active. |
+| `var.choices` | Array | Array of objects: `{"text": "...", "index": N}`. |
+
+---
+
+## 🖼️ UI Management & Scoped IDs
+BitEngine uses a data-driven UI system. Layouts are defined in JSON and managed via script.
+
+- **`ui_load "name", "path", layer;`**: Mounts a new layout.
+- **`ui_unload "name";`**: Unmounts a layout.
+- **`ui_set "scoped_id", "property", value;`**: Modifies a specific element.
+  - *Scoped ID*: Format `layout_name.element_id` (e.g. `inventory.gold_label`).
+  - *Properties*: `visible`, `content`, `opacity`, `x`, `y`, `w`, `h`.
+
 ```bitscript
-scene intro_scene(day_count) {
-    akira.angry: "It's already been {day_count} days!";
-    jump next_scene;
-};
+ui_load "hud", "res/ui/hud.json", 10;
+ui_set "hud.gold_label", "content", "{gold}G";
 ```
 
-### 4. Choices
-Choices provide interactive branching. They support conditional visibility using the `if` keyword.
-```bitscript
-choice {
-    "Help her" -> help_scene if trust > 5;
-    "Walk away" -> leave_scene;
-};
-```
+---
 
-if (trust >= 10 and visited_market == true) {
-    jump good_ending;
-};
-```
-
-### 6. Narrative Stack & Parameters
-Scenes can be called like functions with parameters and their own local scope.
-- `local <var> = <val>;`: Defines a variable only visible within the current scene.
-- `call <scene>(<args>)`: Jumps to a scene and passes values to its parameters.
+## 🎞️ Events & Timelines
+- **`event`**: Global named sub-routines. They do not have a call stack but can be triggered via `emit`.
+- **`timeline`**: Time-precise animation sequences. Can be played as background tasks or blocking "wait" events.
 
 ```bitscript
-scene market {
-    local price = 50;
-    call pay_routine(price);
+event on_death {
+    fade_screen 1, 0.5s wait;
+    narration: "Game Over";
+    halt;
 }
 
-scene pay_routine(amount) {
-    narration: "You paid {amount} credits.";
-    return;
+timeline intro_pan {
+    0ms:   { bg = sky; fade_screen 0, 2s; }
+    1500ms: { move akira, center, 1s; }
+    2500ms: { akira: "I've arrived."; }
+}
+
+scene start {
+    play timeline intro_pan wait;
 }
 ```
 
-### 7. Character Management & Aliases
-- `> <id> [modifiers]`: Join character to scene.
-- `< <id>`: Remove character from scene.
-- `<id>.<alias>`: Use a predefined mood alias from the entity definition.
-
-```bitscript
-akira.angry: "This is taking too long!";
-```
-
-### 8. Cinematic Statements & Wait
-- `fade_screen <alpha_expr>, <duration_expr>;`: Fades screen to target opacity over time and holds. (Automated transitions are decommissioned in favor of manual screen fades).
-- `fade <entity_id>, <alpha_expr>, <duration_expr>;`: Fades an entity to target opacity.
-- `ui <show/hide>;`
-- `wait <move|fade|all|sfx>;`: Pauses the script until the specified action completes.
-
-```bitscript
-fade akira, 1.0, 1s;
-wait fade; # Script will not proceed until Akira is visible
-akira: "I'm here.";
-```
-
-### 9. Comments
-BitScript supports both single and multi-line comments.
-```bitscript
-# This is a single line comment
-
-#-
-  This is a multi-line
-  comment block.
--#
-```
-
 ---
 
-## 🧮 Expression System
-
-BitScript features a robust expression evaluator used in assignments, conditions, and dialogue modifiers.
-
-| Type | Operators |
-| :--- | :--- |
-| **Arithmetic** | `+`, `-`, `*`, `/` |
-| **Logic** | `and`, `or`, `!` |
-| **Comparison** | `==`, `!=`, `<`, `>`, `<=`, `>=` |
-
-**Variables** and **Time Units** can be used within expressions:
-- Time suffixes (`ms`, `s`) automatically convert to milliseconds (e.g. `2s + 500ms` evaluates to `2500`).
-- Strict type-checking prevents adding strings to numbers.
-- Any cinematic statement argument (like duration or alpha) supports full mathematical expressions rather than just hardcoded numbers.
-
-**Variables** are dynamically typed (Numbers, Booleans, Strings) and persist in the VM's state registers.
-
----
-
-## 🚀 Native VM & Bytecode (New in v0.1)
-
-As of version 0.1, BitEngine has moved to a **strictly bytecode-driven architecture**.
-
-### Compilation
-The human-readable `.bitscript` files must be compiled into binary `.bitc` files before execution (though the engine can parse source files directly for development).
-- **Encoding**: Compiled bytecode is **XOR-encrypted** to protect narrative content.
-- **Verification**: The compiler performs static analysis to ensure all labels and jumps are valid.
-
-### Command Line Interface (CLI)
-The engine provides a comprehensive CLI for developers:
-- `-c, --compile <src> [dst]`: Compiles source to encrypted bytecode.
-- `-r, --run <file>`: Executes a `.bitscript` or `.bitc` file.
-- `-d, --dry-run <file>`: Validates syntax and logic without opening a window.
-- `-s, --stats <file>`: Generates a project summary (scene count, variable usage, etc.).
-
-### Removed Features
-- **JSON Narrative Support**: Legacy JSON-based dialog nodes have been removed. All narrative logic now resides within the BitScript VM.
-- **Implicit Validation**: Validation is now handled during the compilation phase, reducing runtime overhead.
-
----
-
-## 🎨 Aesthetic & Rendering
-- **Rich Text**: Supports style tags (color, bold, speed) within dialogue strings.
-- **Dynamic Transitions**: Scenes support backgrounds, BGM, and SFX with integrated fade logic.
-- **VM State**: The engine tracks the current speaker, active entities, and execution history automatically.
-
----
-
-## 🔍 Static Analyzer (New in v0.2)
-
-BitScript includes a built-in static analyzer that proactively identifies logic and narrative errors during the compilation phase.
-
-### 1. Referential Integrity
-The analyzer verifies that every `jump`, `call`, and `choice` target points to a valid `scene` label. This prevents "missing label" crashes during gameplay.
-
-### 2. Variable Auditing
-- **Undefined Usage**: Detects when a script attempts to read from or write to a variable that hasn't been declared in a global `var` block.
-- **Conditional Integrity**: Ensures that `if` statements and choice conditions reference valid state registers.
-
-### 3. Entity & Asset Verification
-- **Character Registry**: Ensures that dialogue statements and `join`/`leave` commands use valid character IDs defined in the `entities` block.
-- **Alias Verification**: Validates that character moods (`akira.angry`) correspond to aliases defined in the entity's configuration.
-
-### 4. Line-Linked Reporting
-Errors and warnings are mapped directly to their source line numbers, allowing developers to quickly locate and resolve issues.
-
-```text
-[ERROR] (Line 142): Duplicate scene label: intro_scene
-[WARN] (Line 85): Assignment to undefined variable: player_trust
-```
+## 🔍 Static Analyzer (v0.2)
+The compiler includes a proactive analyzer that checks:
+- **Referential Integrity**: All `jump`, `call`, and `choice` targets must exist.
+- **Variable Registry**: Every `var` used must be declared (except `__tmp` variables).
+- **Arithmetic Safety**: Literal division by zero is flagged as an error.
+- **Asset Integrity**: Backgrounds, BGM, and SFX IDs must be registered in the `assets` block.
+- **UI Logic**: `ui_unload` for non-loaded layouts is flagged as a warning.

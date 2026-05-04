@@ -62,6 +62,8 @@ scene init {
 }
 
 scene scene_alley {
+    ui hide;
+    bgm = "neon_noir";
     play timeline dramatic_intro wait;
     
     # Nested anonymous timeline example
@@ -69,7 +71,6 @@ scene scene_alley {
         0ms: fade_screen 1.0, 200ms;
         300ms: fade_screen 0.0, 200ms;
     } wait;
-    bgm = "neon_noir";
     
     call routine_neural_sync(1);
 
@@ -93,7 +94,8 @@ scene scene_alley {
 
 scene routine_neural_sync(version) {
     local sync_status = 1; # Scoped local variable
-    narration [auto_next = true, pre_delay = 1s]: "[speed=0.3]Connecting to neural uplink v{version}...[wait=0.8] established.";
+    ui visible;
+    narration [auto_next = true, pre_delay = 300ms]: "[speed=0.3]Connecting to neural uplink v{version}...[wait=0.8] established.";
     shake 10;
     narration [auto_next = true]: "[shake]WARNING:[wait=0.5] System integrity compromised.";
     delay 1500ms;
@@ -124,10 +126,12 @@ scene routine_district_transition {
 scene scene_market {
     akira [sprite = idle, pos = left, alpha = 0.0];
     fade akira, 1.0, 500ms;
+
     akira {
         "The market is unusually quiet today. [font=dream]Eerily quiet.[/font]";
         .serious: "What's our next move?";
     }
+
     choice {
         "Search the stalls" -> market_browsing;
         "Check the terminal" [style = premium] -> market_terminal;

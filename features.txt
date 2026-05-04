@@ -3,7 +3,7 @@
 ================================================================================
 
 --------------------------------------------------------------------------------
-1. BITSCRIPT NARRATIVE ENGINE (v0.1)
+1. BITSCRIPT NARRATIVE ENGINE (v0.2)
 --------------------------------------------------------------------------------
 BitEngine now uses a strictly bytecode-driven architecture, moving away from 
 legacy JSON definitions to a high-performance custom VM.
@@ -19,7 +19,8 @@ A. BITSCRIPT LANGUAGE FEATURES
       - `> entity_id [modifiers];` - Join character to scene (sets alpha=1.0 by default).
       - `< entity_id;` - Remove character from scene (unloads from active map).
     - Cinematic Statements: Standalone commands for better script readability.
-      - `fade_screen <alpha>, <duration>;` (Linear full-screen opacity control with time suffixes like `s` and `ms`).
+      - `fade_screen <alpha>, <duration>;` (Manual full-screen opacity control; replaces automated transitions).
+      - `fade <entity_id>, <alpha>, <duration>;` (Smooth per-entity opacity interpolation).
       - `ui <show/hide>;` (Global visibility control for the dialogue interface).
       - `wait <move/fade/all/sfx>;` (Explicitly pause VM until visual/audio actions finish).
     - Narrative Stack: Sub-routine support with parameter passing.
@@ -42,6 +43,8 @@ B. NATIVE VIRTUAL MACHINE (VM)
     - Program Counter (PC): Precise tracking of execution state across saves.
     - Narrative Stack: Full LIFO stack support for nested `call`/`return` logic.
     - Error Handling: Runtime validation for missing labels, variables, or entities.
+    - Input Decoupling: UI interaction is now completely decoupled from narrative input lockouts. 
+      Buttons and UI elements remain responsive even when the narrative is "waiting" or revealing text.
 
 --------------------------------------------------------------------------------
 2. RICH TEXT RENDERING SYSTEM
@@ -76,7 +79,10 @@ A. HIERARCHICAL LAYOUT SYSTEM (`ui_default.json`)
 B. GLOBAL STYLESHEETS (`style.json`)
    - Reusable Property Blocks: Named style presets that define borders, colors, text sizing, and textures.
    - Inline Overrides: UI components can override inherited styles directly within their element nodes.
-   - Visibility Control: Built-in `visible` toggle flag that can be set in the stylesheet or the element, while preserving application-level toggles.
+   - Explicit Visibility Control: Dedicated `hide: true` flag in style blocks to force-hide elements regardless of content.
+   - Standardized Cursor System:
+     - `mouse_cursor`: Custom skinning for the system pointer with automatic hardware cursor hiding.
+     - `dialog_cursor`: Style-driven "waiting" indicator shown when narrative input is required.
 
 C. TEXTURE OVERRIDES & EFFECTS
    - Support for custom textures for Dialog Boxes, Choice Boxes, Toasts, and Cursors.
@@ -96,12 +102,12 @@ A. ENTITY SYSTEM
 
 B. CINEMATIC COMMANDS
    - `move`: Smooth cubic-eased position interpolation over time.
-   - `fade`: Opacity interpolation for characters (0.0 to 1.0) and backgrounds.
-   - `fade_screen`: Full-screen cinematic color overlays (Flash to white, Fade to black).
+   - `fade`: Linear opacity interpolation for characters (0.0 to 1.0) and backgrounds.
+   - `fade_screen`: Full-screen cinematic color overlays with precise linear alpha interpolation.
    - `shake`: Procedural camera/UI jitter with intensity control.
 
 C. DIRECT CINEMATIC CONTROL
-   - Pure explicit cinematic flow powered by `fade_screen` replacing automated rigid transition mechanics.
+   - Pure explicit cinematic flow powered by manual `fade_screen` replacing all automated/rigid transition mechanics.
    - Visual Continuity: Background/Character fades continue independently across script execution.
 
 --------------------------------------------------------------------------------

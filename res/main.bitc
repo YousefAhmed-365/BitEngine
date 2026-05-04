@@ -32,6 +32,18 @@
     },
     {
       "args": [
+        "hide"
+      ],
+      "op": "UI_VISIBLE"
+    },
+    {
+      "args": [
+        "neon_noir"
+      ],
+      "op": "BGM"
+    },
+    {
+      "args": [
         "dramatic_intro",
         "true"
       ],
@@ -43,12 +55,6 @@
         "true"
       ],
       "op": "PLAY_TIMELINE"
-    },
-    {
-      "args": [
-        "neon_noir"
-      ],
-      "op": "BGM"
     },
     {
       "args": [
@@ -196,12 +202,18 @@
     },
     {
       "args": [
+        "visible"
+      ],
+      "op": "UI_VISIBLE"
+    },
+    {
+      "args": [
         "narration",
         "[speed=0.3]Connecting to neural uplink v{version}...[wait=0.8] established."
       ],
       "meta": {
         "auto_next": "true",
-        "pre_delay": 1000
+        "pre_delay": 300
       },
       "op": "SAY"
     },
