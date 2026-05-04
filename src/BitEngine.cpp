@@ -126,8 +126,9 @@ bool DialogEngine::LoadProject(const std::string& configFilePath) {
         bool result = BitScriptInterpreter::LoadScriptFile(configFilePath, m_project);
         if (result) {
             BuildLabelIndex();
-            // Initial UI loads for active layouts in registry
+            m_uiStates.clear();
             for (auto& [id, def] : m_project.uiLayouts) {
+                m_uiStates[id] = def;
                 if (def.active) {
                     UICommand cmd;
                     cmd.type = UICommand::Type::Load;
@@ -461,6 +462,12 @@ void DialogEngine::SaveGame(int slot) {
         }
         j["active_entities"] = entities;
         
+        json ui = json::object();
+        for (const auto& [id, st] : m_uiStates) {
+            ui[id] = { {"path", st.path}, {"layer", st.layer}, {"active", st.active}, {"visible", st.visible} };
+        }
+        j["ui_states"] = ui;
+        
         // Metadata for UI
         std::string summary = m_currentSpeakerId.empty() ? "Narrative" : m_currentSpeakerId;
         j["meta"] = { 
@@ -542,6 +549,38 @@ bool DialogEngine::LoadGame(int slot) {
                     m_activeEntities[id] = state;
                 }
             }
+
+            // Restore UI States
+            if (j.contains("ui_states")) {
+                m_uiStates.clear();
+                for (auto& [id, s] : j["ui_states"].items()) {
+                    UILayoutDef def;
+                    def.id = id;
+                    def.path = s.value("path", "");
+                    def.layer = s.value("layer", 0);
+                    def.active = s.value("active", true);
+                    def.visible = s.value("visible", true);
+                    m_uiStates[id] = def;
+                    
+                    if (def.active) {
+                        UICommand cmd;
+                        cmd.name = id;
+                        cmd.arg1 = def.path;
+                        cmd.layer = def.layer;
+                        cmd.type = UICommand::Type::Load;
+                        m_pendingUICommands.push_back(cmd);
+                        
+                        if (!def.visible) {
+                            UICommand visCmd;
+                            visCmd.name = id;
+                            visCmd.type = UICommand::Type::Set;
+                            visCmd.arg1 = "visible";
+                            visCmd.arg2 = "false";
+                            m_pendingUICommands.push_back(visCmd);
+                        }
+                    }
+                }
+            }
             
             m_isActive = true;
             m_vmWaiting = false;
@@ -553,6 +592,7 @@ bool DialogEngine::LoadGame(int slot) {
             
             // Post-RunVM restoration for state-sensitive variables
             m_revealedCount = savedReveal;
+            UpdateSysVars(); // Refresh bindings with restored state
 
             return true;
         } catch (const std::exception& e) {
@@ -1142,15 +1182,24 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
         }
         case BitOp::UI_LOAD: {
             // args: [name, path, layer]
+            std::string id = args[0];
+            std::string path = args[1];
+            int layer = (args.size() > 2) ? std::stoi(args[2]) : 0;
+
+            UILayoutDef def;
+            def.id = id; def.path = path; def.layer = layer; def.active = true; def.visible = true;
+            m_uiStates[id] = def;
+
             UICommand cmd;
             cmd.type  = UICommand::Type::Load;
-            cmd.name  = args[0];
-            cmd.arg1  = args[1];
-            cmd.layer = (args.size() > 2) ? std::stoi(args[2]) : 0;
+            cmd.name  = id;
+            cmd.arg1  = path;
+            cmd.layer = layer;
             m_pendingUICommands.push_back(cmd);
             break;
         }
         case BitOp::UI_UNLOAD: {
+            m_uiStates.erase(args[0]);
             UICommand cmd;
             cmd.type = UICommand::Type::Unload;
             cmd.name = args[0];
@@ -1167,6 +1216,10 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
                 cmd.type = UICommand::Type::Load;
                 cmd.arg1 = m_project.uiLayouts[cmd.name].path;
                 cmd.layer = (args.size() > 1) ? std::stoi(args[1]) : m_project.uiLayouts[cmd.name].layer;
+            } else if (m_uiStates.count(cmd.name)) {
+                cmd.type = UICommand::Type::Load;
+                cmd.arg1 = m_uiStates[cmd.name].path;
+                cmd.layer = (args.size() > 1) ? std::stoi(args[1]) : m_uiStates[cmd.name].layer;
             } else {
                 if (args.size() > 1) {
                     cmd.type = UICommand::Type::Load;
@@ -1174,6 +1227,11 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
                 } else {
                     cmd.type = UICommand::Type::Activate;
                 }
+            }
+
+            if (m_uiStates.count(cmd.name)) {
+                m_uiStates[cmd.name].active = true;
+                m_uiStates[cmd.name].visible = true;
             }
             m_eventTrace.push_back({GetCurrentLabel(), "UI_ACTIVATE", cmd.name, 0, 0});
             m_pendingUICommands.push_back(cmd);
@@ -1183,6 +1241,7 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
             UICommand cmd;
             cmd.type = UICommand::Type::Deactivate;
             cmd.name = args[0];
+            if (m_uiStates.count(cmd.name)) m_uiStates[cmd.name].active = false;
             m_eventTrace.push_back({GetCurrentLabel(), "UI_DEACTIVATE", cmd.name, 0, 0});
             m_pendingUICommands.push_back(cmd);
             break;
@@ -1194,6 +1253,13 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
             cmd.name = args[0];
             cmd.arg1 = args[1]; // property
             cmd.arg2 = (args.size() > 2) ? args[2] : "";
+            
+            if (cmd.arg1 == "visible") {
+                if (m_uiStates.count(cmd.name)) {
+                    m_uiStates[cmd.name].visible = (cmd.arg2 == "true" || cmd.arg2 == "1");
+                }
+            }
+            
             m_pendingUICommands.push_back(cmd);
             break;
         }

@@ -426,6 +426,9 @@ private:
     nlohmann::json m_sysVars;
     void UpdateSysVars(); // called after SAY/TEXT to refresh sysVars
 
+    // Runtime state of UI layouts (tracked for saving)
+    std::unordered_map<std::string, UILayoutDef> m_uiStates;
+
     void RecordError(const std::string& context, const std::string& msg);
     void ProcessEvents(const std::vector<Event>& events);
     bool EvalConditionNode(const ConditionNode& node) const;
