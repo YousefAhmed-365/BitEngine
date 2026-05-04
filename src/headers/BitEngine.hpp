@@ -298,6 +298,7 @@ public:
     bool IsDebugOverlayVisible() const { return m_debugOverlayVisible; }
     void ToggleDebugOverlay() { m_debugOverlayVisible = !m_debugOverlayVisible; }
     void SetDebugOverlayVisible(bool visible) { m_debugOverlayVisible = visible; }
+    std::string GetCurrentLabel() const;
 
     // Global Asset Retrieval
     std::string GetBackground(const std::string& id) const { return m_project.backgrounds.count(id) ? m_project.backgrounds.at(id) : ""; }

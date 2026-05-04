@@ -879,7 +879,7 @@ void DialogEngine::SetVariable(const std::string& name, int value) {
     if (d.max) v = std::min(v, *d.max);
     m_variables[name] = v;
 
-    m_eventTrace.push_back({std::to_string(m_pc), "SET", name, oldVal, v});
+    m_eventTrace.push_back({GetCurrentLabel(), "SET", name, oldVal, v});
     if (m_eventTrace.size() > 50) m_eventTrace.erase(m_eventTrace.begin());
 }
 
@@ -1084,7 +1084,7 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
         case BitOp::GOTO: {
             auto it = m_labelIndex.find(args[0]);
             if (it != m_labelIndex.end()) {
-                m_eventTrace.push_back({std::to_string(m_pc-1), "JUMP", args[0], 0, it->second});
+                m_eventTrace.push_back({GetCurrentLabel(), "JUMP", args[0], m_pc, it->second});
                 m_pc = it->second;
             }
             break;
@@ -1175,6 +1175,7 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
                     cmd.type = UICommand::Type::Activate;
                 }
             }
+            m_eventTrace.push_back({GetCurrentLabel(), "UI_ACTIVATE", cmd.name, 0, 0});
             m_pendingUICommands.push_back(cmd);
             break;
         }
@@ -1182,6 +1183,7 @@ void DialogEngine::ExecuteInstruction(const BitInstruction& ins) {
             UICommand cmd;
             cmd.type = UICommand::Type::Deactivate;
             cmd.name = args[0];
+            m_eventTrace.push_back({GetCurrentLabel(), "UI_DEACTIVATE", cmd.name, 0, 0});
             m_pendingUICommands.push_back(cmd);
             break;
         }
@@ -1447,4 +1449,16 @@ std::vector<UICommand> DialogEngine::DrainUICommands() {
     std::vector<UICommand> out;
     std::swap(out, m_pendingUICommands);
     return out;
+}
+
+std::string DialogEngine::GetCurrentLabel() const {
+    std::string best = "root";
+    int bestPC = -1;
+    for (const auto& [name, pc] : m_labelIndex) {
+        if (pc <= m_pc && pc > bestPC) {
+            best = name;
+            bestPC = pc;
+        }
+    }
+    return best;
 }

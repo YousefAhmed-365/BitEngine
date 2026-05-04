@@ -256,8 +256,9 @@ void BitRenderer::DrawDebugOverlay() {
     int maxT=12, tStart=(int)trace.size()>maxT?(int)trace.size()-maxT:0;
     for (int i=tStart;i<(int)trace.size();++i) {
         const auto& t=trace[i];
-        DrawText(TextFormat("%s: %s",t.op.c_str(),t.var.c_str()),px,dy,10,ORANGE);
-        DrawText(TextFormat("  %d->%d [%s]",t.old_value,t.new_value,t.node_id.c_str()),px,dy+12,8,Fade(ORANGE,0.7f));
+        std::string loc = t.node_id.size() > 10 ? t.node_id.substr(0,8)+".." : t.node_id;
+        DrawText(TextFormat("%s: %s", t.op.c_str(), t.var.c_str()), px, dy, 10, ORANGE);
+        DrawText(TextFormat("  %d -> %d  [@%s]", t.old_value, t.new_value, loc.c_str()), px, dy+12, 8, Fade(ORANGE, 0.6f));
         dy+=25;
     }
     Rectangle r4=GetPanelRect(3); px=(int)r4.x; py=(int)r4.y; dy=py;
@@ -315,6 +316,8 @@ void BitRenderer::DrawDebugOverlay() {
             case BitOp::UI_LOAD:     opStr="UI_LOAD"; break;
             case BitOp::UI_UNLOAD:   opStr="UI_UNL"; break;
             case BitOp::UI_SET:      opStr="UI_SET"; break;
+            case BitOp::UI_ACTIVATE: opStr="UI_ACT"; break;
+            case BitOp::UI_DEACTIVATE: opStr="UI_DEA"; break;
             case BitOp::CALL:        opStr="CALL"; break;
             case BitOp::RETURN:      opStr="RET"; break;
             case BitOp::WAIT_INPUT:  opStr="W_INP"; break;
