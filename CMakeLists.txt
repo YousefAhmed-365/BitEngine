@@ -16,16 +16,72 @@ endif()
 # Find Raylib
 find_package(raylib REQUIRED)
 
-# Common Core Sources
-set(CORE_SOURCES
+# ============================================================================
+# CORE VM & COMPILATION PIPELINE
+# ============================================================================
+set(CORE_VM_SOURCES
+    src/BitLexer.cpp
+    src/BitParser.cpp
+    src/BitParserStatements.cpp
+    src/BitCompiler.cpp
+    src/BitVM.cpp
+)
+
+# ============================================================================
+# RUNTIME & STATE MANAGEMENT
+# ============================================================================
+set(RUNTIME_STATE_SOURCES
     src/BitEngine.cpp
-    src/BitScriptInterpreter.cpp
+    src/BitState.cpp
+    src/BitRichText.cpp
     src/BitScriptAnalyzer.cpp
+    src/BitScriptInterpreter.cpp
+)
+
+# ============================================================================
+# RENDERING & AUDIO
+# ============================================================================
+set(RENDER_AUDIO_SOURCES
+    src/BitGraphics.cpp
+    src/BitAudio.cpp
+    src/UIRenderer.cpp
+)
+
+# ============================================================================
+# UI SYSTEM
+# ============================================================================
+set(UI_SOURCES
     src/UILayout.cpp
 )
 
+# ============================================================================
+# RENDERER INTEGRATION
+# ============================================================================
+set(RENDERER_SOURCES
+    src/BitRenderer.cpp
+    src/BitRendererDraw.cpp
+)
+
+# ============================================================================
+# APPLICATION LAYER
+# ============================================================================
+set(APP_SOURCES
+    src/BitApp.cpp
+    src/main.cpp
+)
+
+# Combine all sources
+set(ALL_SOURCES
+    ${CORE_VM_SOURCES}
+    ${RUNTIME_STATE_SOURCES}
+    ${RENDER_AUDIO_SOURCES}
+    ${UI_SOURCES}
+    ${RENDERER_SOURCES}
+    ${APP_SOURCES}
+)
+
 # --- BitEngine (The Game) ---
-add_executable(BitEngine src/main.cpp src/BitApp.cpp src/BitRenderer.cpp src/BitRendererDraw.cpp ${CORE_SOURCES})
+add_executable(BitEngine ${ALL_SOURCES})
 target_include_directories(BitEngine PRIVATE src src/headers)
 target_link_libraries(BitEngine PRIVATE raylib)
 

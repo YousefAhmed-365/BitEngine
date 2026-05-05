@@ -2,65 +2,15 @@
 #define BITENGINE_HPP
 
 #include "json.hpp"
+#include "BitOp.hpp"
+#include "BitRichText.hpp"
+#include "BitVM.hpp"
 #include <string>
 #include <unordered_map>
 #include <map>
 #include <optional>
-#include <cstring>
 
-// Hardware-agnostic color representation
 #define BITENGINE_KEY "BITENGINE_SECRET_KEY_2026"
-
-struct BitColor {
-    unsigned char r, g, b, a;
-    static BitColor Blank() { return {0, 0, 0, 0}; }
-};
-
-enum class BitOp {
-    TEXT,       // entity, content (non-blocking)
-    SAY,        // entity, content (blocking)
-    CHOICE,     // text, target_label
-    IF,         // var, op, value, target_label
-    IF_REF,     // var, op, ref_var, target_label
-    GOTO,       // target_label
-    SET,        // var, val
-    SET_REF,    // var, ref_var
-    ADD,        // var, val
-    ADD_REF,    // var, ref_var
-    SUB,        // ...
-    SUB_REF,
-    MUL,
-    MUL_REF,
-    DIV,
-    DIV_REF,
-    EVENT,      // op, params_json
-    BG,         // id
-    BGM,        // id
-    LABEL,      // marker (no-op)
-    TRANSITION,
-    UI_VISIBLE,
-    UI_LOAD,    // name, path, layer
-    UI_UNLOAD,  // name
-    UI_ACTIVATE,   // name, (optional) layer
-    UI_DEACTIVATE, // name
-    UI_SET,     // scoped_id, property, value
-    CALL,
-    RETURN,
-    WAIT_INPUT,
-    WAIT_ACTION,
-    SET_LOCAL,
-    PLAY_TIMELINE,
-    WAIT_EVENT,
-    EMIT,
-    HALT
-};
-
-struct BitInstruction {
-    BitOp op;
-    std::vector<std::string> args;
-    nlohmann::json metadata;
-    int line = -1;
-};
 
 struct TimelineEvent {
     int time_ms = 0;
@@ -80,24 +30,6 @@ struct ActiveTimeline {
     size_t nextEventIdx = 0;
     bool finished = false;
     bool isBlocking = false;
-};
-
-struct RichChar {
-    char ch[5]; // UTF-8 character (max 4 bytes + null)
-    BitColor color = BitColor::Blank(); 
-    float waitBefore = 0.0f;
-    float speedMod = 1.0f;
-    bool shake = false;
-    bool wave = false;
-    std::string font = ""; // New: font override per character
-
-    RichChar() { std::memset(ch, 0, 5); }
-};
-
-class RichTextParser {
-public:
-    static std::vector<RichChar> Parse(const std::string& rawText);
-    static BitColor StringToColor(const std::string& str);
 };
 
 // Condition system: recursive tree

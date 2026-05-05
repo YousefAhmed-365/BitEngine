@@ -1,86 +1,21 @@
 #ifndef BIT_SCRIPT_INTERPRETER_HPP
 #define BIT_SCRIPT_INTERPRETER_HPP
 
+#include "BitLexer.hpp"
+#include "BitParser.hpp"
 #include "BitEngine.hpp"
 #include <string>
-#include <vector>
 
-enum class TokenType {
-    Identifier, Number, String, Keyword, Symbol, EndOfFile
-};
-
-struct Token {
-    TokenType type;
-    std::string value;
-    int line;
-};
-
-class BitScriptLexer {
-public:
-    BitScriptLexer(const std::string& src);
-    std::vector<Token> Tokenize();
-
-private:
-    std::string src;
-    size_t pos;
-    int line;
-    bool IsKeyword(const std::string& s);
-};
-
-struct Operand {
-    bool isRef;
-    std::string val;
-};
-
-class BitScriptParser {
-public:
-    BitScriptParser(const std::vector<Token>& tokens, DialogProject& p);
-    void Parse();
-
-private:
-    std::vector<Token> tokens;
-    DialogProject& p;
-    size_t pos;
-    int tempVarCount;
-    std::string currentScene;
-    std::vector<BitInstruction>* m_currentOutput;
-    
-    Token peek();
-    Token peekNext();
-    Token consume();
-    bool match(TokenType t, const std::string& v = "");
-    void expect(TokenType t, const std::string& v = "");
-    
-    std::string genTempVar();
-    void emit(BitOp op, std::vector<std::string> args = {}, nlohmann::json meta = {});
-    
-    void ParseConfig();
-    void ParseVariable();
-    void ParseEntities();
-    void ParseAssets();
-    void ParseEvent();
-    void ParseScene();
-    std::string ParseTimeline();
-    void ParseStatement();
-    void ParseAssignment(const std::string& var, std::vector<BitInstruction>& output, bool isLocal = false);
-    void ParseDialogueBlock(const std::string& entityId, std::vector<BitInstruction>& output);
-    
-    // Expression Parsing
-    Operand ParseExpression(std::vector<BitInstruction>& output);
-    Operand ParseAddExpr(std::vector<BitInstruction>& output);
-    Operand ParseMulExpr(std::vector<BitInstruction>& output);
-    Operand ParsePrimary();
-    
-    // Condition Parsing
-    void ParseIfStatement(std::vector<BitInstruction>& output);
-    
-    int ParseTime(const std::string& s);
-    Token previous();
-};
-
+/**
+ * BitScriptInterpreter: Legacy compiler interface
+ * 
+ * Combines lexing, parsing, and compilation into a single interface.
+ * This is primarily a convenience wrapper now that these are separated.
+ */
 class BitScriptInterpreter {
 public:
     static bool LoadScriptFile(const std::string& path, DialogProject& p);
+    static bool ParseScriptString(const std::string& src, DialogProject& p);
 };
 
 #endif
