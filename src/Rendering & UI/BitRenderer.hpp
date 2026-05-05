@@ -2,7 +2,7 @@
 #define BIT_RENDERER_HPP
 
 #include "raylib.h"
-#include "BitEngine.hpp"
+#include "BitRuntime.hpp"
 #include "UILayout.hpp"
 
 #include <unordered_map>
@@ -17,7 +17,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 class BitRenderer {
 public:
-    explicit BitRenderer(DialogEngine& engine);
+    explicit BitRenderer(BitRuntime& engine);
     virtual ~BitRenderer();
 
     void Draw();
@@ -66,7 +66,7 @@ protected:
     void HandleAudio();
 
     // ── Members ─────────────────────────────────────────────────────────────
-    DialogEngine& m_engine;
+    BitRuntime& m_engine;
     UIManager     m_uiManager;
     UIDataStore   m_dataStore; // populated from engine every frame, passed to UIManager::Resolve
 

@@ -1,9 +1,9 @@
-#include "headers/BitCompiler.hpp"
-#include "headers/BitEngine.hpp"
+#include "BitCompiler.hpp"
+#include "BitRuntime.hpp"
 #include <fstream>
 #include <sstream>
 
-bool BitCompiler::CompileFile(const std::string& path, DialogProject& project) {
+bool BitCompiler::CompileFile(const std::string& path, BitProject& project) {
     std::ifstream file(path);
     if (!file) return false;
     
@@ -13,7 +13,7 @@ bool BitCompiler::CompileFile(const std::string& path, DialogProject& project) {
     return CompileString(buffer.str(), project);
 }
 
-bool BitCompiler::CompileString(const std::string& source, DialogProject& project) {
+bool BitCompiler::CompileString(const std::string& source, BitProject& project) {
     // Stage 1: Lexical Analysis
     std::vector<Token> tokens;
     if (!Lex(source, tokens)) {
@@ -34,7 +34,7 @@ bool BitCompiler::Lex(const std::string& source, std::vector<Token>& tokens) {
     return true;
 }
 
-bool BitCompiler::Parse(const std::vector<Token>& tokens, DialogProject& project) {
+bool BitCompiler::Parse(const std::vector<Token>& tokens, BitProject& project) {
     BitParser parser(tokens, project);
     parser.Parse();
     return project.parseErrors.empty();

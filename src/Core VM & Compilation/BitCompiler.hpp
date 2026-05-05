@@ -7,7 +7,7 @@
 #include <string>
 
 // Forward declaration
-class DialogProject;
+class BitProject;
 
 /**
  * BitCompiler: Compilation pipeline for BitScript
@@ -22,15 +22,15 @@ class DialogProject;
 class BitCompiler {
 public:
     // Compile from file
-    static bool CompileFile(const std::string& path, DialogProject& project);
+    static bool CompileFile(const std::string& path, BitProject& project);
     
     // Compile from string
-    static bool CompileString(const std::string& source, DialogProject& project);
+    static bool CompileString(const std::string& source, BitProject& project);
 
 private:
     // Internal pipeline stages
     static bool Lex(const std::string& source, std::vector<Token>& tokens);
-    static bool Parse(const std::vector<Token>& tokens, DialogProject& project);
+    static bool Parse(const std::vector<Token>& tokens, BitProject& project);
 };
 
 #endif

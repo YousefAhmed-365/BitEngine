@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-class DialogEngine;
+class BitRuntime;
 
 /**
  * UIRenderer: UI-specific rendering orchestration
@@ -21,11 +21,11 @@ class DialogEngine;
  * Interfaces with:
  * - BitGraphics (low-level drawing)
  * - UILayout (data-driven layout system)
- * - DialogEngine (runtime state)
+ * - BitRuntime (runtime state)
  */
 class UIRenderer {
 public:
-    explicit UIRenderer(DialogEngine& engine);
+    explicit UIRenderer(BitRuntime& engine);
     virtual ~UIRenderer();
     
     // Rendering
@@ -38,7 +38,7 @@ public:
     void UnloadLayout(const std::string& name);
     
 private:
-    DialogEngine& m_engine;
+    BitRuntime& m_engine;
     UIManager m_uiManager;
     UIDataStore m_dataStore;
     

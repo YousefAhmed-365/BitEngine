@@ -3,7 +3,7 @@
 
 #include "BitLexer.hpp"
 #include "BitParser.hpp"
-#include "BitEngine.hpp"
+#include "BitRuntime.hpp"
 #include <string>
 
 /**
@@ -14,8 +14,8 @@
  */
 class BitScriptInterpreter {
 public:
-    static bool LoadScriptFile(const std::string& path, DialogProject& p);
-    static bool ParseScriptString(const std::string& src, DialogProject& p);
+    static bool LoadScriptFile(const std::string& path, BitProject& p);
+    static bool ParseScriptString(const std::string& src, BitProject& p);
 };
 
 #endif

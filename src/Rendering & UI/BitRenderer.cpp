@@ -1,4 +1,4 @@
-#include "headers/BitRenderer.hpp"
+#include "BitRenderer.hpp"
 #include <iostream>
 #include <fstream>
 #include <cmath>
@@ -8,7 +8,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Construction / Destruction
 // ─────────────────────────────────────────────────────────────────────────────
-BitRenderer::BitRenderer(DialogEngine& engine) : m_engine(engine) {
+BitRenderer::BitRenderer(BitRuntime& engine) : m_engine(engine) {
     InitAudioDevice();
     CreateFallbackTexture();
     CreateVignetteTexture();
@@ -208,7 +208,7 @@ void BitRenderer::DrawScene() {
 // ─────────────────────────────────────────────────────────────────────────────
 // Input
 // ─────────────────────────────────────────────────────────────────────────────
-static bool CheckClickRec(UIElement& elem, Vector2 mousePos, DialogEngine& engine) {
+static bool CheckClickRec(UIElement& elem, Vector2 mousePos, BitRuntime& engine) {
     if (!elem.visible) return false;
     for (auto it = elem.children.rbegin(); it != elem.children.rend(); ++it) {
         if (CheckClickRec(*it, mousePos, engine)) return true;

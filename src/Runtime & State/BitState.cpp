@@ -1,5 +1,4 @@
-#include "headers/BitState.hpp"
-#include "headers/BitEngine.hpp"
+#include "BitState.hpp"
 
 int BitState::GetVariable(const std::string& name) const {
     auto it = m_variables.find(name);
@@ -8,8 +7,4 @@ int BitState::GetVariable(const std::string& name) const {
 
 void BitState::SetVariable(const std::string& name, int value) {
     m_variables[name] = value;
-}
-
-void BitState::AddHistoryEntry(const HistoryEntry& entry) {
-    m_history.push_back(entry);
 }

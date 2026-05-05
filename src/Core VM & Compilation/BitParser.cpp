@@ -1,9 +1,9 @@
-#include "headers/BitParser.hpp"
+#include "BitParser.hpp"
 #include <iostream>
 #include <sstream>
 #include <algorithm>
 
-BitParser::BitParser(const std::vector<Token>& tokens, DialogProject& p) 
+BitParser::BitParser(const std::vector<Token>& tokens, BitProject& p) 
     : tokens(tokens), p(p), pos(0), tempVarCount(0), currentScene("") {
     m_currentOutput = &p.bytecode;
 }

@@ -6,8 +6,8 @@
 #include <string>
 #include <vector>
 
-// Include BitEngine for DialogProject definition
-#include "BitEngine.hpp"
+// Include BitEngine for BitProject definition
+#include "BitRuntime.hpp"
 
 struct Operand {
     bool isRef;
@@ -16,12 +16,12 @@ struct Operand {
 
 class BitParser {
 public:
-    BitParser(const std::vector<Token>& tokens, DialogProject& p);
+    BitParser(const std::vector<Token>& tokens, BitProject& p);
     void Parse();
 
 private:
     std::vector<Token> tokens;
-    DialogProject& p;
+    BitProject& p;
     size_t pos;
     int tempVarCount;
     std::string currentScene;

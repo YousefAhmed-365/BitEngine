@@ -1,9 +1,9 @@
-#include "headers/BitScriptAnalyzer.hpp"
+#include "BitScriptAnalyzer.hpp"
 #include <iostream>
 #include <unordered_set>
 #include <algorithm>
 
-std::vector<AnalysisMessage> BitScriptAnalyzer::Analyze(const DialogProject& project) {
+std::vector<AnalysisMessage> BitScriptAnalyzer::Analyze(const BitProject& project) {
     std::vector<AnalysisMessage> messages;
     
     for (const auto& err : project.parseErrors) {
@@ -26,7 +26,7 @@ std::vector<AnalysisMessage> BitScriptAnalyzer::Analyze(const DialogProject& pro
     return messages;
 }
 
-void BitScriptAnalyzer::CheckConfiguration(const DialogProject& project, std::vector<AnalysisMessage>& messages) {
+void BitScriptAnalyzer::CheckConfiguration(const BitProject& project, std::vector<AnalysisMessage>& messages) {
     // Check if start_node exists
     if (project.configs.start_node.empty()) {
         messages.push_back({AnalysisMessage::Level::ERROR, "Configuration error: start_node is not set", -1});
@@ -64,7 +64,7 @@ void BitScriptAnalyzer::CheckConfiguration(const DialogProject& project, std::ve
     }
 }
 
-void BitScriptAnalyzer::CheckLabels(const DialogProject& project, std::vector<AnalysisMessage>& messages) {
+void BitScriptAnalyzer::CheckLabels(const BitProject& project, std::vector<AnalysisMessage>& messages) {
     std::unordered_set<std::string> definedLabels;
     std::unordered_set<std::string> referencedLabels;
 
@@ -115,7 +115,7 @@ void BitScriptAnalyzer::CheckLabels(const DialogProject& project, std::vector<An
     }
 }
 
-void BitScriptAnalyzer::CheckEntities(const DialogProject& project, std::vector<AnalysisMessage>& messages) {
+void BitScriptAnalyzer::CheckEntities(const BitProject& project, std::vector<AnalysisMessage>& messages) {
     std::unordered_set<std::string> usedEntities;
 
     for (const auto& ins : project.bytecode) {
@@ -161,7 +161,7 @@ void BitScriptAnalyzer::CheckEntities(const DialogProject& project, std::vector<
     }
 }
 
-void BitScriptAnalyzer::CheckVariables(const DialogProject& project, std::vector<AnalysisMessage>& messages) {
+void BitScriptAnalyzer::CheckVariables(const BitProject& project, std::vector<AnalysisMessage>& messages) {
     std::unordered_set<std::string> usedVars;
     std::unordered_set<std::string> definedVars;
 
@@ -238,7 +238,7 @@ void BitScriptAnalyzer::CheckVariables(const DialogProject& project, std::vector
     }
 }
 
-void BitScriptAnalyzer::CheckControlFlow(const DialogProject& project, std::vector<AnalysisMessage>& messages) {
+void BitScriptAnalyzer::CheckControlFlow(const BitProject& project, std::vector<AnalysisMessage>& messages) {
     bool foundHalt = false;
     int lastLabelLine = -1;
 
@@ -271,7 +271,7 @@ void BitScriptAnalyzer::CheckControlFlow(const DialogProject& project, std::vect
     }
 }
 
-void BitScriptAnalyzer::CheckAssets(const DialogProject& project, std::vector<AnalysisMessage>& messages) {
+void BitScriptAnalyzer::CheckAssets(const BitProject& project, std::vector<AnalysisMessage>& messages) {
     std::unordered_set<std::string> usedBg, usedMusic, usedSfx, usedFonts;
 
     for (const auto& ins : project.bytecode) {
@@ -332,7 +332,7 @@ void BitScriptAnalyzer::CheckAssets(const DialogProject& project, std::vector<An
     }
 }
 
-void BitScriptAnalyzer::CheckInstructions(const DialogProject& project, std::vector<AnalysisMessage>& messages) {
+void BitScriptAnalyzer::CheckInstructions(const BitProject& project, std::vector<AnalysisMessage>& messages) {
     for (const auto& ins : project.bytecode) {
         // Text/SAY with empty content
         if (ins.op == BitOp::TEXT || ins.op == BitOp::SAY) {
@@ -561,7 +561,7 @@ void BitScriptAnalyzer::CheckInstructions(const DialogProject& project, std::vec
     }
 }
 
-void BitScriptAnalyzer::CheckTimelines(const DialogProject& project, std::vector<AnalysisMessage>& messages) {
+void BitScriptAnalyzer::CheckTimelines(const BitProject& project, std::vector<AnalysisMessage>& messages) {
     std::unordered_set<std::string> usedTimelines;
 
     // Collect used timelines
@@ -731,7 +731,7 @@ void BitScriptAnalyzer::CheckTimelines(const DialogProject& project, std::vector
     }
 }
 
-void BitScriptAnalyzer::CheckSprites(const DialogProject& project, std::vector<AnalysisMessage>& messages) {
+void BitScriptAnalyzer::CheckSprites(const BitProject& project, std::vector<AnalysisMessage>& messages) {
     for (const auto& [entityId, entity] : project.entities) {
         // Check if default position is valid
         if (entity.default_pos_x < 0.0f || entity.default_pos_x > 1.0f) {
@@ -764,7 +764,7 @@ void BitScriptAnalyzer::CheckSprites(const DialogProject& project, std::vector<A
 // ─────────────────────────────────────────────────────────────────────────────
 // CheckEvents — validate event blocks declared with `event name { }`
 // ─────────────────────────────────────────────────────────────────────────────
-void BitScriptAnalyzer::CheckEvents(const DialogProject& project, std::vector<AnalysisMessage>& messages) {
+void BitScriptAnalyzer::CheckEvents(const BitProject& project, std::vector<AnalysisMessage>& messages) {
     std::unordered_set<std::string> emittedEvents;
     std::unordered_set<std::string> waitedEvents;
 
@@ -799,7 +799,7 @@ void BitScriptAnalyzer::CheckEvents(const DialogProject& project, std::vector<An
 // ─────────────────────────────────────────────────────────────────────────────
 // CheckUICommands — validate ui_load / ui_set / ui_unload sequences
 // ─────────────────────────────────────────────────────────────────────────────
-void BitScriptAnalyzer::CheckUIAssets(const DialogProject& project, std::vector<AnalysisMessage>& messages) {
+void BitScriptAnalyzer::CheckUIAssets(const BitProject& project, std::vector<AnalysisMessage>& messages) {
     for (const auto& [id, def] : project.uiLayouts) {
         if (def.path.empty()) {
             messages.push_back({AnalysisMessage::Level::ERROR, "UI Asset '" + id + "': path is empty", -1});
@@ -810,7 +810,7 @@ void BitScriptAnalyzer::CheckUIAssets(const DialogProject& project, std::vector<
     }
 }
 
-void BitScriptAnalyzer::CheckUICommands(const DialogProject& project, std::vector<AnalysisMessage>& messages) {
+void BitScriptAnalyzer::CheckUICommands(const BitProject& project, std::vector<AnalysisMessage>& messages) {
     std::unordered_set<std::string> knownUIs;
     for (const auto& [id, def] : project.uiLayouts) knownUIs.insert(id);
 

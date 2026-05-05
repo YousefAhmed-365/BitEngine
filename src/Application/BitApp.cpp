@@ -1,6 +1,6 @@
-#include "headers/BitApp.hpp"
-#include "headers/BitEngine.hpp"
-#include "headers/BitRenderer.hpp"
+#include "BitApp.hpp"
+#include "BitRuntime.hpp"
+#include "BitRenderer.hpp"
 #include "json.hpp"
 #include <fstream>
 #include <iostream>
@@ -137,7 +137,7 @@ void BitApp::PrintHelp(const char* argv0) {
 int BitApp::DoCompile(const std::string& src, const std::string& dst) {
     auto startTime = std::chrono::steady_clock::now();
     std::cout << "┌─ " << ENGINE_NAME << " v" << ENGINE_VERSION << " | Compiling: " << src << "\n";
-    DialogEngine engine;
+    BitRuntime engine;
     if (!engine.LoadProject(src)) {
         std::cerr << "└─ [ERROR] Failed to parse script.\n";
         for (const auto& e : engine.GetErrors()) std::cerr << "   - " << e << "\n";
@@ -181,7 +181,7 @@ int BitApp::DoCompile(const std::string& src, const std::string& dst) {
 int BitApp::DoDryRun(const std::string& path) {
     auto startTime = std::chrono::steady_clock::now();
     std::cout << "┌─ " << ENGINE_NAME << " v" << ENGINE_VERSION << " | Validating: " << path << "\n";
-    DialogEngine engine;
+    BitRuntime engine;
     if (!engine.LoadProject(path)) {
         std::cerr << "└─ [ERROR] Failed to parse script.\n";
         for (const auto& e : engine.GetErrors()) std::cerr << "   - " << e << "\n";
@@ -211,7 +211,7 @@ int BitApp::DoDryRun(const std::string& path) {
 }
 
 int BitApp::DoListScenes(const std::string& path) {
-    DialogEngine engine;
+    BitRuntime engine;
     if (!engine.LoadProject(path)) { std::cerr << "[ERROR] Failed to parse: " << path << "\n"; return 1; }
     const auto& bc = engine.GetProject().bytecode;
     std::cout << "[BitEngine] Scene labels in " << path << ":\n";
@@ -222,7 +222,7 @@ int BitApp::DoListScenes(const std::string& path) {
 }
 
 int BitApp::DoStats(const std::string& path) {
-    DialogEngine engine;
+    BitRuntime engine;
     if (!engine.LoadProject(path)) { std::cerr << "[ERROR] Failed to parse: " << path << "\n"; return 1; }
     const auto& proj = engine.GetProject();
     const auto& bc   = proj.bytecode;
@@ -255,7 +255,7 @@ void BitApp::Run(const std::string& projectPath) {
     SetWindowMinSize(m_minWidth, m_minHeight);
     SetTargetFPS(m_fps);
 
-    DialogEngine dialogSystem;
+    BitRuntime dialogSystem;
     BitRenderer uiBridge(dialogSystem);
     bool loaded = dialogSystem.LoadProject(projectPath);
     // UI is now loaded via ui_load commands in BitScript (no hardcoded layout)

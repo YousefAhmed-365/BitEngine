@@ -1,7 +1,7 @@
-#include "headers/UIRenderer.hpp"
-#include "headers/BitEngine.hpp"
+#include "UIRenderer.hpp"
+#include "BitRuntime.hpp"
 
-UIRenderer::UIRenderer(DialogEngine& engine) : m_engine(engine) {}
+UIRenderer::UIRenderer(BitRuntime& engine) : m_engine(engine) {}
 
 UIRenderer::~UIRenderer() {
     m_uiManager.Shutdown();

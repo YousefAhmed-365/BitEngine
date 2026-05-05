@@ -1,4 +1,4 @@
-#include "headers/BitAudio.hpp"
+#include "BitAudio.hpp"
 #include <iostream>
 
 BitAudio::BitAudio() {}

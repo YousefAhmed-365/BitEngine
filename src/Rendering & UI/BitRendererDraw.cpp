@@ -1,4 +1,4 @@
-#include "headers/BitRenderer.hpp"
+#include "BitRenderer.hpp"
 #include <cmath>
 #include <algorithm>
 #include <iostream>

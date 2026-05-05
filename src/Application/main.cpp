@@ -1,4 +1,4 @@
-#include "headers/BitApp.hpp"
+#include "BitApp.hpp"
 
 int main(int argc, char** argv) {
     BitApp app;

@@ -1,14 +1,16 @@
-#ifndef BITENGINE_HPP
-#define BITENGINE_HPP
+#ifndef BITRUNTIME_HPP
+#define BITRUNTIME_HPP
 
 #include "json.hpp"
 #include "BitOp.hpp"
 #include "BitRichText.hpp"
 #include "BitVM.hpp"
+#include "BitState.hpp"
 #include <string>
 #include <unordered_map>
 #include <map>
 #include <optional>
+#include <memory>
 
 #define BITENGINE_KEY "BITENGINE_SECRET_KEY_2026"
 
@@ -22,14 +24,6 @@ struct TimelineEvent {
 struct Timeline {
     std::string id;
     std::vector<TimelineEvent> events;
-};
-
-struct ActiveTimeline {
-    std::string id;
-    float timer = 0.0f;
-    size_t nextEventIdx = 0;
-    bool finished = false;
-    bool isBlocking = false;
 };
 
 // Condition system: recursive tree
@@ -49,7 +43,7 @@ struct ConditionNode {
 // ASYNC   ops: move, fade, fade_screen  (run in background)
 struct Event {
     std::string         op;
-    nlohmann::json      params;  // fields depend on op — see ProcessEvents
+    nlohmann::json      params;  // fields depend on op
 };
 
 struct DialogOption {
@@ -74,49 +68,11 @@ struct Entity {
 
 struct VariableDef { std::string id = ""; int initial_value = 0; std::optional<int> min = std::nullopt, max = std::nullopt; };
 
-struct ActiveEntityState {
-    std::string pos = "center";
-    std::string expression = "idle";
-    float currentNormX = 0.5f;
-    float targetNormX = 0.5f;
-    float startNormX = 0.5f;
-    float moveTimer = 0.0f;
-    float moveDuration = 0.0f;
-
-    float alpha = 1.0f;
-    float targetAlpha = 1.0f;
-    float startAlpha = 1.0f;
-    float fadeDuration = 0.0f;
-    float fadeTimer = 0.0f;
-    
-    bool visible = true;
-};
-
-struct HistoryEntry {
-    std::string speaker;
-    std::string content;
-    std::vector<RichChar> richContent;
-};
-
-// Legacy JSON node structures removed. 
-// Narratives now run exclusively via BitScript bytecode.
-
-
 struct SaveMetadata {
     std::string timestamp;
     std::string node_id;
     std::string entity_name;
     std::string summary;
-};
-
-struct SaveData {
-    int version = 1;
-    int current_pc = 0;
-    std::unordered_map<std::string, int> variables;
-    std::string active_bg;
-    std::string active_bgm;
-    std::unordered_map<std::string, ActiveEntityState> active_entities;
-    SaveMetadata meta;
 };
 
 struct DialogConfigs {
@@ -129,15 +85,7 @@ struct DialogConfigs {
     int max_slots = 5;
 };
 
-struct UILayoutDef {
-    std::string id = "";
-    std::string path = "";
-    int layer = 0;
-    bool active = true;
-    bool visible = true;
-};
-
-struct DialogProject {
+struct BitProject {
     DialogConfigs configs;
     std::unordered_map<std::string, Entity> entities;
     std::unordered_map<std::string, VariableDef> variables;
@@ -173,18 +121,10 @@ struct UICommand {
     int         layer = 0;
 };
 
-// Event Trace Entry
-struct EventTraceEntry {
-    std::string node_id;
-    std::string op;
-    std::string var;
-    int old_value;
-    int new_value;
-};
-
-class DialogEngine {
+class BitRuntime {
+    friend class BitVM;
 public:
-    DialogEngine();
+    BitRuntime();
     bool LoadProject(const std::string& path);
     bool LoadBytecodeFile(const std::string& path);   // Load .bitc VM bytecode
     void CompileProject(const std::string& outputPath);
@@ -205,26 +145,26 @@ public:
     bool IsTextRevealing() const;
     const std::vector<RichChar>& GetParsedContent() const { return m_cachedParsedContent; }
     int GetRevealedCount() const { return (int)m_revealedCount; }
-    float GetScreenFadeAlpha() const { return m_screenFadeAlpha; }
+    float GetScreenFadeAlpha() const { return m_state.ScreenFadeAlpha(); }
     BitColor GetScreenFadeColor() const { return m_screenFadeColor; }
     
-    std::string GetVisibleContent() const; // Legacy plain string access if needed
+    std::string GetVisibleContent() const;
     
     int GetVariable(const std::string& name) const;
     int SafeStoi(const std::string& s) const;
     int ResolveParamInt(const nlohmann::json& params, const std::string& key, int default_val = 0) const;
     float ResolveParamFloat(const nlohmann::json& params, const std::string& key, float default_val = 0.0f) const;
     void SetVariable(const std::string& name, int value);
-    const std::unordered_map<std::string, int>& GetAllVariables() const { return m_variables; }
+    const std::unordered_map<std::string, int>& GetAllVariables() const { return m_state.GetVariables(); }
     
     bool IsActive() const { return m_isActive; }
-    int GetCurrentPC() const { return m_pc; }
+    int GetCurrentPC() const { return m_vm->GetPC(); }
 
     const Entity* GetCurrentEntity() const;
     const Entity* GetEntity(const std::string& id) const { return m_project.entities.count(id) ? &m_project.entities.at(id) : nullptr; }
     const std::vector<DialogOption>& GetVisibleOptions() const { return m_visibleOptions; }
     const DialogConfigs& GetConfigs() const { return m_project.configs; }
-    DialogProject& GetProject() { return m_project; }
+    BitProject& GetProject() { return m_project; }
     std::string GetDebugMode() const { return m_project.configs.debug_mode; }
     void Log(const std::string& msg, const std::string& level = "INFO") const;
     bool IsDebugOverlayVisible() const { return m_debugOverlayVisible; }
@@ -237,25 +177,23 @@ public:
     std::string GetMusic(const std::string& id) const { return m_project.music.count(id) ? m_project.music.at(id) : ""; }
     std::string GetSFX(const std::string& id) const { return m_project.sfx.count(id) ? m_project.sfx.at(id) : ""; }
 
-    // Active Persistent States (Retained across nodes and saves)
-    const std::string& GetActiveBg() const { return m_activeBg; }
-    const std::string& GetPrevBg() const { return m_prevBg; }
-    float GetBgFadeAlpha() const { return m_bgFadeAlpha; }
+    // Active Persistent States
+    const std::string& GetActiveBg() const { return m_state.GetActiveBg(); }
+    const std::string& GetPrevBg() const { return m_state.GetPrevBg(); }
+    float GetBgFadeAlpha() const { return m_state.BgFadeAlpha(); }
+    const std::string& GetActiveBgm() const { return m_state.GetActiveBgm(); }
     
-    // Screen fade
-    const std::string& GetActiveBgm() const { return m_activeBgm; }
-    
-    bool IsUiHidden() const { return m_isUiHidden; }
+    bool IsUiHidden() const { return m_state.IsUiHidden(); }
     bool IsTransitioning() const { return false; }
     bool IsAutoNext() const { return m_isAutoNext; }
-    const std::map<std::string, ActiveEntityState>& GetActiveEntities() const { return m_activeEntities; }
+    const std::map<std::string, ActiveEntityState>& GetActiveEntities() const { return m_state.GetActiveEntities(); }
 
-    // Conditional Audio Playback (Event-driven)
+    // Conditional Audio Playback
     const std::vector<std::string>& ConsumePendingSFX();
 
     // History
-    const std::vector<HistoryEntry>& GetHistory() const { return m_history; }
-    void ClearHistory() { m_history.clear(); }
+    const std::vector<HistoryEntry>& GetHistory() const { return m_state.History(); }
+    void ClearHistory() { m_state.History().clear(); }
 
     // Auto-play
     bool IsAutoPlaying() const { return m_isAutoPlaying; }
@@ -266,28 +204,22 @@ public:
 
     // Delay State
     bool IsEventDelaying() const { return m_engineDelayTimer > 0.0f; }
-    bool IsVisualAnimating() const {
-        for (const auto& [id, state] : m_activeEntities) {
-            if (state.moveTimer < state.moveDuration || state.fadeTimer < state.fadeDuration) return true;
-        }
-        if (m_bgFadeAlpha < 1.0f) return true;
-        return false;
-    }
+    bool IsVisualAnimating() const;
 
     // Narrative Effects State
-    float GetEffectShake() const { return m_shakeIntensity; }
-    void TriggerShake(float intensity = 5.0f) { m_shakeIntensity = intensity; }
+    float GetEffectShake() const { return m_state.ShakeIntensity(); }
+    void TriggerShake(float intensity = 5.0f) { m_state.ShakeIntensity() = intensity; }
 
     // Validation
-    static ValidationResult ValidateProject(const DialogProject& p);
+    static ValidationResult ValidateProject(const BitProject& p);
 
     // Debug Instrumentation
-    const std::vector<EventTraceEntry>& GetEventTrace() const { return m_eventTrace; }
-    void ClearEventTrace() { m_eventTrace.clear(); }
+    const std::vector<EventTraceEntry>& GetEventTrace() const { return m_state.EventTrace(); }
+    void ClearEventTrace() { m_state.EventTrace().clear(); }
     bool HasErrors() const { return !m_errors.empty(); }
     const std::vector<std::string>& GetErrors() const { return m_errors; }
 
-    // UI Command queue — drained by BitRenderer each frame
+    // UI Command queue
     std::vector<UICommand> DrainUICommands();
 
     // System variables (set automatically by the VM, readable by UI bindings)
@@ -295,14 +227,20 @@ public:
     const nlohmann::json& GetSystemVars() const { return m_sysVars; }
 
     // v0.2 Debug Getters
-    const std::vector<int>& GetCallStack() const { return m_callStack; }
-    const std::vector<std::unordered_map<std::string, int>>& GetLocalScopes() const { return m_localVariables; }
-    std::string GetWaitActionType() const { return m_waitingForActionType; }
+    const std::vector<int>& GetCallStack() const { return m_vm->GetCallStack(); }
+    const std::vector<std::unordered_map<std::string, int>>& GetLocalScopes() const { return m_vm->GetLocalScopes(); }
+    std::string GetWaitActionType() const { return m_vm->IsWaiting() ? "waiting" : "running"; }
+
+    // Accessors for VM/State (Internal use)
+    BitState& GetState() { return m_state; }
+    BitVM& GetVM() { return *m_vm; }
 
 private:
-    DialogProject m_project;
+    BitProject m_project;
+    BitState m_state;
+    std::unique_ptr<BitVM> m_vm;
+    
     bool m_debugOverlayVisible = false;
-    std::unordered_map<std::string, int> m_variables;
     std::vector<DialogOption> m_visibleOptions;
     std::string m_currentSpeakerId;
     bool m_isActive = false;
@@ -312,55 +250,24 @@ private:
     std::string m_cachedInterpolatedContent;
     std::vector<RichChar> m_cachedParsedContent;
     size_t m_cachedTotalChars = 0;
-    float m_shakeIntensity = 0.0f;
 
     float m_engineDelayTimer = 0.0f;
     std::string m_pendingJumpId = "";
     std::vector<std::string> m_pendingSFX;
     std::string m_waitingForEventId = "";
 
-    std::string m_activeBg = "";
-    std::string m_prevBg = "";
-    float m_bgFadeAlpha = 1.0f; // 1.0 = fully current, 0.0 = fully previous
-    float m_bgFadeTimer = 0.0f;
-    float m_bgFadeDuration = 0.0f;
-
-    // Screen fade state
-    float m_screenFadeAlpha = 0.0f;
-    float m_screenFadeTarget = 0.0f;
-    float m_screenFadeStart = 0.0f;
-    float m_screenFadeTimer = 0.0f;
-    float m_screenFadeDuration = 0.0f;
     BitColor m_screenFadeColor = {0,0,0,255};
 
-    std::string m_activeBgm = "";
-    bool m_isUiHidden = false;
     bool m_isAutoNext = false;
     bool m_isAutoPlaying = false;
     float m_autoPlayTimer = 0.0f;
     float m_inputLockoutTimer = 0.0f;
-    std::vector<HistoryEntry> m_history;
-    std::map<std::string, ActiveEntityState> m_activeEntities;
-    std::vector<ActiveTimeline> m_activeTimelines;
 
-    // Debug state
-    std::vector<EventTraceEntry> m_eventTrace;
     std::vector<std::string> m_errors;
-
-    // Narrative Stack
-    std::vector<int> m_callStack;
-    std::vector<std::unordered_map<std::string, int>> m_localVariables;
-    std::string m_waitingForActionType = ""; // "sfx", "move", "fade", "all"
-
-    // Pending UI commands queued by VM opcodes, drained by BitRenderer
     std::vector<UICommand> m_pendingUICommands;
-    // System string variables exposed to UIDataStore for data bindings
     nlohmann::json m_sysVars;
-    void UpdateSysVars(); // called after SAY/TEXT to refresh sysVars
 
-    // Runtime state of UI layouts (tracked for saving)
-    std::unordered_map<std::string, UILayoutDef> m_uiStates;
-
+    void UpdateSysVars();
     void RecordError(const std::string& context, const std::string& msg);
     void ProcessEvents(const std::vector<Event>& events);
     bool EvalConditionNode(const ConditionNode& node) const;
@@ -372,17 +279,6 @@ private:
     std::string GetTimestamp() const;
     float ParsePosition(const std::string& pos) const;
     float ParseXParam(const nlohmann::json& params, const std::string& key = "x") const;
-
-    // VM State
-    int m_pc = 0;
-    bool m_vmWaiting = false;
-    bool m_vmDelayed = false;
-    void RunVM();
-    void ExecuteInstruction(const BitInstruction& ins);
-    
-    // Label index for O(1) label lookups
-    std::unordered_map<std::string, int> m_labelIndex;
-    void BuildLabelIndex();
 };
 
 #endif

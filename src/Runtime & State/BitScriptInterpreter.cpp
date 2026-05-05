@@ -1,8 +1,8 @@
-#include "headers/BitScriptInterpreter.hpp"
+#include "BitScriptInterpreter.hpp"
 #include <fstream>
 #include <sstream>
 
-bool BitScriptInterpreter::LoadScriptFile(const std::string& path, DialogProject& p) {
+bool BitScriptInterpreter::LoadScriptFile(const std::string& path, BitProject& p) {
     std::ifstream f(path);
     if (!f) return false;
     std::stringstream buffer;
@@ -11,7 +11,7 @@ bool BitScriptInterpreter::LoadScriptFile(const std::string& path, DialogProject
     return ParseScriptString(buffer.str(), p);
 }
 
-bool BitScriptInterpreter::ParseScriptString(const std::string& src, DialogProject& p) {
+bool BitScriptInterpreter::ParseScriptString(const std::string& src, BitProject& p) {
     BitLexer lexer(src);
     auto tokens = lexer.Tokenize();
     

@@ -1,4 +1,4 @@
-#include "headers/BitLexer.hpp"
+#include "BitLexer.hpp"
 #include <iostream>
 #include <algorithm>
 #include <cctype>

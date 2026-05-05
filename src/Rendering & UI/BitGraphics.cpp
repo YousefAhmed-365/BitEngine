@@ -1,4 +1,4 @@
-#include "headers/BitGraphics.hpp"
+#include "BitGraphics.hpp"
 #include <iostream>
 
 BitGraphics::BitGraphics() {}

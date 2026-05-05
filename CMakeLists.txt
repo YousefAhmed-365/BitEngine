@@ -20,54 +20,54 @@ find_package(raylib REQUIRED)
 # CORE VM & COMPILATION PIPELINE
 # ============================================================================
 set(CORE_VM_SOURCES
-    src/BitLexer.cpp
-    src/BitParser.cpp
-    src/BitParserStatements.cpp
-    src/BitCompiler.cpp
-    src/BitVM.cpp
+    "src/Core VM & Compilation/BitLexer.cpp"
+    "src/Core VM & Compilation/BitParser.cpp"
+    "src/Core VM & Compilation/BitParserStatements.cpp"
+    "src/Core VM & Compilation/BitCompiler.cpp"
+    "src/Core VM & Compilation/BitVM.cpp"
 )
 
 # ============================================================================
 # RUNTIME & STATE MANAGEMENT
 # ============================================================================
 set(RUNTIME_STATE_SOURCES
-    src/BitEngine.cpp
-    src/BitState.cpp
-    src/BitRichText.cpp
-    src/BitScriptAnalyzer.cpp
-    src/BitScriptInterpreter.cpp
+    "src/Runtime & State/BitRuntime.cpp"
+    "src/Runtime & State/BitState.cpp"
+    "src/Runtime & State/BitRichText.cpp"
+    "src/Runtime & State/BitScriptAnalyzer.cpp"
+    "src/Runtime & State/BitScriptInterpreter.cpp"
 )
 
 # ============================================================================
 # RENDERING & AUDIO
 # ============================================================================
 set(RENDER_AUDIO_SOURCES
-    src/BitGraphics.cpp
-    src/BitAudio.cpp
-    src/UIRenderer.cpp
+    "src/Rendering & UI/BitGraphics.cpp"
+    "src/Rendering & UI/BitAudio.cpp"
+    "src/Rendering & UI/UIRenderer.cpp"
 )
 
 # ============================================================================
 # UI SYSTEM
 # ============================================================================
 set(UI_SOURCES
-    src/UILayout.cpp
+    "src/Rendering & UI/UILayout.cpp"
 )
 
 # ============================================================================
 # RENDERER INTEGRATION
 # ============================================================================
 set(RENDERER_SOURCES
-    src/BitRenderer.cpp
-    src/BitRendererDraw.cpp
+    "src/Rendering & UI/BitRenderer.cpp"
+    "src/Rendering & UI/BitRendererDraw.cpp"
 )
 
 # ============================================================================
 # APPLICATION LAYER
 # ============================================================================
 set(APP_SOURCES
-    src/BitApp.cpp
-    src/main.cpp
+    "src/Application/BitApp.cpp"
+    "src/Application/main.cpp"
 )
 
 # Combine all sources
@@ -82,7 +82,13 @@ set(ALL_SOURCES
 
 # --- BitEngine (The Game) ---
 add_executable(BitEngine ${ALL_SOURCES})
-target_include_directories(BitEngine PRIVATE src src/headers)
+target_include_directories(BitEngine PRIVATE 
+    src 
+    "src/Core VM & Compilation" 
+    "src/Runtime & State" 
+    "src/Rendering & UI" 
+    "src/Application"
+)
 target_link_libraries(BitEngine PRIVATE raylib)
 
 # Compiler flags

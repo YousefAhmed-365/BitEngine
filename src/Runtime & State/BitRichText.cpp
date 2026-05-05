@@ -1,4 +1,4 @@
-#include "headers/BitRichText.hpp"
+#include "BitRichText.hpp"
 #include <algorithm>
 #include <sstream>
 #include <cctype>

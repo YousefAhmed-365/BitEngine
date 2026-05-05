@@ -1,4 +1,4 @@
-#include "headers/BitParser.hpp"
+#include "BitParser.hpp"
 #include <iostream>
 #include <sstream>
 #include <algorithm>
