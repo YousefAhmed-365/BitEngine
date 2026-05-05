@@ -4,6 +4,7 @@
 #include <iostream>
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
 
 using json = nlohmann::json;
 
@@ -211,7 +212,7 @@ UIStyleBlock StyleSheet::ParseBlock(const json& j) {
 bool StyleSheet::Load(const std::string& path) {
     std::ifstream f(path);
     if (!f) {
-        std::cerr << "[StyleSheet] Not found: " << path << "\n";
+        std::cerr << "[UILayout] Not found: " << path << "\n";
         return false;
     }
     try {
@@ -219,11 +220,11 @@ bool StyleSheet::Load(const std::string& path) {
         for (auto& [name, block] : j.items()) {
             m_blocks[name] = ParseBlock(block);
         }
-        std::cout << "[StyleSheet] Loaded " << m_blocks.size()
+        std::cout << "[UILayout] Loaded " << m_blocks.size()
                   << " style block(s) from " << path << "\n";
         return true;
     } catch (const std::exception& e) {
-        std::cerr << "[StyleSheet] Parse error: " << e.what() << "\n";
+        std::cerr << "[UILayout] Parse error: " << e.what() << "\n";
         return false;
     }
 }
@@ -339,6 +340,10 @@ bool UILayout::Load(const std::string& layoutPath) {
         // Load style sheet first
         if (j.contains("style_sheet")) {
             std::string ssPath = j["style_sheet"].get<std::string>();
+            if (!ssPath.empty()) {
+                std::filesystem::path dir = std::filesystem::path(layoutPath).parent_path();
+                ssPath = (dir / ssPath).string();
+            }
             m_styleSheet.Load(ssPath);
         }
 
@@ -681,11 +686,11 @@ bool UIManager::Load(const std::string& name, const std::string& path, int layer
     entry.active = true;
     entry.visible = true;
     if (!entry.layout.Load(path)) {
-        std::cerr << "[UIManager] Failed to load: " << path << "\n";
+        std::cerr << "[UILayout] Failed to load: " << path << "\n";
         return false;
     }
     m_layers.push_back(std::move(entry));
-    std::cout << "[UIManager] Loaded UI \"" << name << "\" (layer " << layer << ") from " << path << "\n";
+    std::cout << "[UILayout] Loaded UI \"" << name << "\" (layer " << layer << ") from " << path << "\n";
     return true;
 }
 
@@ -693,7 +698,7 @@ void UIManager::Unload(const std::string& name) {
     m_layers.erase(std::remove_if(m_layers.begin(), m_layers.end(),
         [&](LayerEntry& e) { if (e.name == name) { e.layout.Shutdown(); return true; } return false; }),
         m_layers.end());
-    std::cout << "[UIManager] Unloaded UI \"" << name << "\"\n";
+    std::cout << "[UILayout] Unloaded UI \"" << name << "\"\n";
 }
 
 bool UIManager::IsLoaded(const std::string& name) const {
