@@ -230,7 +230,7 @@ void BitRenderer::DrawDebugOverlay() {
     int gap=12, pad=10, cols=4;
     if (sw<1100) cols=2;
     if (sw<600)  cols=1;
-    int rows_count=(6+cols-1)/cols;
+    int rows_count=(8+cols-1)/cols;
     int panelW=(sw-40-(cols-1)*gap)/cols; if (panelW>350) panelW=350;
     int panelH=(sh-60-(rows_count-1)*(gap+20))/rows_count;
     if (panelH>380) panelH=380;
@@ -333,6 +333,28 @@ void BitRenderer::DrawDebugOverlay() {
         for (const auto& a:ins.args){std::string cl=a;std::replace(cl.begin(),cl.end(),'\n',' ');args+=" "+(cl.size()>12?cl.substr(0,10)+"..":cl);}
         DrawText(TextFormat("%04d %-6s%s",i,opStr.c_str(),args.c_str()),px,dy,9,col); dy+=11;
     }
+    
+    // Panel 6: ASSET & MEMORY AUDIT
+    Rectangle r7=GetPanelRect(6); px=(int)r7.x; py=(int)r7.y; dy=py;
+    DrawText("ASSET & MEMORY AUDIT",px,dy,13,LIME); dy+=22;
+    DrawText(TextFormat("Cached Textures: %d", (int)m_textureCache.size()), px, dy, 10, RAYWHITE); dy+=14;
+    DrawText(TextFormat("Cached SFX:      %d", (int)m_sfxCache.size()), px, dy, 10, RAYWHITE); dy+=14;
+    DrawText(TextFormat("Cached BGM:      %d", (int)m_musicCache.size()), px, dy, 10, RAYWHITE); dy+=20;
+    DrawText("Active Media:", px, dy, 11, SKYBLUE); dy+=15;
+    DrawText(TextFormat("BGM: %s", m_currentMusicPath.empty() ? "NONE" : m_currentMusicPath.c_str()), px, dy, 9, m_isMusicPlaying ? GREEN : GRAY); dy+=14;
+
+    // Panel 7: UI LAYOUT MANAGER STATE
+    Rectangle r8=GetPanelRect(7); px=(int)r8.x; py=(int)r8.y; dy=py;
+    DrawText("UI LAYOUT STATE",px,dy,13,SKYBLUE); dy+=22;
+    auto layers = m_uiManager.GetLayerInfo();
+    DrawText(TextFormat("Loaded Layouts: %d", (int)layers.size()), px, dy, 10, RAYWHITE); dy+=18;
+    for (const auto& l : layers) {
+        if (dy > r8.y + r8.height - 20) break;
+        Color nameCol = l.active ? (l.visible ? GREEN : ORANGE) : GRAY;
+        DrawText(TextFormat("Layer %d | %-12s", l.layer, l.name.c_str()), px, dy, 9, nameCol); dy+=11;
+        DrawText(TextFormat("  [%s%s] -> %s", l.active?"A":"_", l.visible?"V":"_", l.path.c_str()), px, dy, 8, Fade(RAYWHITE, 0.5f)); dy+=14;
+    }
+
     if (!errors.empty()){DrawRectangle(0,sh-26,sw,26,Fade(RED,0.75f));DrawText(errors.back().c_str(),10,sh-20,11,WHITE);}
 }
 

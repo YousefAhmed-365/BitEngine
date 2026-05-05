@@ -251,6 +251,16 @@ public:
     // Font cache access (for BitRenderer compatibility)
     Font GetFont(const std::string& path);
 
+    // Debugging
+    struct LayerInfo {
+        std::string name;
+        std::string path;
+        int layer;
+        bool active;
+        bool visible;
+    };
+    std::vector<LayerInfo> GetLayerInfo() const;
+
 private:
     struct LayerEntry {
         std::string name;

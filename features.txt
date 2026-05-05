@@ -145,7 +145,8 @@ C. UNIFIED DEBUG OVERLAY (F3)
     - Variable Watcher: Real-time list of all global variables and their values.
     - Event Trace: Chronological telemetry log of variable changes (Old -> New), 
       branching decisions (IF TRUE/FALSE), and Scene Jumps.
-    - Asset Audit: Visual confirmation of loaded textures, music, and SFX.
+    - Asset & Memory Audit: Live tracking of cached textures, fonts, sounds, and music, including the path of the currently active BGM.
+    - UI Layout Manager State: Real-time visualization of all loaded UI layers, their Z-order, visibility flags, and active state.
     - Static Analyzer: Proactive narrative validation during compilation.
       - Referential Integrity: Detects broken `jump`, `call`, and `choice` targets.
       - Variable Audit: Flags use of undefined variables in expressions and conditionals.

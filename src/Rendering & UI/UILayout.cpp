@@ -799,6 +799,15 @@ bool UIManager::IsLayerVisible(const std::string& name) const {
     return false;
 }
 
+std::vector<UIManager::LayerInfo> UIManager::GetLayerInfo() const {
+    std::vector<LayerInfo> info;
+    info.reserve(m_layers.size());
+    for (const auto& e : m_layers) {
+        info.push_back({e.name, e.path, e.layer, e.active, e.visible});
+    }
+    return info;
+}
+
 Font UIManager::GetFont(const std::string& path) {
     // Ask the first layer that has the font
     for (auto& e : m_layers) {
