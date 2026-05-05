@@ -26,7 +26,7 @@ static std::string defaultOutput(const std::string& input) {
 }
 
 BitApp::BitApp() {
-    LoadConfig("res/app.json");
+    LoadConfig("res/project.json");
 }
 
 BitApp::~BitApp() {
@@ -41,13 +41,22 @@ void BitApp::LoadConfig(const std::string& path) {
     }
     try {
         json j; f >> j;
-        m_title     = j.value("title", m_title);
-        m_width     = j.value("width", m_width);
-        m_height    = j.value("height", m_height);
-        m_minWidth  = j.value("min_width", m_minWidth);
-        m_minHeight = j.value("min_height", m_minHeight);
-        m_fps       = j.value("fps", m_fps);
-        m_resizable = j.value("resizable", m_resizable);
+        if (j.contains("project")) {
+            m_title = j["project"].value("title", m_title);
+        }
+        if (j.contains("window")) {
+            auto& w = j["window"];
+            m_width      = w.value("width", m_width);
+            m_height     = w.value("height", m_height);
+            m_minWidth   = w.value("min_width", m_minWidth);
+            m_minHeight  = w.value("min_height", m_minHeight);
+            m_fps        = w.value("fps", m_fps);
+            m_resizable  = w.value("resizable", m_resizable);
+            m_fullscreen = w.value("fullscreen", m_fullscreen);
+            m_vsync      = w.value("vsync", m_vsync);
+            m_borderless = w.value("borderless", m_borderless);
+            m_msaa_4x    = w.value("msaa_4x", m_msaa_4x);
+        }
     } catch (const std::exception& e) {
         std::cerr << "[BitApp] Failed to parse " << path << ": " << e.what() << std::endl;
     }
@@ -55,7 +64,7 @@ void BitApp::LoadConfig(const std::string& path) {
 
 int BitApp::ProcessArgs(int argc, char** argv) {
     if (argc == 1) {
-        Run("res_bitscript/main.bitscript");
+        Run("res/project.json");
         return 0;
     }
 
@@ -72,16 +81,14 @@ int BitApp::ProcessArgs(int argc, char** argv) {
     }
 
     if (strcmp(arg1, "-c") == 0 || strcmp(arg1, "--compile") == 0) {
-        if (argc < 3) { std::cerr << "[ERROR] --compile requires a source file.\n"; return 1; }
+        if (argc < 3) { std::cerr << "[ERROR] --compile requires a source file (e.g. project.json).\n"; return 1; }
         std::string src = argv[2];
-        if (!endsWith(src, ".bitscript")) { std::cerr << "[ERROR] --compile only supports .bitscript source files.\n"; return 1; }
         std::string dst = (argc >= 4) ? argv[3] : defaultOutput(src);
         return DoCompile(src, dst);
     }
 
     if (strcmp(arg1, "-d") == 0 || strcmp(arg1, "--dry-run") == 0) {
         if (argc < 3) { std::cerr << "[ERROR] --dry-run requires a file.\n"; return 1; }
-        if (!endsWith(argv[2], ".bitscript")) { std::cerr << "[ERROR] --dry-run only supports .bitscript files.\n"; return 1; }
         return DoDryRun(argv[2]);
     }
 
@@ -127,10 +134,10 @@ void BitApp::PrintHelp(const char* argv0) {
         "OPTIONS:\n"
         "  -h, --help                 Show this help message and exit\n"
         "  -v, --version              Print version information and exit\n\n"
-        "  -r, --run <file>           Run a .bitscript or .bitc file\n"
-        "  -c, --compile <src> [dst]  Compile a .bitscript to bytecode (.bitc)\n"
-        "  -d, --dry-run <file>       Parse/validate a .bitscript without launching a window\n"
-        "  -l, --list-scenes <file>   List all scene labels in a .bitscript file\n"
+        "  -r, --run <file>           Run a project.json or .bitc file\n"
+        "  -c, --compile <src> [dst]  Compile a project to bytecode (.bitc)\n"
+        "  -d, --dry-run <file>       Parse/validate without launching a window\n"
+        "  -l, --list-scenes <file>   List all scene labels in a project\n"
         "  -s, --stats <file>         Print instruction count and variable stats\n\n";
 }
 
@@ -250,7 +257,16 @@ int BitApp::DoStats(const std::string& path) {
 
 void BitApp::Run(const std::string& projectPath) {
     SetTraceLogLevel(LOG_NONE);
-    if (m_resizable) SetConfigFlags(FLAG_WINDOW_RESIZABLE);
+    
+    unsigned int flags = 0;
+    if (m_resizable)  flags |= FLAG_WINDOW_RESIZABLE;
+    if (m_fullscreen) flags |= FLAG_FULLSCREEN_MODE;
+    if (m_vsync)      flags |= FLAG_VSYNC_HINT;
+    if (m_borderless) flags |= FLAG_WINDOW_UNDECORATED;
+    if (m_msaa_4x)    flags |= FLAG_MSAA_4X_HINT;
+    
+    if (flags != 0) SetConfigFlags(flags);
+    
     InitWindow(m_width, m_height, m_title.c_str());
     SetWindowMinSize(m_minWidth, m_minHeight);
     SetTargetFPS(m_fps);

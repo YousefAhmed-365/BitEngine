@@ -23,6 +23,153 @@ BitRuntime::BitRuntime() {
 bool BitRuntime::LoadProject(const std::string& configFilePath) {
     Log("Loading project from: " + configFilePath);
 
+    if (configFilePath.size() > 5 && configFilePath.substr(configFilePath.size() - 5) == ".json") {
+        std::filesystem::path basePath = std::filesystem::path(configFilePath).parent_path();
+        m_projectBasePath = basePath.string();
+        std::ifstream f(configFilePath);
+        if (!f) { RecordError("LoadProject", "Could not open project config: " + configFilePath); return false; }
+        try {
+            json j; f >> j;
+            if (j.contains("runtime")) {
+                m_project.configs.start_node = j["runtime"].value("start_scene", "init");
+                m_project.configs.debug_mode = j["runtime"].value("debug_mode", "none");
+                m_project.configs.strict_assets = j["runtime"].value("strict_assets", false);
+                
+                if (j["runtime"].contains("scripts")) {
+                    for (const auto& scriptPath : j["runtime"]["scripts"]) {
+                        std::string fullPath = (basePath / scriptPath.get<std::string>()).string();
+                        if (!BitScriptInterpreter::LoadScriptFile(fullPath, m_project)) {
+                            RecordError("LoadProject", "Failed to parse script: " + fullPath);
+                            return false;
+                        }
+                    }
+                } else {
+                    RecordError("LoadProject", "project.json must contain 'runtime.scripts' array.");
+                    return false;
+                }
+            } else {
+                RecordError("LoadProject", "project.json must contain a 'runtime' object.");
+                return false;
+            }
+
+            if (j.contains("narrative")) {
+                auto& n = j["narrative"];
+                m_project.configs.mode = n.value("mode", "typewriter");
+                m_project.configs.reveal_speed = n.value("reveal_speed", 45.0f);
+                m_project.configs.auto_play_delay = n.value("auto_play_delay", 2.0f);
+                m_project.configs.auto_save = n.value("auto_save", false);
+                m_project.configs.max_slots = n.value("max_save_slots", 5);
+            }
+
+            if (j.contains("directories")) {
+                for (auto& [key, val] : j["directories"].items()) {
+                    std::string dirPath = (basePath / val.get<std::string>()).string();
+                    if (!std::filesystem::exists(dirPath)) {
+                        std::filesystem::create_directories(dirPath);
+                        Log("Created missing directory: " + dirPath);
+                    }
+                }
+            }
+
+            if (j.contains("ui_layouts")) {
+                std::string uiDir = j.contains("directories") ? j["directories"].value("ui", "") : "";
+                for (auto& [id, def] : j["ui_layouts"].items()) {
+                    UILayoutDef udef;
+                    udef.id = id;
+                    std::string relPath = def.value("path", "");
+                    udef.path = (basePath / uiDir / relPath).string();
+                    udef.layer = def.value("layer", 0);
+                    udef.active = def.value("active", false);
+                    udef.visible = def.value("visible", true);
+                    m_project.uiLayouts[id] = udef;
+                }
+            }
+
+            std::string spritesDir = j.contains("directories") ? j["directories"].value("sprites", "") : "";
+            if (!spritesDir.empty()) spritesDir = (basePath / spritesDir).string();
+
+            // Entity loading
+            if (j.contains("directories") && j["directories"].contains("entities")) {
+                std::string entDir = (basePath / j["directories"]["entities"].get<std::string>()).string();
+                if (std::filesystem::exists(entDir)) {
+                    for (const auto& entry : std::filesystem::directory_iterator(entDir)) {
+                        if (entry.path().extension() == ".json") {
+                            m_fileWatchTimestamps[entry.path().string()] = std::filesystem::last_write_time(entry.path());
+                            std::ifstream ef(entry.path());
+                            if (ef) {
+                                try {
+                                    json ej; ef >> ej;
+                                    Entity e;
+                                    e.id = entry.path().stem().string();
+                                    e.name = ej.value("name", e.id);
+                                    e.default_pos_x = ej.value("default_pos_x", 0.5f);
+                                    if (ej.contains("sprites")) {
+                                        for (auto& [sname, sdef] : ej["sprites"].items()) {
+                                            SpriteDef sd;
+                                            sd.path = sdef.value("path", "");
+                                            if (!spritesDir.empty() && !sd.path.empty()) {
+                                                sd.path = (std::filesystem::path(spritesDir) / sd.path).string();
+                                            }
+                                            sd.frames = sdef.value("frames", 1);
+                                            sd.speed = sdef.value("speed", 5.0f);
+                                            sd.scale = sdef.value("scale", 1.0f);
+                                            e.sprites[sname] = sd;
+                                        }
+                                    }
+                                    if (ej.contains("aliases")) e.aliases = ej["aliases"];
+                                    m_project.entities[e.id] = e;
+                                } catch (const std::exception& err) {
+                                    Log("Failed to parse entity file " + entry.path().string() + ": " + err.what(), "WARN");
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    Log("Entities directory not found: " + entDir, "WARN");
+                }
+            }
+
+            // Asset Auto-Discovery
+            if (j.contains("directories") && j["directories"].contains("assets")) {
+                std::string assetsDir = (basePath / j["directories"]["assets"].get<std::string>()).string();
+                if (std::filesystem::exists(assetsDir)) {
+                    for (const auto& entry : std::filesystem::recursive_directory_iterator(assetsDir)) {
+                        if (entry.is_regular_file()) {
+                            std::string ext = entry.path().extension().string();
+                            std::string stem = entry.path().stem().string();
+                            std::string path = entry.path().string();
+                            if (ext == ".png" || ext == ".jpg") m_project.backgrounds[stem] = path;
+                            else if (ext == ".mp3" || ext == ".ogg") m_project.music[stem] = path;
+                            else if (ext == ".wav") m_project.sfx[stem] = path;
+                            else if (ext == ".ttf") m_project.fonts[stem] = path;
+                        }
+                    }
+                } else {
+                    Log("Assets directory not found: " + assetsDir, "WARN");
+                }
+            }
+
+            m_vm->BuildLabelIndex();
+            m_state.UIStates().clear();
+            for (auto& [id, def] : m_project.uiLayouts) {
+                m_state.UIStates()[id] = def;
+                if (!def.path.empty() && std::filesystem::exists(def.path)) {
+                    m_fileWatchTimestamps[def.path] = std::filesystem::last_write_time(def.path);
+                }
+                if (def.active) {
+                    UICommand cmd; cmd.type = UICommand::Type::Load;
+                    cmd.name = id; cmd.arg1 = def.path; cmd.layer = def.layer;
+                    m_pendingUICommands.push_back(cmd);
+                }
+            }
+            return true;
+
+        } catch (const std::exception& e) {
+            RecordError("LoadProject", std::string("Failed to load project JSON: ") + e.what());
+            return false;
+        }
+    }
+
     if (configFilePath.size() > 10 && configFilePath.substr(configFilePath.size() - 10) == ".bitscript") {
         bool result = BitScriptInterpreter::LoadScriptFile(configFilePath, m_project);
         if (result) {
@@ -31,11 +178,8 @@ bool BitRuntime::LoadProject(const std::string& configFilePath) {
             for (auto& [id, def] : m_project.uiLayouts) {
                 m_state.UIStates()[id] = def;
                 if (def.active) {
-                    UICommand cmd;
-                    cmd.type = UICommand::Type::Load;
-                    cmd.name = id;
-                    cmd.arg1 = def.path;
-                    cmd.layer = def.layer;
+                    UICommand cmd; cmd.type = UICommand::Type::Load;
+                    cmd.name = id; cmd.arg1 = def.path; cmd.layer = def.layer;
                     m_pendingUICommands.push_back(cmd);
                 }
             }
@@ -47,7 +191,7 @@ bool BitRuntime::LoadProject(const std::string& configFilePath) {
         return LoadBytecodeFile(configFilePath);
     }
 
-    RecordError("LoadProject", "Unsupported file type: " + configFilePath + ". Only .bitscript and .bitc are supported.");
+    RecordError("LoadProject", "Unsupported file type: " + configFilePath + ". Expected .json, .bitscript or .bitc.");
     return false;
 }
 
@@ -539,6 +683,12 @@ void BitRuntime::EmitEvent(const std::string& evt) {
 
 void BitRuntime::Update(float dt) {
     if (!m_isActive) return;
+    
+    m_hotReloadTimer += dt;
+    if (m_hotReloadTimer > 1.0f) {
+        m_hotReloadTimer = 0.0f;
+        CheckHotReload();
+    }
     if (m_inputLockoutTimer > 0.0f) m_inputLockoutTimer -= dt;
     
     for (auto it = m_state.ActiveTimelines().begin(); it != m_state.ActiveTimelines().end(); ) {
@@ -937,4 +1087,50 @@ bool BitRuntime::IsVisualAnimating() const {
     for (const auto& [id, state] : m_state.GetActiveEntities()) if (state.moveTimer < state.moveDuration || state.fadeTimer < state.fadeDuration) return true;
     if (m_state.BgFadeAlpha() < 1.0f) return true;
     return false;
+}
+
+void BitRuntime::CheckHotReload() {
+    bool changed = false;
+    for (auto& [pathStr, lastTime] : m_fileWatchTimestamps) {
+        try {
+            if (std::filesystem::exists(pathStr)) {
+                auto newTime = std::filesystem::last_write_time(pathStr);
+                if (newTime > lastTime) {
+                    m_fileWatchTimestamps[pathStr] = newTime;
+                    changed = true;
+                    Log("Hot-reloading file: " + pathStr);
+                    if (pathStr.find("entities") != std::string::npos) {
+                        std::ifstream ef(pathStr);
+                        if (ef) {
+                            json ej; ef >> ej;
+                            Entity e;
+                            e.id = std::filesystem::path(pathStr).stem().string();
+                            e.name = ej.value("name", e.id);
+                            e.default_pos_x = ej.value("default_pos_x", 0.5f);
+                            if (ej.contains("sprites")) {
+                                for (auto& [sname, sdef] : ej["sprites"].items()) {
+                                    SpriteDef sd; sd.path = sdef.value("path", "");
+                                    if (!sd.path.empty()) sd.path = (std::filesystem::path(m_projectBasePath) / "assets/sprites" / sd.path).string();
+                                    sd.frames = sdef.value("frames", 1);
+                                    sd.speed = sdef.value("speed", 5.0f);
+                                    sd.scale = sdef.value("scale", 1.0f);
+                                    e.sprites[sname] = sd;
+                                }
+                            }
+                            if (ej.contains("aliases")) e.aliases = ej["aliases"];
+                            m_project.entities[e.id] = e;
+                        }
+                    } else if (pathStr.find("ui") != std::string::npos) {
+                        for (auto& [id, def] : m_project.uiLayouts) {
+                            if (def.path == pathStr && def.active) {
+                                UICommand cmd; cmd.type = UICommand::Type::Load;
+                                cmd.name = id; cmd.arg1 = def.path; cmd.layer = def.layer;
+                                m_pendingUICommands.push_back(cmd);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (...) {}
+    }
 }

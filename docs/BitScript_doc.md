@@ -7,14 +7,11 @@ BitScript is a lightweight, high-performance narrative scripting language design
 
 ## 🎮 Language Overview
 
-A BitScript project is composed of several global blocks:
-1.  **`config`**: Global engine settings and project metadata.
-2.  **`var`**: Global state variables (persistent across saves).
-3.  **`entities`**: Definitions for characters, system actors, and moods.
-4.  **`assets`**: Registry for backgrounds, music, sfx, and fonts.
-5.  **`event`**: Named logic blocks that can be triggered externally or via `emit`.
-6.  **`timeline`**: Time-precise sequences of commands for complex cutscenes.
-7.  **`scene`**: The core execution nodes containing dialogue and logic.
+A BitScript project operates alongside a `project.json` file which handles configurations, assets, and entities. The BitScript file itself handles only game logic and contains these global blocks:
+1.  **`var`**: Global state variables (persistent across saves).
+2.  **`event`**: Named logic blocks that can be triggered externally or via `emit`.
+3.  **`timeline`**: Time-precise sequences of commands for complex cutscenes.
+4.  **`scene`**: The core execution nodes containing dialogue and logic.
 
 ---
 
@@ -23,42 +20,18 @@ A BitScript project is composed of several global blocks:
 ```ebnf
 Program             = { GlobalStatement } ;
 
-GlobalStatement     = ConfigBlock
-                    | VariableDecl
-                    | EntityBlock
-                    | AssetBlock
+GlobalStatement     = VariableDecl
                     | EventBlock
                     | TimelineBlock
                     | SceneBlock
                     | [ ";" ] ;
-
-ConfigBlock         = "config" "{" { ConfigEntry } "}" ";" ;
-ConfigEntry         = Identifier "=" Expression ";" ;
 
 VariableDecl        = "var" Identifier [ "=" Expression ] [ "{" { RangeProp } "}" ] ";" ;
 RangeProp           = ("min" | "max") "=" Expression ";" ;
 
 Assignment          = Identifier ( "=" | "+=" | "-=" | "*=" | "/=" ) Expression ";" ;
 
-EntityBlock         = "entities" "{" { Entity } "}" [ ";" ] ;
-Entity              = Identifier "{" { EntityProperty } "}" [ ";" ] ;
-EntityProperty      = "name" "=" String ";"
-                    | "default_pos" "=" Position ";"
-                    | SpriteBlock
-                    | AliasBlock ;
 
-SpriteBlock         = "sprite" Identifier "{" { SpriteProperty } "}" [ ";" ] ;
-SpriteProperty      = "path" "=" String ";"
-                    | "frames" "=" Expression ";"
-                    | "speed" "=" Expression ";"
-                    | "scale" "=" Expression ";" ;
-
-AliasBlock          = "alias" Identifier "{" { AliasProperty } "}" [ ";" ] ;
-AliasProperty       = Identifier "=" Expression [ "," ] ;
-
-AssetBlock          = "assets" "{" { AssetTypeBlock } "}" [ ";" ] ;
-AssetTypeBlock      = ("bg" | "music" | "sfx" | "fonts") "{" { AssetEntry } "}" ;
-AssetEntry          = Identifier "=" String ";" ;
 
 EventBlock          = "event" Identifier "{" { SceneStatement } "}" [ ";" ] ;
 
@@ -136,23 +109,31 @@ Identifier          = Letter { Letter | Digit | "_" } ;
 
 ## 🎭 Detailed Syntax
 
-### 1. Config Block
-Sets engine-level parameters. 
-- `start_node`: The ID of the first scene to execute.
-- `mode`: Interaction mode (`typewriter` or `instant`).
-- `reveal_speed`: Characters per second (base speed).
-- `auto_save`: Enable automatic binary state persistence on every dialogue block.
-- `max_slots`: Number of manual save slots available (default 5).
-- `enable_floating`: Globally toggle character breathing animations.
-- `enable_shadows`: Globally toggle character drop shadows.
+### 1. Project Architecture (`project.json`)
+BitEngine uses a centralized `project.json` for all configurations, UI layout definitions, and folder structures. The engine automatically discovers assets (images, music, sfx, fonts) from the specified `assets` subdirectories.
 
-```bitscript
-config {
-    start_node = intro_scene;
-    reveal_speed = 45;
-    auto_save = true;
-    max_slots = 10;
-};
+```json
+{
+    "directories": {
+        "assets": "assets/",
+        "entities": "assets/entities/",
+        "ui": "assets/ui/",
+        "sprites": "assets/sprites/"
+    },
+    "runtime": {
+        "scripts": ["scripts/main.bitscript"],
+        "start_scene": "init",
+        "strict_assets": true
+    },
+    "ui_layouts": {
+        "dialog_ui": {
+            "path": "ui_default.json",
+            "layer": 10,
+            "active": false,
+            "visible": true
+        }
+    }
+}
 ```
 
 ### 2. Variables & Constraints
@@ -163,26 +144,27 @@ var visited_castle = false;
 ```
 
 ### 3. Entities, Sprites & Aliases
-Entities define characters. **Aliases** allow mapping a "mood" to multiple properties at once.
-- **`sprite`**: Define frame-based animations or static textures.
-- **`alias`**: A shortcut that can set `sprite`, `pos`, `alpha`, or other modifiers when used in dialogue.
+Entities are defined as individual `.json` files in the `assets/entities/` directory. They map character IDs to names, poses, and shortcuts. The filename becomes the entity's ID (e.g., `akira.json` -> ID: `akira`).
 
-```bitscript
-entities {
-    akira {
-        name = "Akira";
-        default_pos = right;
+- **`sprites`**: Maps expressions to textures. Paths are automatically prefixed with the `sprites` directory from `project.json`.
+- **`aliases`**: Shortcuts that set multiple modifiers (like `sprite`, `pos`, `shake`) when used in dialogue.
 
-        sprite idle { path = "assets/akira_idle.png"; frames = 2; speed = 4.0; };
-        sprite angry_sp { path = "assets/akira_angry.png"; frames = 1; };
-
-        alias angry {
-            sprite = angry_sp,
-            pos = center,
-            shake = true
-        };
-    };
-};
+```json
+{
+    "name": "Akira",
+    "default_pos_x": 0.8,
+    "sprites": {
+        "idle": { "path": "akira_idle.png", "frames": 2, "speed": 4.0 },
+        "angry_sp": { "path": "akira_angry.png" }
+    },
+    "aliases": {
+        "angry": {
+            "sprite": "angry_sp",
+            "pos": "center",
+            "shake": true
+        }
+    }
+}
 ```
 
 ### 4. Rich Text Tags
@@ -216,23 +198,17 @@ The engine exposes internal state through **System Variables** prefixed with `va
 ---
 
 ### 🎨 UI Asset Management
-UI layouts can be registered as complex assets with default layers and initial states.
+UI layouts are registered in `project.json` under `ui_layouts`. You define the UI's ID, its file path relative to the `ui` directory, layer order, and its initial state.
 
-```bitscript
-assets {
-    ui {
-        # Simple registration (name = path)
-        inventory = "res/ui/inventory.json";
-
-        # Complex registration (block syntax)
-        hud {
-            path    = "res/ui/hud.json";
-            layer   = 10;      # Default Z-index
-            active  = true;    # Process bindings/input immediately
-            visible = true;    # Show on screen immediately
+```json
+    "ui_layouts": {
+        "hud": {
+            "path": "hud.json",
+            "layer": 10,
+            "active": true,
+            "visible": true
         }
     }
-}
 ```
 
 ---

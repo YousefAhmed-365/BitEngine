@@ -1,3 +1,1 @@
-./build/BitEngine -c res/main.bitscript
-
-./build/BitEngine res/main.bitc
+./build/BitEngine -r res/project.json

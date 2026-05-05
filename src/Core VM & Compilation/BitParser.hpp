@@ -55,10 +55,7 @@ private:
     std::string genTempVar();
     void emit(BitOp op, std::vector<std::string> args = {}, nlohmann::json meta = {});
     
-    void ParseConfig();
     void ParseVariable();
-    void ParseEntities();
-    void ParseAssets();
     void ParseEvent();
     void ParseScene();
     std::string ParseTimeline();

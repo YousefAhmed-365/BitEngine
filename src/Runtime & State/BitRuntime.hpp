@@ -82,6 +82,7 @@ struct DialogConfigs {
     float auto_play_delay = 2.0f;
     bool auto_save = false, encrypt_save = false; 
     bool enable_floating = true, enable_shadows = true, enable_vignette = true;
+    bool strict_assets = false;
     int max_slots = 5;
 };
 
@@ -290,6 +291,11 @@ private:
     std::vector<std::string> m_errors;
     std::vector<UICommand> m_pendingUICommands;
     nlohmann::json m_sysVars;
+
+    std::string m_projectBasePath;
+    std::unordered_map<std::string, std::filesystem::file_time_type> m_fileWatchTimestamps;
+    float m_hotReloadTimer = 0.0f;
+    void CheckHotReload();
 
     void UpdateSysVars();
     void RecordError(const std::string& context, const std::string& msg);

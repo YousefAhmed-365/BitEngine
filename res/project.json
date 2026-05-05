@@ -1,0 +1,50 @@
+{
+    "project": {
+        "title": "BitEngine - Dev",
+        "version": "1.0.0",
+        "developer": "Yousef"
+    },
+    "window": {
+        "width": 1280,
+        "height": 720,
+        "min_width": 800,
+        "min_height": 600,
+        "resizable": true,
+        "fullscreen": false,
+        "vsync": true,
+        "borderless": false,
+        "msaa_4x": true,
+        "fps": 60
+    },
+    "directories": {
+        "assets": "assets/",
+        "entities": "assets/entities/",
+        "ui": "assets/ui/",
+        "sprites": "assets/sprites/",
+        "saves": "save/",
+        "build": "build/"
+    },
+    "runtime": {
+        "scripts": [
+            "scripts/main.bitscript"
+        ],
+        "start_scene": "init",
+        "debug_mode": "none",
+        "strict_assets": false
+    },
+    "narrative": {
+        "mode": "typewriter",
+        "reveal_speed": 45,
+        "auto_play_delay": 2.0,
+        "auto_save": false,
+        "max_save_slots": 5
+    },
+    "ui_layouts": {
+        "dialog_ui": {
+            "path": "ui_default.json",
+            "layer": 10,
+            "active": false,
+            "visible": true
+        }
+    }
+}

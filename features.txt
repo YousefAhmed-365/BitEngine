@@ -5,8 +5,7 @@
 --------------------------------------------------------------------------------
 1. BITSCRIPT NARRATIVE ENGINE (v0.2)
 --------------------------------------------------------------------------------
-BitEngine now uses a strictly bytecode-driven architecture, moving away from 
-legacy JSON definitions to a high-performance custom VM.
+BitEngine now uses a centralized data-driven `project.json` architecture while the logic executes on a strictly bytecode-driven high-performance custom VM.
 
 A. BITSCRIPT LANGUAGE FEATURES
     - Scene Management: `scene scene_id(params) { ... };` blocks with support for nesting and parameters.
@@ -119,6 +118,8 @@ C. DIRECT CINEMATIC CONTROL
 --------------------------------------------------------------------------------
 - Background Music (BGM): Continuous looping tracks with automatic caching.
 - Sound Effects (SFX): One-shot triggers with memory management and silent fallbacks.
+- Asset Auto-Discovery: Dynamically discovers images, sounds, and fonts from the `assets/` subdirectories, eliminating hardcoded asset manifest blocks.
+- Strict Asset Validation: Native `strict_assets` engine flag to halt the game with clear console logs when referenced assets are missing, or gracefully fallback to magenta placeholders when disabled.
 - Global Registry: Centralized mapping for backgrounds, music, and sfx IDs.
 - XOR Security: Native encryption for project files and compiled bytecode.
 
@@ -128,12 +129,15 @@ C. DIRECT CINEMATIC CONTROL
 The engine provides a robust toolset for building and debugging narratives.
 
 A. COMMAND LINE INTERFACE (BitEngine CLI)
-   - `-c, --compile <src> [dst]`: Compiles .bitscript into encrypted bytecode.
-   - `-r, --run <file>`: Runs the specified compiled file or source project.
+   - `-c, --compile <project.json>`: Compiles all scripts in the project into encrypted bytecode.
+   - `-r, --run <project.json>`: Runs the specified project directly from source or compiled binary.
    - `-d, --debug`: Starts the engine with the unified debug overlay active.
    - `-s, --style <id>`: Launches with a specific UI style preset.
 
-B. UNIFIED DEBUG OVERLAY (F3)
+B. HOT-RELOADING
+    - Instant live-updates to UI layouts (`ui/`) and entity properties (`entities/`) when their JSON source files are modified during gameplay, enabling seamless rapid iteration.
+
+C. UNIFIED DEBUG OVERLAY (F3)
     - Bytecode Inspector: Real-time visualization of the running VM bytecode with 
       PC tracking, argument sanitization, and metadata analysis.
     - Local Scope & Stack: Specialized panel for monitoring call depth, return 

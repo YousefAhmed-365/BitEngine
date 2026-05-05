@@ -37,6 +37,10 @@ private:
     int         m_minHeight   = 600;
     int         m_fps         = 60;
     bool        m_resizable   = true;
+    bool        m_fullscreen  = false;
+    bool        m_vsync       = true;
+    bool        m_borderless  = false;
+    bool        m_msaa_4x     = true;
 };
 
 #endif

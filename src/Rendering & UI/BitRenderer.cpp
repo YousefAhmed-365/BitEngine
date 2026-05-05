@@ -324,10 +324,26 @@ void BitRenderer::PreloadAssets() {
     for (auto& [id, path] : proj.backgrounds) GetTexture(path);
     for (auto& [id, path] : proj.music) {
         if (path.empty() || m_musicCache.count(path)) continue;
+        if (!FileExists(path.c_str())) {
+            if (m_engine.GetConfigs().strict_assets) {
+                std::cout << "\n[ERROR] Strict Mode: Missing BGM asset: " << path << std::endl;
+                exit(1);
+            }
+            std::cout << "[WARN] Missing BGM asset: " << path << std::endl;
+            continue;
+        }
         m_musicCache[path] = LoadMusicStream(path.c_str());
     }
     for (auto& [id, path] : proj.sfx) {
         if (path.empty() || m_sfxCache.count(path)) continue;
+        if (!FileExists(path.c_str())) {
+            if (m_engine.GetConfigs().strict_assets) {
+                std::cout << "\n[ERROR] Strict Mode: Missing SFX asset: " << path << std::endl;
+                exit(1);
+            }
+            std::cout << "[WARN] Missing SFX asset: " << path << std::endl;
+            continue;
+        }
         m_sfxCache[path] = LoadSound(path.c_str());
     }
     for (auto& [id, ent] : proj.entities)
@@ -346,15 +362,31 @@ Texture2D BitRenderer::GetTexture(const std::string& path) {
         Texture2D t = LoadTexture(path.c_str());
         m_textureCache[path] = t;
         if (t.id > 0) return t;
-    } else { m_textureCache[path] = {}; }
+    } else { 
+        m_textureCache[path] = {}; 
+        if (m_engine.GetConfigs().strict_assets) {
+            std::cout << "\n[ERROR] Strict Mode: Missing texture asset: " << path << std::endl;
+            exit(1);
+        } else {
+            std::cout << "[WARN] Missing texture asset: " << path << std::endl;
+        }
+    }
     return m_fallbackTexture;
 }
 
 Font BitRenderer::GetFont(const std::string& path) { return m_uiManager.GetFont(path); }
 
 void BitRenderer::PlaySFX(const std::string& path) {
+    if (path.empty()) return;
     auto it = m_sfxCache.find(path);
-    if (it != m_sfxCache.end() && it->second.frameCount > 0) PlaySound(it->second);
+    if (it != m_sfxCache.end() && it->second.frameCount > 0) {
+        PlaySound(it->second);
+    } else if (m_engine.GetConfigs().strict_assets) {
+        std::cout << "\n[ERROR] Strict Mode: Missing SFX asset: " << path << std::endl;
+        exit(1);
+    } else {
+        std::cout << "[WARN] Missing SFX asset: " << path << std::endl;
+    }
 }
 
 void BitRenderer::CreateFallbackTexture() {
