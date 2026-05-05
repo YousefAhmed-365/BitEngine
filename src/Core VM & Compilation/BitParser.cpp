@@ -3,6 +3,12 @@
 #include <sstream>
 #include <algorithm>
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Syntax Analysis & Bytecode Generation: Tokens → Bytecode
+// ─────────────────────────────────────────────────────────────────────────────
+// Parses BitScript according to grammar rules and emits bytecode instructions.
+// ─────────────────────────────────────────────────────────────────────────────
+
 BitParser::BitParser(const std::vector<Token>& tokens, BitProject& p) 
     : tokens(tokens), p(p), pos(0), tempVarCount(0), currentScene("") {
     m_currentOutput = &p.bytecode;

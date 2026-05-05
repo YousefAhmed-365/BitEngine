@@ -8,15 +8,18 @@
 #include <string>
 #include <vector>
 
-/**
- * BitGraphics: Low-level rendering & asset management for BitEngine
- * 
- * Manages:
- * - Texture caching & loading
- * - Font loading & caching
- * - Primitive drawing (rectangles, text, etc)
- * - Special effects (vignette, fallback assets)
- */
+// ─────────────────────────────────────────────────────────────────────────────
+// BitGraphics: Asset & Rendering Backend
+// ─────────────────────────────────────────────────────────────────────────────
+// Low-level graphics engine providing texture/font management and drawing.
+//
+// Key Features:
+//   - Asset caching prevents redundant disk I/O
+//   - Fallback textures for missing assets (graceful degradation)
+//   - Rich text rendering with line wrapping and color tags
+//   - Styled panel drawing with borders, rounding, and nine-slice scaling
+//   - Vignette overlay for atmospheric effects
+// ─────────────────────────────────────────────────────────────────────────────
 class BitGraphics {
 public:
     BitGraphics();

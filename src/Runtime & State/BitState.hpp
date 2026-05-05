@@ -9,6 +9,13 @@
 #include <map>
 #include <vector>
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Runtime State & Data Structures
+// ─────────────────────────────────────────────────────────────────────────────
+// Data classes representing mutable runtime state (animation, entity positions, etc).
+// BitState is the primary container holding all game state that persists across frames.
+// ─────────────────────────────────────────────────────────────────────────────
+
 // Forward declarations and core structures for runtime state
 struct ActiveEntityState {
     std::string pos = "center";
@@ -58,16 +65,22 @@ struct UILayoutDef {
     bool visible = true;
 };
 
-/**
- * BitState: Runtime state container for the narrative engine
- * 
- * Separates game state from execution logic. Holds:
- * - Variables (global & persistent)
- * - Active UI states
- * - Entity animations
- * - History
- * - Save/load data
- */
+// ─────────────────────────────────────────────────────────────────────────────
+// BitState: Persistent Game State Container
+// ─────────────────────────────────────────────────────────────────────────────
+// Holds all mutable narrative engine state that persists between frames.
+//
+// State Categories:
+//   - Variables: Global game state (counters, flags, etc)
+//   - Active Entities: On-screen characters with animation/position states
+//   - Timelines: Parallel sequences of timed events
+//   - Audio: Current BGM track and fade parameters
+//   - Visual: Screen fade, background, entity animations
+//   - UI: Layout visibility and activation states
+//   - History: Dialogue transcript and debug event trace
+//
+// See BitRuntime for the main engine that reads/updates this state.
+// ─────────────────────────────────────────────────────────────────────────────
 class BitState {
 public:
     // Variables

@@ -1,6 +1,12 @@
 #include "BitAudio.hpp"
 #include <iostream>
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Audio Playback & Management
+// ─────────────────────────────────────────────────────────────────────────────
+// BGM (background music) and SFX (sound effects) playback with caching.
+// ─────────────────────────────────────────────────────────────────────────────
+
 BitAudio::BitAudio() {}
 
 BitAudio::~BitAudio() {

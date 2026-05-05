@@ -4,6 +4,16 @@
 #include "raylib.h"
 #include <string>
 
+// ─────────────────────────────────────────────────────────────────────────────
+// BitApp
+// Main application entry point and window manager for the BitEngine
+// ─────────────────────────────────────────────────────────────────────────────
+// Responsibilities:
+//   - Command-line argument processing (compile, dry-run, list-scenes, stats)
+//   - Configuration loading from res/app.json
+//   - Window setup and lifecycle management via Raylib
+//   - Orchestration of the runtime engine
+// ─────────────────────────────────────────────────────────────────────────────
 class BitApp {
 public:
     BitApp();

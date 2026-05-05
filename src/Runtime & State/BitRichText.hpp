@@ -5,6 +5,21 @@
 #include <vector>
 #include <cstring>
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Rich Text & Markup Processing
+// ─────────────────────────────────────────────────────────────────────────────
+// Parses markup tags embedded in dialogue text to apply inline formatting.
+//
+// Supported Markup:
+//   - Colors: [red], [#FF00FF], [rgb:255,0,0]
+//   - Speed: [speed:0.5] — typewriter speed multiplier
+//   - Effects: [shake], [wave] — per-character animation
+//   - Timing: [wait:500ms] — pause before revealing character
+//   - Fonts: [font:serif] — font override for character range
+//
+// Usage: RichTextParser::Parse("Hello [red]world[/red]!") → RichChar stream
+// ─────────────────────────────────────────────────────────────────────────────
+
 // Hardware-agnostic color representation
 struct BitColor {
     unsigned char r, g, b, a;
@@ -24,16 +39,12 @@ struct RichChar {
     RichChar() { std::memset(ch, 0, 5); }
 };
 
-/**
- * RichTextParser: Parses rich text markup and generates RichChar stream
- * 
- * Supports:
- * - Color tags: [red], [#FF00FF], etc
- * - Speed modifiers: [speed:0.5]
- * - Effects: [shake], [wave]
- * - Delays: [wait:500ms]
- * - Font overrides: [font:serif]
- */
+// ─────────────────────────────────────────────────────────────────────────────
+// RichTextParser: Markup → Formatted Characters
+// ─────────────────────────────────────────────────────────────────────────────
+// Converts raw text with embedded markup tags into a stream of formatted characters.
+// Each character carries color, animation parameters, and timing information.
+// ─────────────────────────────────────────────────────────────────────────────
 class RichTextParser {
 public:
     static std::vector<RichChar> Parse(const std::string& rawText);

@@ -3,6 +3,12 @@
 #include <fstream>
 #include <sstream>
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Compilation Pipeline
+// ─────────────────────────────────────────────────────────────────────────────
+// Three-stage compilation: Lexing → Parsing → Bytecode Generation
+// ─────────────────────────────────────────────────────────────────────────────
+
 bool BitCompiler::CompileFile(const std::string& path, BitProject& project) {
     std::ifstream file(path);
     if (!file) return false;

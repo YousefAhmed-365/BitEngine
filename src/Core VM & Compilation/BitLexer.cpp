@@ -3,6 +3,12 @@
 #include <algorithm>
 #include <cctype>
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Lexical Analysis: Source → Tokens
+// ─────────────────────────────────────────────────────────────────────────────
+// Tokenizer recognizes keywords, identifiers, numbers, strings, and operators.
+// ─────────────────────────────────────────────────────────────────────────────
+
 BitLexer::BitLexer(const std::string& src) : src(src), pos(0), line(1) {}
 
 std::vector<Token> BitLexer::Tokenize() {

@@ -4,6 +4,13 @@
 #include <string>
 #include <vector>
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Lexical Analysis (Tokenization)
+// ─────────────────────────────────────────────────────────────────────────────
+// Converts raw BitScript source text into a stream of tokens.
+// This is the first stage of the compilation pipeline.
+// ─────────────────────────────────────────────────────────────────────────────
+
 enum class TokenType {
     Identifier, Number, String, Keyword, Symbol, EndOfFile
 };
@@ -14,6 +21,14 @@ struct Token {
     int line;
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// BitLexer: Source → Tokens
+// ─────────────────────────────────────────────────────────────────────────────
+// Scans BitScript source code and produces tokens.
+// - Recognizes keywords, identifiers, numbers, strings, and symbols
+// - Tracks line numbers for error reporting
+// - Validates token sequences for basic syntax errors
+// ─────────────────────────────────────────────────────────────────────────────
 class BitLexer {
 public:
     BitLexer(const std::string& src);

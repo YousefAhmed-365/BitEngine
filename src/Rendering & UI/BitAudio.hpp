@@ -6,15 +6,20 @@
 #include <string>
 #include <vector>
 
-/**
- * BitAudio: Audio system for BitEngine
- * 
- * Manages:
- * - SFX playback
- * - Music streaming (BGM)
- * - Audio caching
- * - Volume/fade transitions
- */
+// ─────────────────────────────────────────────────────────────────────────────
+// BitAudio: Sound & Music Management
+// ─────────────────────────────────────────────────────────────────────────────
+// Manages all audio playback for BitEngine using Raylib's audio API.
+//
+// Audio Types:
+//   - BGM (Background Music): Streamed, looped, single instance at a time
+//   - SFX (Sound Effects): Short samples, concurrent playback, cached
+//
+// Features:
+//   - Asset caching prevents repeated disk I/O
+//   - Fade transitions between tracks
+//   - Graceful handling of missing audio files
+// ─────────────────────────────────────────────────────────────────────────────
 class BitAudio {
 public:
     BitAudio();

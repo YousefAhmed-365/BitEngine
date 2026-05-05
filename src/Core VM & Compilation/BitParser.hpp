@@ -9,11 +9,30 @@
 // Include BitEngine for BitProject definition
 #include "BitRuntime.hpp"
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Syntax Analysis & Bytecode Generation
+// ─────────────────────────────────────────────────────────────────────────────
+// Parses token stream into an abstract syntax tree and generates bytecode.
+// This is the second and third stages of the compilation pipeline.
+// ─────────────────────────────────────────────────────────────────────────────
+
 struct Operand {
     bool isRef;
     std::string val;
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// BitParser: Tokens → Bytecode
+// ─────────────────────────────────────────────────────────────────────────────
+// Parses token stream according to BitScript grammar rules.
+// Produces BitOperation bytecode instructions and populates BitProject.
+//
+// Parsing stages:
+//   1. Configuration (set statements, entity defs, asset paths)
+//   2. Timeline definitions (animated event sequences)
+//   3. Scene blocks (dialogue, branching, conditionals)
+//   4. Expression evaluation (operators, variable references)
+// ─────────────────────────────────────────────────────────────────────────────
 class BitParser {
 public:
     BitParser(const std::vector<Token>& tokens, BitProject& p);

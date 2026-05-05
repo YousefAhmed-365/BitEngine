@@ -5,6 +5,12 @@
 #include <algorithm>
 #include <cmath>
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Virtual Machine: Bytecode Execution
+// ─────────────────────────────────────────────────────────────────────────────
+// Executes BitEngine bytecode instructions, managing control flow and state.
+// ─────────────────────────────────────────────────────────────────────────────
+
 BitVM::BitVM(BitRuntime& engine) : m_engine(engine), m_pc(0), m_isWaiting(false), m_isDelayed(false) {}
 
 void BitVM::BuildLabelIndex() {

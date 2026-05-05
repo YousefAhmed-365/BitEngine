@@ -1,6 +1,12 @@
 #include "BitGraphics.hpp"
 #include <iostream>
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Asset Management & Low-Level Drawing
+// ─────────────────────────────────────────────────────────────────────────────
+// Texture and font caching, fallback assets, and wrapper drawing functions.
+// ─────────────────────────────────────────────────────────────────────────────
+
 BitGraphics::BitGraphics() {}
 
 BitGraphics::~BitGraphics() {

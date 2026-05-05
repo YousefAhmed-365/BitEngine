@@ -121,6 +121,30 @@ struct UICommand {
     int         layer = 0;
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// BitRuntime: Narrative Engine Core
+// ─────────────────────────────────────────────────────────────────────────────
+// The central narrative engine orchestrating all screenplay execution, state,
+// and interactions between VM, renderer, and game logic.
+//
+// Key Responsibilities:
+//   - Bytecode execution (delegates to BitVM)
+//   - State management (BitState holds all persistent/frame data)
+//   - Asset loading and registry (backgrounds, music, SFX, fonts)
+//   - Save/load game persistence
+//   - Game variable tracking
+//   - Active entity/timeline management
+//   - Event handling (dialogue options, timed events)
+//   - Rich text parsing & reveal animation
+//   - Debug overlay & introspection
+//
+// Control Flow:
+//   1. LoadProject/CompileProject: Load & parse screenplay
+//   2. StartDialog: Initialize execution at a scene node
+//   3. Update(deltaTime): Execute one frame (advance VM, animate, reveal text)
+//   4. SelectOption: Handle player choice input
+//   5. Next/EmitEvent: Advance or trigger branch logic
+// ─────────────────────────────────────────────────────────────────────────────
 class BitRuntime {
     friend class BitVM;
 public:

@@ -1,6 +1,12 @@
 #include "UIRenderer.hpp"
 #include "BitRuntime.hpp"
 
+// ─────────────────────────────────────────────────────────────────────────────
+// UI Rendering & Input (Legacy / Alternate Implementation)
+// ─────────────────────────────────────────────────────────────────────────────
+// Alternative UI rendering pipeline. BitRenderer is the active renderer.
+// ─────────────────────────────────────────────────────────────────────────────
+
 UIRenderer::UIRenderer(BitRuntime& engine) : m_engine(engine) {}
 
 UIRenderer::~UIRenderer() {
