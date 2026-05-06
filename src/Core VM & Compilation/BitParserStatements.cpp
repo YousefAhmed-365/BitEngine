@@ -14,61 +14,57 @@ void BitParser::ParseStatement() {
         emit(BitOp::EVENT, {"leave"}, j);
     }
     else if (match(TokenType::Keyword, "ui")) {
-        std::string action = consume().value;
-        if (peek().type == TokenType::Identifier) {
-            std::string id = consume().value;
+        std::string action = peek().value; consume();
+        if (action == "show" || action == "hide") {
+            // ui show; / ui hide; — optional scoped id after action
+            if (peek().type == TokenType::Identifier) {
+                std::string id = consume().value;
+                expect(TokenType::Symbol, ";");
+                std::string val = (action == "hide" ? "false" : "true");
+                emit(BitOp::UI_SET, {id, "visible", val});
+            } else {
+                expect(TokenType::Symbol, ";");
+                emit(BitOp::UI_VISIBLE, {action});
+            }
+        } else if (action == "activate") {
+            std::string name = consume().value;
+            std::vector<std::string> args = { name };
+            if (peek().type == TokenType::Number) args.push_back(consume().value);
             expect(TokenType::Symbol, ";");
-            std::string val = (action == "hide" ? "false" : "true");
-            emit(BitOp::UI_SET, {id, "visible", val});
+            emit(BitOp::UI_ACTIVATE, args);
+        } else if (action == "deactivate") {
+            std::string name = consume().value;
+            expect(TokenType::Symbol, ";");
+            emit(BitOp::UI_DEACTIVATE, {name});
+        } else if (action == "load") {
+            std::string name = consume().value;
+            std::string path = consume().value; // string token
+            std::string layer = "0";
+            if (peek().type == TokenType::Number) layer = consume().value;
+            expect(TokenType::Symbol, ";");
+            emit(BitOp::UI_LOAD, {name, path, layer});
+        } else if (action == "unload") {
+            std::string name = consume().value;
+            expect(TokenType::Symbol, ";");
+            emit(BitOp::UI_UNLOAD, {name});
+        } else if (action == "set") {
+            std::string name = consume().value;
+            std::string scopedId = name;
+            if (match(TokenType::Symbol, ".")) scopedId += "." + consume().value;
+            std::string prop = consume().value;
+            Operand val = ParseExpression(*m_currentOutput);
+            expect(TokenType::Symbol, ";");
+            emit(BitOp::UI_SET, {scopedId, prop, val.val});
         } else {
-            expect(TokenType::Symbol, ";");
-            emit(BitOp::UI_VISIBLE, {action});
+            p.parseErrors.push_back("Parse error line " + std::to_string(previous().line) +
+                ": Unknown ui sub-command '" + action + "'. Valid: show, hide, activate, deactivate, load, unload, set");
         }
     }
-    else if (match(TokenType::Keyword, "ui_load")) {
-        std::string name = consume().value;
-        expect(TokenType::Symbol, ",");
-        std::string path = consume().value;
-        std::string layer = "0";
-        if (match(TokenType::Symbol, ",")) {
-            Operand l = ParseExpression(*m_currentOutput);
-            layer = l.val;
-        }
-        expect(TokenType::Symbol, ";");
-        emit(BitOp::UI_LOAD, {name, path, layer});
-    }
-    else if (match(TokenType::Keyword, "ui_unload")) {
-        std::string name = consume().value;
-        expect(TokenType::Symbol, ";");
-        emit(BitOp::UI_UNLOAD, {name});
-    }
-    else if (match(TokenType::Keyword, "ui_activate")) {
-        std::string name = consume().value;
-        std::vector<std::string> args = { name };
-        if (match(TokenType::Symbol, ",")) {
-            Operand layer = ParseExpression(*m_currentOutput);
-            args.push_back(layer.val);
-        }
-        expect(TokenType::Symbol, ";");
-        emit(BitOp::UI_ACTIVATE, args);
-    }
-    else if (match(TokenType::Keyword, "ui_deactivate")) {
-        std::string name = consume().value;
-        expect(TokenType::Symbol, ";");
-        emit(BitOp::UI_DEACTIVATE, {name});
-    }
-    else if (match(TokenType::Keyword, "ui_set")) {
-        std::string name = consume().value;
-        std::string scopedId = name;
-        if (match(TokenType::Symbol, ".")) {
-            scopedId += "." + consume().value;
-        }
-        expect(TokenType::Symbol, ",");
-        std::string prop = consume().value;
-        expect(TokenType::Symbol, ",");
-        Operand val = ParseExpression(*m_currentOutput);
-        expect(TokenType::Symbol, ";");
-        emit(BitOp::UI_SET, {scopedId, prop, val.val});
+    else if (match(TokenType::Keyword, "ui_load") || match(TokenType::Keyword, "ui_unload") ||
+             match(TokenType::Keyword, "ui_set")  || match(TokenType::Keyword, "ui_activate") ||
+             match(TokenType::Keyword, "ui_deactivate")) {
+        p.parseErrors.push_back("Parse error line " + std::to_string(previous().line) +
+            ": '" + previous().value + "' has been removed. Use 'ui <action> ...' syntax instead.");
     }
     else if (match(TokenType::Keyword, "narration")) {
         nlohmann::json meta;
@@ -91,9 +87,18 @@ void BitParser::ParseStatement() {
         expect(TokenType::Symbol, ";");
         emit(BitOp::SAY, {"narration", text}, meta);
     }
-    else if (peek().type == TokenType::Identifier && (peekNext().value == ":" || peekNext().value == "[" || peekNext().value == "." || peekNext().value == "=" || peekNext().value == "{")) {
+    else if (peek().type == TokenType::Identifier && (
+        peekNext().value == ":" || peekNext().value == "[" || peekNext().value == "." ||
+        peekNext().value == "=" || peekNext().value == "{" ||
+        peekNext().value == "+=" || peekNext().value == "-=" ||
+        peekNext().value == "*=" || peekNext().value == "/=" ||
+        peekNext().value == "++" || peekNext().value == "--")) {
         std::string entity = consume().value;
-        if (match(TokenType::Symbol, "=")) {
+        // Assignment or compound assignment
+        if (match(TokenType::Symbol, "=") ||
+            peek().value == "+=" || peek().value == "-=" ||
+            peek().value == "*=" || peek().value == "/=" ||
+            peek().value == "++" || peek().value == "--") {
             ParseAssignment(entity, *m_currentOutput);
             return;
         }
@@ -208,12 +213,6 @@ void BitParser::ParseStatement() {
         else j["duration"] = ParseTime(dur.val);
         emit(BitOp::EVENT, {"delay"}, j);
     }
-    else if (match(TokenType::Keyword, "play_sfx")) {
-        std::string id = consume().value;
-        expect(TokenType::Symbol, ";");
-        nlohmann::json j; j["op"] = "play_sfx"; j["id"] = id;
-        emit(BitOp::EVENT, {"play_sfx"}, j);
-    }
     else if (match(TokenType::Keyword, "expression")) {
         std::string target = consume().value;
         expect(TokenType::Symbol, ",");
@@ -262,87 +261,112 @@ void BitParser::ParseStatement() {
         emit(BitOp::EVENT, {"random"}, j);
     }
     else if (match(TokenType::Keyword, "fade")) {
-        std::string target = consume().value;
-        expect(TokenType::Symbol, ",");
-        
+        std::string target = ParseAssetId();
+
         nlohmann::json j; j["op"] = "fade"; j["target"] = target;
         if (target == "bg") {
-            std::string valOrId = consume().value;
-            expect(TokenType::Symbol, ",");
-            j["id"] = valOrId;
+            std::string bgId = ParseAssetId();
+            j["id"] = bgId;
         } else {
-            Operand alpha = ParseExpression(*m_currentOutput);
-            expect(TokenType::Symbol, ",");
+            // alpha: bare number/id or (expr)
+            Operand alpha = ParseCinematicArg();
             if (alpha.isRef) j["alpha"] = alpha.val;
             else try { j["alpha"] = std::stof(alpha.val); } catch(...) { j["alpha"] = -1.0f; }
         }
-        
-        Operand dur = ParseExpression(*m_currentOutput);
-        
+
+        Operand dur = ParseCinematicArg();
         bool wait = match(TokenType::Keyword, "wait");
         expect(TokenType::Symbol, ";");
-        
+
         if (dur.isRef) j["duration"] = dur.val;
         else j["duration"] = ParseTime(dur.val);
-        
+
         emit(BitOp::EVENT, {"fade"}, j);
         if (wait) emit(BitOp::WAIT_ACTION, {"fade"});
     }
     else if (match(TokenType::Keyword, "move")) {
-        std::string target = consume().value;
-        expect(TokenType::Symbol, ",");
-        
+        std::string target = ParseAssetId();
+
         Operand x = {false, "0.5"};
-        if (peek().type == TokenType::Identifier && (peek().value == "left" || peek().value == "right" || peek().value == "center")) {
+        if (peek().type == TokenType::Identifier &&
+            (peek().value == "left" || peek().value == "right" || peek().value == "center")) {
             x.val = consume().value;
         } else {
-            x = ParseExpression(*m_currentOutput);
+            x = ParseCinematicArg();
         }
-        expect(TokenType::Symbol, ",");
-        Operand dur = ParseExpression(*m_currentOutput);
-        
+        Operand dur = ParseCinematicArg();
         bool wait = match(TokenType::Keyword, "wait");
         expect(TokenType::Symbol, ";");
-        
+
         nlohmann::json j; j["op"] = "move"; j["target"] = target;
-        if (x.isRef) j["x"] = x.val;
-        else j["x"] = x.val;
-        
+        j["x"] = x.val;
         if (dur.isRef) j["duration"] = dur.val;
         else j["duration"] = ParseTime(dur.val);
-        
+
         emit(BitOp::EVENT, {"move"}, j);
         if (wait) emit(BitOp::WAIT_ACTION, {"move"});
     }
     else if (match(TokenType::Keyword, "fade_screen")) {
-        Operand alpha = ParseExpression(*m_currentOutput);
-        expect(TokenType::Symbol, ",");
-        Operand dur = ParseExpression(*m_currentOutput);
-        
+        Operand alpha = ParseCinematicArg();
+        Operand dur   = ParseCinematicArg();
         bool wait = match(TokenType::Keyword, "wait");
         expect(TokenType::Symbol, ";");
-        
+
         nlohmann::json j; j["op"] = "fade_screen";
         if (alpha.isRef) j["alpha"] = alpha.val;
         else try { j["alpha"] = std::stof(alpha.val); } catch(...) { j["alpha"] = -1.0f; }
-        
         if (dur.isRef) j["duration"] = dur.val;
         else j["duration"] = ParseTime(dur.val);
-        
+
         emit(BitOp::EVENT, {"fade_screen"}, j);
         if (wait) emit(BitOp::WAIT_ACTION, {"fade"});
     }
     else if (match(TokenType::Keyword, "bg")) {
-        expect(TokenType::Symbol, "=");
-        std::string val = consume().value;
+        // bg id [fade = 1s]; or bg {var};
+        std::string val = ParseAssetId();
+        nlohmann::json j; j["op"] = "bg"; j["id"] = val;
+        if (match(TokenType::Symbol, "[")) {
+            while (peek().type != TokenType::EndOfFile && peek().value != "]") {
+                std::string k = consume().value;
+                expect(TokenType::Symbol, "=");
+                std::string v = consume().value;
+                if (k == "fade") j["fade"] = ParseTime(v);
+                match(TokenType::Symbol, ",");
+            }
+            expect(TokenType::Symbol, "]");
+        }
         expect(TokenType::Symbol, ";");
-        emit(BitOp::BG, {val});
+        if (!j.contains("fade")) {
+            emit(BitOp::BG, {val});
+        } else {
+            // Emit fade event then bg swap
+            nlohmann::json fj; fj["op"] = "fade"; fj["target"] = "bg"; fj["id"] = val;
+            fj["duration"] = j["fade"];
+            emit(BitOp::EVENT, {"fade"}, fj);
+        }
     }
     else if (match(TokenType::Keyword, "bgm")) {
-        expect(TokenType::Symbol, "=");
-        std::string val = consume().value;
+        std::string val = ParseAssetId();
+        nlohmann::json meta;
+        if (match(TokenType::Symbol, "[")) {
+            while (peek().type != TokenType::EndOfFile && peek().value != "]") {
+                std::string k = consume().value;
+                expect(TokenType::Symbol, "=");
+                std::string v = consume().value;
+                if (k == "fade") meta[k] = ParseTime(v);
+                else             meta[k] = v;
+                match(TokenType::Symbol, ",");
+            }
+            expect(TokenType::Symbol, "]");
+        }
         expect(TokenType::Symbol, ";");
-        emit(BitOp::BGM, {val});
+        emit(BitOp::BGM, {val}, meta);
+    }
+    else if (match(TokenType::Keyword, "sfx")) {
+        std::string val = ParseAssetId();
+        expect(TokenType::Symbol, ";");
+        nlohmann::json j; j["op"] = "play_sfx"; j["id"] = val;
+        emit(BitOp::SFX, {val});
     }
     else if (match(TokenType::Keyword, "emit")) {
         std::string target = consume().value;
@@ -409,64 +433,167 @@ void BitParser::ParseStatement() {
 }
 
 void BitParser::ParseAssignment(const std::string& var, std::vector<BitInstruction>& output, bool isLocal) {
-    if (peek().type == TokenType::Identifier && peek().value == var && 
+    // ++ / --
+    if (peek().value == "++" || peek().value == "--") {
+        bool inc = consume().value == "++";
+        expect(TokenType::Symbol, ";");
+        emit(inc ? BitOp::ADD : BitOp::SUB, {var, "1"});
+        return;
+    }
+    // += -= *= /=
+    if (peek().value == "+=" || peek().value == "-=" || peek().value == "*=" || peek().value == "/=") {
+        std::string op = consume().value;
+        Operand right = ParseExpression(output);
+        expect(TokenType::Symbol, ";");
+        BitOp bop;
+        if      (op == "+=") bop = right.isRef ? BitOp::ADD_REF : BitOp::ADD;
+        else if (op == "-=") bop = right.isRef ? BitOp::SUB_REF : BitOp::SUB;
+        else if (op == "*=") bop = right.isRef ? BitOp::MUL_REF : BitOp::MUL;
+        else                 bop = right.isRef ? BitOp::DIV_REF : BitOp::DIV;
+        emit(bop, {var, right.val});
+        return;
+    }
+    // var op= var (legacy: var = var + val)
+    if (peek().type == TokenType::Identifier && peek().value == var &&
         (peekNext().value == "+" || peekNext().value == "-" || peekNext().value == "*" || peekNext().value == "/")) {
         consume();
         std::string op = consume().value;
         Operand right = ParseExpression(output);
         expect(TokenType::Symbol, ";");
-
         BitOp bop;
-        if (op == "+") bop = right.isRef ? BitOp::ADD_REF : BitOp::ADD;
+        if      (op == "+") bop = right.isRef ? BitOp::ADD_REF : BitOp::ADD;
         else if (op == "-") bop = right.isRef ? BitOp::SUB_REF : BitOp::SUB;
         else if (op == "*") bop = right.isRef ? BitOp::MUL_REF : BitOp::MUL;
-        else bop = right.isRef ? BitOp::DIV_REF : BitOp::DIV;
-
+        else                bop = right.isRef ? BitOp::DIV_REF : BitOp::DIV;
         emit(bop, {var, right.val});
         return;
     }
 
     Operand res = ParseExpression(output);
     expect(TokenType::Symbol, ";");
-    
     if (isLocal) {
         emit(BitOp::SET_LOCAL, {var, res.val});
     } else {
         if (res.isRef) emit(BitOp::SET_REF, {var, res.val});
-        else emit(BitOp::SET, {var, res.val});
+        else           emit(BitOp::SET, {var, res.val});
     }
+}
+
+
+// ─── ParseAssetId ────────────────────────────────────────────────────────────
+// Accepts: bare identifier, "string" literal, or {var} dynamic reference.
+// Returns the raw string value; for {var} the value is prefixed with "@" so the
+// VM knows to resolve it at runtime.
+std::string BitParser::ParseAssetId() {
+    if (peek().type == TokenType::Symbol && peek().value == "{") {
+        consume(); // {
+        std::string inner = consume().value; // var name or string literal
+        expect(TokenType::Symbol, "}");
+        return "@" + inner; // "@" prefix = dynamic reference
+    }
+    if (peek().type == TokenType::String) return consume().value;
+    return consume().value; // bare identifier
+}
+
+// ─── ParseCinematicArg ───────────────────────────────────────────────────────
+// Accepts: bare Number/Identifier literal, OR (expr) for any expression.
+Operand BitParser::ParseCinematicArg() {
+    if (peek().type == TokenType::Symbol && peek().value == "(") {
+        consume(); // (
+        Operand result = ParseExpression(*m_currentOutput);
+        expect(TokenType::Symbol, ")");
+        return result;
+    }
+    Token t = consume();
+    bool isRef = (t.type == TokenType::Identifier);
+    return {isRef, t.value};
 }
 
 void BitParser::ParseDialogueBlock(const std::string& entityId, std::vector<BitInstruction>& output) {
     while (peek().type != TokenType::EndOfFile && peek().value != "}") {
-        std::string alias = "";
-        if (match(TokenType::Symbol, ".")) {
-            alias = consume().value;
-        }
-        
-        nlohmann::json meta;
-        if (!alias.empty()) meta["alias"] = alias;
+        // .cmd or .alias inside entity block
+        if (peek().value == ".") {
+            consume(); // .
+            std::string cmd = consume().value;
 
-        if (match(TokenType::Symbol, "[")) {
-            while (peek().type != TokenType::EndOfFile && peek().value != "]") {
-                std::string k = consume().value;
-                expect(TokenType::Symbol, "=");
-                std::string v = consume().value;
-                meta[k] = v;
-                match(TokenType::Symbol, ",");
+            // cinematic commands scoped to this entity
+            if (cmd == "move") {
+                Operand x = {false, "0.5"};
+                if (peek().type == TokenType::Identifier &&
+                    (peek().value == "left" || peek().value == "right" || peek().value == "center")) {
+                    x.val = consume().value;
+                } else {
+                    x = ParseCinematicArg();
+                }
+                Operand dur = ParseCinematicArg();
+                bool wait = match(TokenType::Keyword, "wait");
+                expect(TokenType::Symbol, ";");
+                nlohmann::json j; j["op"] = "move"; j["target"] = entityId;
+                j["x"] = x.val;
+                if (dur.isRef) j["duration"] = dur.val;
+                else j["duration"] = ParseTime(dur.val);
+                emit(BitOp::EVENT, {"move"}, j);
+                if (wait) emit(BitOp::WAIT_ACTION, {"move"});
+                continue;
             }
-            expect(TokenType::Symbol, "]");
+            if (cmd == "fade") {
+                Operand alpha = ParseCinematicArg();
+                Operand dur   = ParseCinematicArg();
+                bool wait = match(TokenType::Keyword, "wait");
+                expect(TokenType::Symbol, ";");
+                nlohmann::json j; j["op"] = "fade"; j["target"] = entityId;
+                if (alpha.isRef) j["alpha"] = alpha.val;
+                else try { j["alpha"] = std::stof(alpha.val); } catch(...) { j["alpha"] = 1.0f; }
+                if (dur.isRef) j["duration"] = dur.val;
+                else j["duration"] = ParseTime(dur.val);
+                emit(BitOp::EVENT, {"fade"}, j);
+                if (wait) emit(BitOp::WAIT_ACTION, {"fade"});
+                continue;
+            }
+
+            // .alias or .alias: "text"
+            nlohmann::json meta;
+            meta["alias"] = cmd;
+            if (match(TokenType::Symbol, "[")) {
+                while (peek().type != TokenType::EndOfFile && peek().value != "]") {
+                    std::string k = consume().value;
+                    expect(TokenType::Symbol, "=");
+                    std::string v = consume().value;
+                    meta[k] = v;
+                    match(TokenType::Symbol, ",");
+                }
+                expect(TokenType::Symbol, "]");
+            }
+            if (match(TokenType::Symbol, ":")) {
+                std::string text = consume().value;
+                expect(TokenType::Symbol, ";");
+                emit(BitOp::SAY, {entityId, text}, meta);
+            } else {
+                // alias-only: apply modifiers without dialogue
+                expect(TokenType::Symbol, ";");
+                emit(BitOp::SAY, {entityId, ""}, meta);
+            }
+            continue;
         }
-        
-        match(TokenType::Symbol, ":");
-        
+
+        // bare ":" — dialogue with no alias
+        if (peek().value == ":") {
+            consume();
+            std::string text = consume().value;
+            expect(TokenType::Symbol, ";");
+            emit(BitOp::SAY, {entityId, text}, {});
+            continue;
+        }
+
+        // string directly
         if (peek().type == TokenType::String) {
             std::string text = consume().value;
             expect(TokenType::Symbol, ";");
-            emit(BitOp::SAY, {entityId, text}, meta);
-        } else {
-            consume();
+            emit(BitOp::SAY, {entityId, text}, {});
+            continue;
         }
+
+        consume(); // skip unknown
     }
     expect(TokenType::Symbol, "}");
     match(TokenType::Symbol, ";");
@@ -576,6 +703,13 @@ Operand BitParser::ParseMulExpr(std::vector<BitInstruction>& output) {
 
 Operand BitParser::ParsePrimary() {
     Token t = consume();
+
+    if (t.type == TokenType::Symbol && t.value == "(") {
+        Operand inside = ParseExpression(*m_currentOutput);
+        expect(TokenType::Symbol, ")");
+        return inside;
+    }
+
     if (t.type == TokenType::Number) {
         if ((t.value.size() > 2 && t.value.substr(t.value.size() - 2) == "ms") ||
             (t.value.size() > 1 && t.value.back() == 's')) {
@@ -583,13 +717,16 @@ Operand BitParser::ParsePrimary() {
         }
         return {false, t.value};
     }
+
     if (t.type == TokenType::Identifier) {
         if (p.variables.find(t.value) == p.variables.end()) {
             std::cerr << "[BitScript] Parse error: Undefined variable '" << t.value << "'\n";
         }
         return {true, t.value};
     }
+
     if (t.type == TokenType::String) return {false, t.value};
+
     return {false, "0"};
 }
 

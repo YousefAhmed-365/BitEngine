@@ -56,6 +56,9 @@ public:
     bool IsWaitingForEvent(const std::string& evt) const { return m_isWaiting && m_waitingForEventId == evt; }
     std::string GetWaitActionType() const { return m_waitingForActionType; }
 
+    // Dynamic asset ID resolution (@var prefix)
+    std::string ResolveAssetArg(const std::string& arg) const;
+
 private:
     BitRuntime& m_engine;
     

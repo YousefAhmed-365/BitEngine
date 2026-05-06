@@ -74,6 +74,10 @@ private:
     
     int ParseTime(const std::string& s);
     Token previous();
+
+    // Helpers for new syntax
+    std::string ParseAssetId();      // bare id OR {var} OR "string"
+    Operand     ParseCinematicArg(); // bare literal/id OR (expr)
 };
 
 #endif

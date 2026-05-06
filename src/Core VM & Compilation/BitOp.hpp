@@ -37,6 +37,7 @@ enum class BitOp {
     TRANSITION,     // transition effect
     BG,             // background id
     BGM,            // music id
+    SFX,            // one-shot sound effect
     
     // UI Commands
     UI_VISIBLE,     // show/hide UI

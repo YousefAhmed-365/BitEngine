@@ -50,6 +50,30 @@ std::vector<Token> BitLexer::Tokenize() {
             pos += 2;
             tokens.push_back({TokenType::Symbol, "->", line});
         }
+        else if (c == '+' && pos + 1 < src.size() && src[pos+1] == '+') {
+            pos += 2;
+            tokens.push_back({TokenType::Symbol, "++", line});
+        }
+        else if (c == '-' && pos + 1 < src.size() && src[pos+1] == '-') {
+            pos += 2;
+            tokens.push_back({TokenType::Symbol, "--", line});
+        }
+        else if (c == '+' && pos + 1 < src.size() && src[pos+1] == '=') {
+            pos += 2;
+            tokens.push_back({TokenType::Symbol, "+=", line});
+        }
+        else if (c == '-' && pos + 1 < src.size() && src[pos+1] == '=') {
+            pos += 2;
+            tokens.push_back({TokenType::Symbol, "-=", line});
+        }
+        else if (c == '*' && pos + 1 < src.size() && src[pos+1] == '=') {
+            pos += 2;
+            tokens.push_back({TokenType::Symbol, "*=", line});
+        }
+        else if (c == '/' && pos + 1 < src.size() && src[pos+1] == '=') {
+            pos += 2;
+            tokens.push_back({TokenType::Symbol, "/=", line});
+        }
         else if (c == '=' && pos + 1 < src.size() && src[pos+1] == '=') {
             pos += 2;
             tokens.push_back({TokenType::Symbol, "==", line});
@@ -78,11 +102,10 @@ std::vector<Token> BitLexer::Tokenize() {
 
 bool BitLexer::IsKeyword(const std::string& s) {
     static const std::vector<std::string> keywords = {
-        "config", "var", "entities", "assets", "scene", "sprite", "choice", "jump", "if", "and", "or", "true", "false", 
-        "bg", "bgm", "ui", "halt", "return", "call", "local", "wait", "shake", "delay", "play_sfx", 
-        "expression", "hide", "pos", "clear", "random", "fade", "move", "fade_screen", "narration", "alias",
-        "timeline", "play", "leave",
-        "ui_load", "ui_unload", "ui_set", "ui_activate", "ui_deactivate",
+        "var", "scene", "sprite", "choice", "jump", "if", "and", "or", "true", "false",
+        "bg", "bgm", "sfx", "ui", "halt", "return", "call", "local", "wait", "shake",
+        "delay", "expression", "hide", "pos", "clear", "random", "fade", "move",
+        "fade_screen", "narration", "alias", "timeline", "play", "leave",
         "event", "emit"
     };
     return std::find(keywords.begin(), keywords.end(), s) != keywords.end();

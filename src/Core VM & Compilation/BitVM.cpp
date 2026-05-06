@@ -29,6 +29,18 @@ int BitVM::ResolveLabel(const std::string& label) const {
     return -1;
 }
 
+// Resolve an argument that may be a dynamic @var reference
+std::string BitVM::ResolveAssetArg(const std::string& arg) const {
+    if (!arg.empty() && arg[0] == '@') {
+        std::string varName = arg.substr(1);
+        // Try string locals first, then fall back to int-as-string
+        if (!m_localVariables.empty() && m_localVariables.back().count(varName))
+            return std::to_string(m_localVariables.back().at(varName));
+        return std::to_string(m_engine.GetVariable(varName));
+    }
+    return arg;
+}
+
 int BitVM::GetVariable(const std::string& name) const {
     if (!m_localVariables.empty() && m_localVariables.back().count(name)) return m_localVariables.back().at(name);
     return m_engine.GetVariable(name);
@@ -206,15 +218,23 @@ void BitVM::ExecuteInstruction(const BitInstruction& ins) {
             break;
         }
         case BitOp::BG: {
+            std::string id = ResolveAssetArg(args[0]);
             state.PrevBg() = state.GetActiveBg();
-            state.ActiveBg() = args[0];
+            state.ActiveBg() = id;
             state.BgFadeAlpha() = 0.0f;
             state.BgFadeTimer() = 0.0f;
             state.BgFadeDuration() = 0.8f;
             break;
         }
         case BitOp::BGM: {
-            state.ActiveBgm() = args[0];
+            std::string id = ResolveAssetArg(args[0]);
+            state.ActiveBgm() = id;
+            break;
+        }
+        case BitOp::SFX: {
+            std::string id = ResolveAssetArg(args[0]);
+            nlohmann::json j; j["op"] = "play_sfx"; j["id"] = id;
+            m_engine.ProcessEvents({{"play_sfx", j}});
             break;
         }
         case BitOp::UI_VISIBLE: {

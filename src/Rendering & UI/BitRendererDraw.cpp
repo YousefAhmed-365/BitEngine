@@ -310,6 +310,7 @@ void BitRenderer::DrawDebugOverlay() {
             case BitOp::EVENT:       opStr="EVENT"; break;
             case BitOp::BG:          opStr="BG"; break;
             case BitOp::BGM:         opStr="BGM"; break;
+            case BitOp::SFX:         opStr="SFX"; break;
             case BitOp::LABEL:       opStr="LABEL"; break;
             case BitOp::TRANSITION:  opStr="TRANS"; break;
             case BitOp::UI_VISIBLE:  opStr="UI_VIS"; break;

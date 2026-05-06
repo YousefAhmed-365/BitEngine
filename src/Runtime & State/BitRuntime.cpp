@@ -39,6 +39,8 @@ bool BitRuntime::LoadProject(const std::string& configFilePath) {
                     for (const auto& scriptPath : j["runtime"]["scripts"]) {
                         std::string fullPath = (basePath / scriptPath.get<std::string>()).string();
                         if (!BitScriptInterpreter::LoadScriptFile(fullPath, m_project)) {
+                            for (const auto& err : m_project.parseErrors)
+                                std::cerr << "[BitScript] " << err << "\n";
                             RecordError("LoadProject", "Failed to parse script: " + fullPath);
                             return false;
                         }
