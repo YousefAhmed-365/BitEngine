@@ -1,0 +1,124 @@
+var trust_akira = 0;
+
+timeline intro_sequence {
+    0ms: {
+        fade_screen 1.0 0ms;
+        bg alley_bg;
+    }
+    500ms:  fade_screen 0.0 1s;
+    1500ms: shake 10;
+    1600ms: fade_screen 1.0 200ms;
+    1900ms: fade_screen 0.0 200ms;
+}
+
+scene init {
+    ui activate dialog_ui;
+    jump start;
+}
+
+scene start {
+    ui hide;
+    bgm neon_noir;
+    play timeline intro_sequence wait;
+
+    call sync_uplink(1);
+
+    akira [sprite = "serious", pos = "left", alpha = 0.0];
+    fade akira 1.0 1s wait;
+    akira.angry: "Kael! Stay back! Something is [font=dream]wrong[/font] with the uplink.";
+
+    kael [sprite = "idle", pos = "right", alpha = 0.0];
+    fade kael 1.0 800ms;
+    kael: "I can feel it too... it's like a [color=#ff00ff]glitch[/color] in the air.";
+
+    move akira 0.5 500ms;
+    move kael 0.9 400ms wait;
+
+    akira.calm: "Wait, I'm detecting a signature nearby. Let's move in.";
+
+    call change_district;
+    jump market;
+}
+
+scene market {
+    local next_bg = "alley_bg";
+    bg {next_bg} [fade = 500ms]; // Universal {} dynamic resolution example
+
+    akira [sprite = "idle", pos = "left", alpha = 0.0];
+
+    akira {
+        .fade 1.0 500ms wait; // Entity block cinematic expansion
+        .move center 500ms wait;
+        "The market is unusually quiet today. [font=dream]Eerily quiet.[/font]";
+        .serious: "What's our next move?";
+    }
+
+    choice {
+        "Search the stalls" -> search_stalls;
+        "Check the terminal" [style = "premium"] -> check_terminal;
+    }
+
+    scene search_stalls {
+        kael [pos = "right"];
+        call sync_uplink(2);
+        kael: "Nothing but scrap metal and rusted parts.";
+        jump result;
+    }
+
+    scene check_terminal {
+        trust_akira++; // Increment operator
+        delay (1s + 500ms);
+        akira: "Accessing the main terminal... [wait=0.5] [font=dream]ACCESS GRANTED[/font].";
+        jump result;
+    }
+}
+
+scene result {
+    narration: "Calculating outcome based on neural synchronization...";
+    choice {
+        "Continue (Synchronization High)" -> end_good if (trust_akira >= 1);
+        "Continue (Synchronization Low)"  -> end_bad  if (trust_akira < 1);
+    }
+
+    scene end_good {
+        akira: "Synchronization complete. We're in. Good work.";
+        jump end;
+    }
+
+    scene end_bad {
+        akira: "Synchronization failed. We're locked out. This is a disaster.";
+        jump end;
+    }
+}
+
+scene end {
+    narration: "End of Demonstration.";
+    halt;
+}
+
+scene sync_uplink(v) {
+    ui show;
+    // Conditional ternary operator in modifier
+    narration [auto_next = true, pre_delay = (trust_akira > 0 ? 300ms : 800ms)]: "[speed=0.3]Connecting to neural uplink v{v}...[wait=0.8] established.";
+    sfx error_beep; // SFX command
+    shake 10;
+    narration [auto_next = true]: "[shake]WARNING:[wait=0.5] System integrity compromised.";
+    delay 1500ms;
+    return;
+}
+
+scene change_district {
+    fade akira 0.0 1s;
+    fade kael 0.0 1s wait;
+
+    leave akira;
+    leave kael;
+
+    ui hide;
+    fade_screen 1.0 1s wait;
+    fade_screen 0.0 1s wait;
+    ui show;
+
+    narration: "Moving to the next district...";
+    return;
+}

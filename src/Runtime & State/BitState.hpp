@@ -83,11 +83,18 @@ struct UILayoutDef {
 // ─────────────────────────────────────────────────────────────────────────────
 class BitState {
 public:
-    // Variables
+    // Integer variables
     int GetVariable(const std::string& name) const;
     void SetVariable(const std::string& name, int value);
     std::unordered_map<std::string, int>& Variables() { return m_variables; }
     const std::unordered_map<std::string, int>& GetVariables() const { return m_variables; }
+
+    // String variables
+    std::string GetStringVariable(const std::string& name) const;
+    void SetStringVariable(const std::string& name, const std::string& value);
+    bool HasStringVariable(const std::string& name) const;
+    std::unordered_map<std::string, std::string>& StringVariables() { return m_stringVariables; }
+    const std::unordered_map<std::string, std::string>& GetStringVariables() const { return m_stringVariables; }
     
     // Active Entities
     std::map<std::string, ActiveEntityState>& ActiveEntities() { return m_activeEntities; }
@@ -151,6 +158,8 @@ public:
 
 private:
     std::unordered_map<std::string, int> m_variables;
+    std::unordered_map<std::string, std::string> m_stringVariables;
+
     std::map<std::string, ActiveEntityState> m_activeEntities;
     std::vector<ActiveTimeline> m_activeTimelines;
     

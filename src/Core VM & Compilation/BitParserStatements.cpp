@@ -39,10 +39,12 @@ void BitParser::ParseStatement() {
         } else if (action == "load") {
             std::string name = consume().value;
             std::string path = consume().value; // string token
-            std::string layer = "0";
-            if (peek().type == TokenType::Number) layer = consume().value;
+            Operand layer = {false, "0"};
+            if (peek().type != TokenType::Symbol || peek().value != ";") {
+                layer = ParseExpression(*m_currentOutput);
+            }
             expect(TokenType::Symbol, ";");
-            emit(BitOp::UI_LOAD, {name, path, layer});
+            emit(BitOp::UI_LOAD, {name, path, layer.val});
         } else if (action == "unload") {
             std::string name = consume().value;
             expect(TokenType::Symbol, ";");
@@ -54,7 +56,8 @@ void BitParser::ParseStatement() {
             std::string prop = consume().value;
             Operand val = ParseExpression(*m_currentOutput);
             expect(TokenType::Symbol, ";");
-            emit(BitOp::UI_SET, {scopedId, prop, val.val});
+            std::string finalVal = val.isRef ? ("@" + val.val) : val.val;
+            emit(BitOp::UI_SET, {scopedId, prop, finalVal});
         } else {
             p.parseErrors.push_back("Parse error line " + std::to_string(previous().line) +
                 ": Unknown ui sub-command '" + action + "'. Valid: show, hide, activate, deactivate, load, unload, set");
@@ -68,20 +71,8 @@ void BitParser::ParseStatement() {
     }
     else if (match(TokenType::Keyword, "narration")) {
         nlohmann::json meta;
-        if (match(TokenType::Symbol, "[")) {
-            while (peek().type != TokenType::EndOfFile && peek().value != "]") {
-                std::string k = consume().value;
-                expect(TokenType::Symbol, "=");
-                std::string v = consume().value;
-                if (k == "pre_delay" || k == "duration" || k == "wait") {
-                    meta[k] = ParseTime(v);
-                } else {
-                    meta[k] = v;
-                }
-                match(TokenType::Symbol, ",");
-            }
-            expect(TokenType::Symbol, "]");
-        }
+        if (match(TokenType::Symbol, "[")) ParseModifierBlock(meta);
+
         match(TokenType::Symbol, ":");
         std::string text = consume().value;
         expect(TokenType::Symbol, ";");
@@ -116,20 +107,8 @@ void BitParser::ParseStatement() {
         nlohmann::json meta;
         if (!alias.empty()) meta["alias"] = alias;
 
-        if (match(TokenType::Symbol, "[")) {
-            while (peek().type != TokenType::EndOfFile && peek().value != "]") {
-                std::string k = consume().value;
-                expect(TokenType::Symbol, "=");
-                std::string v = consume().value;
-                if (k == "pre_delay" || k == "duration" || k == "wait") {
-                    meta[k] = ParseTime(v);
-                } else {
-                    meta[k] = v;
-                }
-                match(TokenType::Symbol, ",");
-            }
-            expect(TokenType::Symbol, "]");
-        }
+        if (match(TokenType::Symbol, "[")) ParseModifierBlock(meta);
+
         
         std::string text = "";
         if (match(TokenType::Symbol, ":")) {
@@ -143,20 +122,8 @@ void BitParser::ParseStatement() {
         while (peek().type != TokenType::EndOfFile && peek().value != "}") {
             std::string text = consume().value;
             nlohmann::json optMeta;
-            if (match(TokenType::Symbol, "[")) {
-                while (peek().type != TokenType::EndOfFile && peek().value != "]") {
-                    std::string k = consume().value;
-                    expect(TokenType::Symbol, "=");
-                    std::string v = consume().value;
-                    if (k == "pre_delay" || k == "duration" || k == "wait") {
-                        optMeta[k] = ParseTime(v);
-                    } else {
-                        optMeta[k] = v;
-                    }
-                    match(TokenType::Symbol, ",");
-                }
-                expect(TokenType::Symbol, "]");
-            }
+            if (match(TokenType::Symbol, "[")) ParseModifierBlock(optMeta);
+
             expect(TokenType::Symbol, "->");
             std::string target = consume().value;
             
@@ -165,13 +132,19 @@ void BitParser::ParseStatement() {
                 std::string labelSkip = genTempVar() + "_skip";
                 
                 expect(TokenType::Symbol, "(");
-                std::string var = consume().value;
+                Operand left = ParseExpression(*m_currentOutput);
                 std::string op = consume().value;
-                Operand val = ParseExpression(*m_currentOutput);
+                Operand right = ParseExpression(*m_currentOutput);
                 expect(TokenType::Symbol, ")");
                 
-                if (val.isRef) emit(BitOp::IF_REF, {var, op, val.val, labelChoice});
-                else emit(BitOp::IF, {var, op, val.val, labelChoice});
+                if (!left.isRef) {
+                    std::string tmp = genTempVar();
+                    emit(BitOp::SET_LOCAL, {tmp, left.val});
+                    left = {true, tmp};
+                }
+
+                if (right.isRef) emit(BitOp::IF_REF, {left.val, op, right.val, labelChoice});
+                else emit(BitOp::IF, {left.val, op, right.val, labelChoice});
                 
                 emit(BitOp::GOTO, {labelSkip});
                 emit(BitOp::LABEL, {labelChoice});
@@ -192,6 +165,7 @@ void BitParser::ParseStatement() {
     }
     else if (match(TokenType::Keyword, "local")) {
         std::string var = consume().value;
+        p.variables[var] = {var, 0};
         expect(TokenType::Symbol, "=");
         ParseAssignment(var, *m_currentOutput, true);
     }
@@ -200,7 +174,7 @@ void BitParser::ParseStatement() {
         bool wait = match(TokenType::Keyword, "wait");
         expect(TokenType::Symbol, ";");
         nlohmann::json j; j["op"] = "shake"; 
-        if (intensity.isRef) j["intensity"] = intensity.val;
+        if (intensity.isRef) j["intensity"] = "@" + intensity.val;
         else try { j["intensity"] = std::stof(intensity.val); } catch(...) { j["intensity"] = 5.0f; }
         emit(BitOp::EVENT, {"shake"}, j);
         if (wait) emit(BitOp::WAIT_ACTION, {"all"});
@@ -209,13 +183,12 @@ void BitParser::ParseStatement() {
         Operand dur = ParseExpression(*m_currentOutput);
         expect(TokenType::Symbol, ";");
         nlohmann::json j; j["op"] = "delay"; 
-        if (dur.isRef) j["duration"] = dur.val;
+        if (dur.isRef) j["duration"] = "@" + dur.val;
         else j["duration"] = ParseTime(dur.val);
         emit(BitOp::EVENT, {"delay"}, j);
     }
     else if (match(TokenType::Keyword, "expression")) {
         std::string target = consume().value;
-        expect(TokenType::Symbol, ",");
         std::string id = consume().value;
         expect(TokenType::Symbol, ";");
         nlohmann::json j; j["op"] = "expression"; j["target"] = target; j["id"] = id;
@@ -229,7 +202,6 @@ void BitParser::ParseStatement() {
     }
     else if (match(TokenType::Keyword, "pos")) {
         std::string target = consume().value;
-        expect(TokenType::Symbol, ",");
         std::string x_str;
         Operand x = {false, "0.5"};
         if (peek().type == TokenType::Identifier && (peek().value == "left" || peek().value == "right" || peek().value == "center")) {
@@ -240,7 +212,7 @@ void BitParser::ParseStatement() {
         }
         expect(TokenType::Symbol, ";");
         nlohmann::json j; j["op"] = "pos"; j["target"] = target; 
-        if (x.isRef) j["x"] = x.val;
+        if (x.isRef) j["x"] = "@" + x.val;
         else j["x"] = x.val;
         emit(BitOp::EVENT, {"pos"}, j);
     }
@@ -251,13 +223,15 @@ void BitParser::ParseStatement() {
     }
     else if (match(TokenType::Keyword, "random")) {
         std::string var = consume().value;
-        expect(TokenType::Symbol, ",");
+        p.variables[var] = {var, 0};
         Operand lo = ParseExpression(*m_currentOutput);
-        expect(TokenType::Symbol, ",");
         Operand hi = ParseExpression(*m_currentOutput);
         expect(TokenType::Symbol, ";");
         nlohmann::json j; j["op"] = "random"; j["var"] = var;
-        j["min"] = std::stoi(lo.val); j["max"] = std::stoi(hi.val);
+        if (lo.isRef) j["min"] = "@" + lo.val;
+        else j["min"] = lo.val;
+        if (hi.isRef) j["max"] = "@" + hi.val;
+        else j["max"] = hi.val;
         emit(BitOp::EVENT, {"random"}, j);
     }
     else if (match(TokenType::Keyword, "fade")) {
@@ -270,7 +244,7 @@ void BitParser::ParseStatement() {
         } else {
             // alpha: bare number/id or (expr)
             Operand alpha = ParseCinematicArg();
-            if (alpha.isRef) j["alpha"] = alpha.val;
+            if (alpha.isRef) j["alpha"] = "@" + alpha.val;
             else try { j["alpha"] = std::stof(alpha.val); } catch(...) { j["alpha"] = -1.0f; }
         }
 
@@ -278,7 +252,7 @@ void BitParser::ParseStatement() {
         bool wait = match(TokenType::Keyword, "wait");
         expect(TokenType::Symbol, ";");
 
-        if (dur.isRef) j["duration"] = dur.val;
+        if (dur.isRef) j["duration"] = "@" + dur.val;
         else j["duration"] = ParseTime(dur.val);
 
         emit(BitOp::EVENT, {"fade"}, j);
@@ -300,7 +274,7 @@ void BitParser::ParseStatement() {
 
         nlohmann::json j; j["op"] = "move"; j["target"] = target;
         j["x"] = x.val;
-        if (dur.isRef) j["duration"] = dur.val;
+        if (dur.isRef) j["duration"] = "@" + dur.val;
         else j["duration"] = ParseTime(dur.val);
 
         emit(BitOp::EVENT, {"move"}, j);
@@ -313,9 +287,9 @@ void BitParser::ParseStatement() {
         expect(TokenType::Symbol, ";");
 
         nlohmann::json j; j["op"] = "fade_screen";
-        if (alpha.isRef) j["alpha"] = alpha.val;
+        if (alpha.isRef) j["alpha"] = "@" + alpha.val;
         else try { j["alpha"] = std::stof(alpha.val); } catch(...) { j["alpha"] = -1.0f; }
-        if (dur.isRef) j["duration"] = dur.val;
+        if (dur.isRef) j["duration"] = "@" + dur.val;
         else j["duration"] = ParseTime(dur.val);
 
         emit(BitOp::EVENT, {"fade_screen"}, j);
@@ -326,14 +300,7 @@ void BitParser::ParseStatement() {
         std::string val = ParseAssetId();
         nlohmann::json j; j["op"] = "bg"; j["id"] = val;
         if (match(TokenType::Symbol, "[")) {
-            while (peek().type != TokenType::EndOfFile && peek().value != "]") {
-                std::string k = consume().value;
-                expect(TokenType::Symbol, "=");
-                std::string v = consume().value;
-                if (k == "fade") j["fade"] = ParseTime(v);
-                match(TokenType::Symbol, ",");
-            }
-            expect(TokenType::Symbol, "]");
+            ParseModifierBlock(j);
         }
         expect(TokenType::Symbol, ";");
         if (!j.contains("fade")) {
@@ -349,15 +316,7 @@ void BitParser::ParseStatement() {
         std::string val = ParseAssetId();
         nlohmann::json meta;
         if (match(TokenType::Symbol, "[")) {
-            while (peek().type != TokenType::EndOfFile && peek().value != "]") {
-                std::string k = consume().value;
-                expect(TokenType::Symbol, "=");
-                std::string v = consume().value;
-                if (k == "fade") meta[k] = ParseTime(v);
-                else             meta[k] = v;
-                match(TokenType::Symbol, ",");
-            }
-            expect(TokenType::Symbol, "]");
+            ParseModifierBlock(meta);
         }
         expect(TokenType::Symbol, ";");
         emit(BitOp::BGM, {val}, meta);
@@ -469,12 +428,24 @@ void BitParser::ParseAssignment(const std::string& var, std::vector<BitInstructi
         return;
     }
 
+    // String literal assignment: local name = "value"; or name = "value";
+    if (peek().type == TokenType::String) {
+        std::string val = consume().value;
+        expect(TokenType::Symbol, ";");
+        emit(isLocal ? BitOp::SET_STR_LOCAL : BitOp::SET_STR, {var, val});
+        return;
+    }
+
+    // For now, fall through to int expression if not a literal string
     Operand res = ParseExpression(output);
     expect(TokenType::Symbol, ";");
     if (isLocal) {
-        emit(BitOp::SET_LOCAL, {var, res.val});
+        if (res.isRef) emit(BitOp::SET_LOCAL_REF, {var, res.val});
+        else if (res.isString) emit(BitOp::SET_STR_LOCAL, {var, res.val});
+        else emit(BitOp::SET_LOCAL, {var, res.val});
     } else {
         if (res.isRef) emit(BitOp::SET_REF, {var, res.val});
+        else if (res.isString) emit(BitOp::SET_STR, {var, res.val});
         else           emit(BitOp::SET, {var, res.val});
     }
 }
@@ -509,6 +480,29 @@ Operand BitParser::ParseCinematicArg() {
     return {isRef, t.value};
 }
 
+std::string BitParser::ParseModifierValue() {
+    Operand res = ParseExpression(*m_currentOutput);
+    return res.isRef ? ("@" + res.val) : res.val;
+}
+
+// ─── ParseModifierBlock ──────────────────────────────────────────────────────
+// Parses a [...] modifier block into a json meta object.
+// Handles ternary expressions inside values.
+void BitParser::ParseModifierBlock(nlohmann::json& meta) {
+    while (peek().type != TokenType::EndOfFile && peek().value != "]") {
+        std::string k = consume().value;
+        expect(TokenType::Symbol, "=");
+        std::string v = ParseModifierValue();
+        if (k == "pre_delay" || k == "duration" || k == "wait") {
+            try { meta[k] = ParseTime(v); } catch(...) { meta[k] = v; }
+        } else {
+            meta[k] = v;
+        }
+        match(TokenType::Symbol, ",");
+    }
+    expect(TokenType::Symbol, "]");
+}
+
 void BitParser::ParseDialogueBlock(const std::string& entityId, std::vector<BitInstruction>& output) {
     while (peek().type != TokenType::EndOfFile && peek().value != "}") {
         // .cmd or .alias inside entity block
@@ -530,7 +524,7 @@ void BitParser::ParseDialogueBlock(const std::string& entityId, std::vector<BitI
                 expect(TokenType::Symbol, ";");
                 nlohmann::json j; j["op"] = "move"; j["target"] = entityId;
                 j["x"] = x.val;
-                if (dur.isRef) j["duration"] = dur.val;
+                if (dur.isRef) j["duration"] = "@" + dur.val;
                 else j["duration"] = ParseTime(dur.val);
                 emit(BitOp::EVENT, {"move"}, j);
                 if (wait) emit(BitOp::WAIT_ACTION, {"move"});
@@ -542,9 +536,9 @@ void BitParser::ParseDialogueBlock(const std::string& entityId, std::vector<BitI
                 bool wait = match(TokenType::Keyword, "wait");
                 expect(TokenType::Symbol, ";");
                 nlohmann::json j; j["op"] = "fade"; j["target"] = entityId;
-                if (alpha.isRef) j["alpha"] = alpha.val;
+                if (alpha.isRef) j["alpha"] = "@" + alpha.val;
                 else try { j["alpha"] = std::stof(alpha.val); } catch(...) { j["alpha"] = 1.0f; }
-                if (dur.isRef) j["duration"] = dur.val;
+                if (dur.isRef) j["duration"] = "@" + dur.val;
                 else j["duration"] = ParseTime(dur.val);
                 emit(BitOp::EVENT, {"fade"}, j);
                 if (wait) emit(BitOp::WAIT_ACTION, {"fade"});
@@ -554,16 +548,8 @@ void BitParser::ParseDialogueBlock(const std::string& entityId, std::vector<BitI
             // .alias or .alias: "text"
             nlohmann::json meta;
             meta["alias"] = cmd;
-            if (match(TokenType::Symbol, "[")) {
-                while (peek().type != TokenType::EndOfFile && peek().value != "]") {
-                    std::string k = consume().value;
-                    expect(TokenType::Symbol, "=");
-                    std::string v = consume().value;
-                    meta[k] = v;
-                    match(TokenType::Symbol, ",");
-                }
-                expect(TokenType::Symbol, "]");
-            }
+            if (match(TokenType::Symbol, "[")) ParseModifierBlock(meta);
+
             if (match(TokenType::Symbol, ":")) {
                 std::string text = consume().value;
                 expect(TokenType::Symbol, ";");
@@ -705,9 +691,54 @@ Operand BitParser::ParsePrimary() {
     Token t = consume();
 
     if (t.type == TokenType::Symbol && t.value == "(") {
-        Operand inside = ParseExpression(*m_currentOutput);
-        expect(TokenType::Symbol, ")");
-        return inside;
+        Operand left = ParseAddExpr(*m_currentOutput);
+        
+        if (peek().type == TokenType::Symbol && 
+            (peek().value == ">" || peek().value == "<" || peek().value == "==" || 
+             peek().value == "!=" || peek().value == ">=" || peek().value == "<=" || peek().value == "=")) {
+             
+            std::string op = consume().value;
+            Operand right = ParseAddExpr(*m_currentOutput);
+            
+            expect(TokenType::Symbol, "?");
+            Operand trueVal = ParseExpression(*m_currentOutput);
+            expect(TokenType::Symbol, ":");
+            Operand falseVal = ParseExpression(*m_currentOutput);
+            expect(TokenType::Symbol, ")");
+            
+            std::string tmp = genTempVar();
+            
+            std::string lblTrue = genTempVar() + "_t";
+            std::string lblEnd  = genTempVar() + "_e";
+            
+            if (!left.isRef) {
+                std::string ltmp = genTempVar();
+                emit(BitOp::SET, {ltmp, left.val});
+                left = {true, ltmp};
+            }
+            
+            if (right.isRef) emit(BitOp::IF_REF, {left.val, op, right.val, lblTrue});
+            else             emit(BitOp::IF,     {left.val, op, right.val, lblTrue});
+            
+            // false branch
+            if (falseVal.isRef) emit(BitOp::SET_LOCAL_REF, {tmp, falseVal.val});
+            else if (falseVal.isString) emit(BitOp::SET_STR_LOCAL, {tmp, falseVal.val});
+            else                emit(BitOp::SET_LOCAL, {tmp, falseVal.val});
+            emit(BitOp::GOTO, {lblEnd});
+            
+            // true branch
+            emit(BitOp::LABEL, {lblTrue});
+            if (trueVal.isRef) emit(BitOp::SET_LOCAL_REF, {tmp, trueVal.val});
+            else if (trueVal.isString) emit(BitOp::SET_STR_LOCAL, {tmp, trueVal.val});
+            else               emit(BitOp::SET_LOCAL, {tmp, trueVal.val});
+            
+            emit(BitOp::LABEL, {lblEnd});
+            
+            return {true, tmp};
+        } else {
+            expect(TokenType::Symbol, ")");
+            return left;
+        }
     }
 
     if (t.type == TokenType::Number) {
@@ -725,7 +756,7 @@ Operand BitParser::ParsePrimary() {
         return {true, t.value};
     }
 
-    if (t.type == TokenType::String) return {false, t.value};
+    if (t.type == TokenType::String) return {false, t.value, true};
 
     return {false, "0"};
 }
@@ -737,10 +768,17 @@ void BitParser::ParseIfStatement(std::vector<BitInstruction>& output) {
     std::vector<Cond> conditions;
 
     auto parseOne = [&]() {
-        std::string var = consume().value;
+        Operand left = ParseExpression(output);
         std::string op = consume().value;
-        Operand val = ParseExpression(output);
-        conditions.push_back({var, op, val.val, val.isRef});
+        Operand right = ParseExpression(output);
+        
+        if (!left.isRef) {
+            std::string tmp = genTempVar();
+            emit(BitOp::SET_LOCAL, {tmp, left.val});
+            left = {true, tmp};
+        }
+        
+        conditions.push_back({left.val, op, right.val, right.isRef});
     };
 
     parseOne();

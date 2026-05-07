@@ -181,7 +181,13 @@ public:
     float ResolveParamFloat(const nlohmann::json& params, const std::string& key, float default_val = 0.0f) const;
     void SetVariable(const std::string& name, int value);
     const std::unordered_map<std::string, int>& GetAllVariables() const { return m_state.GetVariables(); }
-    
+
+    // String variables (Part 5)
+    std::string GetStringVariable(const std::string& name) const { return m_state.GetStringVariable(name); }
+    void SetStringVariable(const std::string& name, const std::string& value) { m_state.SetStringVariable(name, value); }
+    bool HasStringVariable(const std::string& name) const { return m_state.HasStringVariable(name); }
+    const std::unordered_map<std::string, std::string>& GetAllStringVariables() const { return m_state.GetStringVariables(); }
+
     bool IsActive() const { return m_isActive; }
     int GetCurrentPC() const { return m_vm->GetPC(); }
 

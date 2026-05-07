@@ -19,6 +19,7 @@
 struct Operand {
     bool isRef;
     std::string val;
+    bool isString = false;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -65,6 +66,7 @@ private:
     
     // Expression Parsing
     Operand ParseExpression(std::vector<BitInstruction>& output);
+    Operand ParseTernaryExpr(std::vector<BitInstruction>& output);
     Operand ParseAddExpr(std::vector<BitInstruction>& output);
     Operand ParseMulExpr(std::vector<BitInstruction>& output);
     Operand ParsePrimary();
@@ -76,8 +78,10 @@ private:
     Token previous();
 
     // Helpers for new syntax
-    std::string ParseAssetId();      // bare id OR {var} OR "string"
-    Operand     ParseCinematicArg(); // bare literal/id OR (expr)
+    std::string ParseAssetId();        // bare id OR {var} OR "string"
+    Operand     ParseCinematicArg();   // bare literal/id OR (expr)
+    std::string ParseModifierValue();  // bare value OR (cond ? a : b) ternary
+    void        ParseModifierBlock(nlohmann::json& meta); // parse [...] block
 };
 
 #endif

@@ -42,11 +42,16 @@ public:
     // Call Stack
     const std::vector<int>& GetCallStack() const { return m_callStack; }
     void SetCallStack(const std::vector<int>& stack) { m_callStack = stack; }
-    void ClearStack() { m_callStack.clear(); m_localVariables.clear(); m_localVariables.push_back({}); }
-    
+    void ClearStack() { m_callStack.clear(); m_localVariables.clear(); m_localVariables.push_back({}); m_localStringVars.clear(); m_localStringVars.push_back({}); }
+
     const std::vector<std::unordered_map<std::string, int>>& GetLocalScopes() const { return m_localVariables; }
     void SetLocalScopes(const std::vector<std::unordered_map<std::string, int>>& scopes) { m_localVariables = scopes; }
-    
+
+    // Local string variable access
+    std::string GetLocalStringVariable(const std::string& name) const;
+    void SetLocalStringVariable(const std::string& name, const std::string& value);
+    bool HasLocalStringVariable(const std::string& name) const;
+
     // Label management
     void BuildLabelIndex();
     int ResolveLabel(const std::string& label) const;
@@ -61,16 +66,17 @@ public:
 
 private:
     BitRuntime& m_engine;
-    
+
     int m_pc = 0;
     bool m_isWaiting = false;
     bool m_isDelayed = false;
     std::string m_waitingForActionType = "";
     std::string m_waitingForEventId = "";
-    
+
     std::vector<int> m_callStack;
     std::vector<std::unordered_map<std::string, int>> m_localVariables;
-    
+    std::vector<std::unordered_map<std::string, std::string>> m_localStringVars;
+
     std::unordered_map<std::string, int> m_labelIndex;
 };
 

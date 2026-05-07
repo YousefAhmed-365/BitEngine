@@ -31,7 +31,10 @@ enum class BitOp {
     MUL_REF,
     DIV,
     DIV_REF,
-    SET_LOCAL,      // local variable
+    SET_LOCAL,      // local int variable
+    SET_LOCAL_REF,  // local variable from ref
+    SET_STR,        // global string variable: name, value
+    SET_STR_LOCAL,  // local string variable: name, value
     
     // Animation & Transitions
     TRANSITION,     // transition effect

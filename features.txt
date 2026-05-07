@@ -3,25 +3,29 @@
 ================================================================================
 
 --------------------------------------------------------------------------------
-1. BITSCRIPT NARRATIVE ENGINE (v0.2)
+1. BITSCRIPT NARRATIVE ENGINE (v0.3)
 --------------------------------------------------------------------------------
 BitEngine now uses a centralized data-driven `project.json` architecture while the logic executes on a strictly bytecode-driven high-performance custom VM.
 
 A. BITSCRIPT LANGUAGE FEATURES
     - Scene Management: `scene scene_id(params) { ... };` blocks with support for nesting and parameters.
-    - Global State: `var identifier = value;` for persistent game variables.
+    - Global State: `var identifier = value;` (Supports both integer and string values).
     - Local State: `local identifier = value;` for scene-scoped variables (pushed/popped with call stack).
+    - String Variables: Seamless support for string type variables (`local name = "John";`).
+    - Dynamic Resolution: Universal `{var_name}` syntax to dynamically resolve assets and strings across all commands.
     - Dialogue Syntax: `entity_id.alias [modifiers]: "text content";`
       - Character Aliases: Define named "moods" or shortcuts in entity blocks.
     - Narration Syntax: `narration [modifiers]: "text content";` (Standalone narrator text).
     - Character Management:
       - `> entity_id [modifiers];` - Join character to scene (sets alpha=1.0 by default).
       - `< entity_id;` - Remove character from scene (unloads from active map).
-    - Cinematic Statements: Standalone commands for better script readability.
-      - `fade_screen <alpha>, <duration>;` (Manual full-screen opacity control; replaces automated transitions).
-      - `fade <entity_id>, <alpha>, <duration>;` (Smooth per-entity opacity interpolation).
-      - `ui <show/hide>;` (Global visibility control for the dialogue interface).
-      - `wait <move/fade/all/sfx>;` (Explicitly pause VM until visual/audio actions finish).
+    - Entity Block Expansions: Characters can group actions contextually.
+      - `.move <target> <duration>;` and `.fade <alpha> <duration>;` directly inside `{}` blocks.
+    - Cinematic Statements: Standalone space-separated commands (no commas) for better readability.
+      - `fade_screen <alpha> <duration> [wait];` (Manual full-screen opacity control).
+      - `fade <entity_id> <alpha> <duration> [wait];` (Smooth per-entity opacity interpolation).
+      - `ui <show/hide/activate/deactivate/set> ...;` (Unified global visibility and layout control).
+      - `wait <move/fade/all/sfx/timeline>;` (Explicitly pause VM until visual/audio actions finish).
     - Narrative Stack: Sub-routine support with parameter passing.
       - `call <scene_id>(args);` - Jump to scene, push return address, and inject arguments as locals.
       - `return;` - Pop from stack, clear locals, and return to caller.
@@ -32,9 +36,11 @@ A. BITSCRIPT LANGUAGE FEATURES
       visibility via `if (expression)`.
     - Logic: Robust expression evaluator supporting arithmetic (`+`, `-`, `*`, `/`), 
       logical (`and`, `or`, `!`), and comparison (`==`, `!=`, `<`, `>`, `<=`, `>=`).
+      - Support for compound assignment operators (`+=`, `-=`, `*=`, `/=`, `++`, `--`).
       - Full variable interpolation and type-checking within expressions.
       - Time suffixes (`ms`, `s`) directly supported in numerical values.
       - Cinematic statement arguments (duration, alpha, positions) fully accept dynamic expressions.
+      - Conditional Ternary Modifiers: `[modifier = (cond ? true_val : false_val)]` directly inside `[]` blocks.
     - Control Flow: `if (condition) { ... }`, `jump scene_id;`, and `delay ms;`.
 
 B. NATIVE VIRTUAL MACHINE (VM)
@@ -116,8 +122,8 @@ C. DIRECT CINEMATIC CONTROL
 --------------------------------------------------------------------------------
 5. AUDIO & ASSET MANAGEMENT
 --------------------------------------------------------------------------------
-- Background Music (BGM): Continuous looping tracks with automatic caching.
-- Sound Effects (SFX): One-shot triggers with memory management and silent fallbacks.
+- Background Music (BGM): `bgm <track_id> [loop=true];` (Continuous looping tracks with automatic caching).
+- Sound Effects (SFX): `sfx <track_id>;` (One-shot triggers with memory management and silent fallbacks).
 - Asset Auto-Discovery: Dynamically discovers images, sounds, and fonts from the `assets/` subdirectories, eliminating hardcoded asset manifest blocks.
 - Strict Asset Validation: Native `strict_assets` engine flag to halt the game with clear console logs when referenced assets are missing, or gracefully fallback to magenta placeholders when disabled.
 - Global Registry: Centralized mapping for backgrounds, music, and sfx IDs.

@@ -1,0 +1,8 @@
+{
+    "name": "Kael",
+    "default_pos_x": 0.2,
+    "sprites": {
+        "idle": { "path": "kael_idle.png", "frames": 1, "speed": 1.0, "scale": 3.0 }
+    },
+    "aliases": {}
+}

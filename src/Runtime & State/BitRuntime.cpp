@@ -843,13 +843,18 @@ size_t BitRuntime::GetUTF8Length(const std::string& s) const {
 
 std::string BitRuntime::InterpolateVariables(const std::string& text) const {
     std::string res;
-    res.reserve(text.size()); 
+    res.reserve(text.size());
     for (size_t i = 0; i < text.size(); ++i) {
         if (text[i] == '{') {
             size_t endIdx = text.find('}', i);
             if (endIdx != std::string::npos) {
                 std::string varName = text.substr(i + 1, endIdx - i - 1);
-                std::string val = std::to_string(GetVariable(varName));
+                std::string val;
+                // String variables take priority over int variables
+                if (m_state.HasStringVariable(varName))
+                    val = m_state.GetStringVariable(varName);
+                else
+                    val = std::to_string(GetVariable(varName));
                 for (char c : val) {
                     if (c == '[') res += "\\[";
                     else if (c == ']') res += "\\]";

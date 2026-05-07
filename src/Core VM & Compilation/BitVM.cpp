@@ -33,12 +33,34 @@ int BitVM::ResolveLabel(const std::string& label) const {
 std::string BitVM::ResolveAssetArg(const std::string& arg) const {
     if (!arg.empty() && arg[0] == '@') {
         std::string varName = arg.substr(1);
-        // Try string locals first, then fall back to int-as-string
-        if (!m_localVariables.empty() && m_localVariables.back().count(varName))
-            return std::to_string(m_localVariables.back().at(varName));
-        return std::to_string(m_engine.GetVariable(varName));
+        // Check local string scope first
+        if (!m_localStringVars.empty() && m_localStringVars.back().count(varName))
+            return m_localStringVars.back().at(varName);
+        // Check global string variables
+        if (m_engine.HasStringVariable(varName))
+            return m_engine.GetStringVariable(varName);
+        // Fall back to int variable as string
+        std::cout << "ResolveAssetArg failed for " << varName << "\n"; return std::to_string(m_engine.GetVariable(varName));
     }
     return arg;
+}
+
+std::string BitVM::GetLocalStringVariable(const std::string& name) const {
+    if (!m_localStringVars.empty() && m_localStringVars.back().count(name))
+        return m_localStringVars.back().at(name);
+    return m_engine.GetStringVariable(name);
+}
+
+void BitVM::SetLocalStringVariable(const std::string& name, const std::string& value) {
+    if (!m_localStringVars.empty())
+        m_localStringVars.back()[name] = value;
+    else
+        m_engine.SetStringVariable(name, value);
+}
+
+bool BitVM::HasLocalStringVariable(const std::string& name) const {
+    if (!m_localStringVars.empty() && m_localStringVars.back().count(name)) return true;
+    return m_engine.HasStringVariable(name);
 }
 
 int BitVM::GetVariable(const std::string& name) const {
@@ -158,7 +180,16 @@ void BitVM::ExecuteInstruction(const BitInstruction& ins) {
             break;
         }
         case BitOp::SET:     SetVariable(args[0], m_engine.SafeStoi(args[1])); break;
-        case BitOp::SET_REF: SetVariable(args[0], GetVariable(args[1])); break;
+        case BitOp::SET_REF: {
+            if (!m_localStringVars.empty() && m_localStringVars.back().count(args[1])) {
+                m_engine.SetStringVariable(args[0], m_localStringVars.back().at(args[1]));
+            } else if (m_engine.HasStringVariable(args[1])) {
+                m_engine.SetStringVariable(args[0], m_engine.GetStringVariable(args[1]));
+            } else {
+                SetVariable(args[0], GetVariable(args[1]));
+            }
+            break;
+        }
         case BitOp::ADD:     SetVariable(args[0], GetVariable(args[0]) + m_engine.SafeStoi(args[1])); break;
         case BitOp::ADD_REF: SetVariable(args[0], GetVariable(args[0]) + GetVariable(args[1])); break;
         case BitOp::SUB:     SetVariable(args[0], GetVariable(args[0]) - m_engine.SafeStoi(args[1])); break;
@@ -178,27 +209,50 @@ void BitVM::ExecuteInstruction(const BitInstruction& ins) {
             break;
         }
         case BitOp::GOTO: {
-            auto it = m_labelIndex.find(args[0]);
+            std::string target = ResolveAssetArg(args[0]);
+            auto it = m_labelIndex.find(target);
             if (it != m_labelIndex.end()) {
-                state.EventTrace().push_back({m_engine.GetCurrentLabel(), "JUMP", args[0], m_pc, it->second});
+                state.EventTrace().push_back({m_engine.GetCurrentLabel(), "JUMP", target, m_pc, it->second});
                 m_pc = it->second;
             }
             break;
         }
         case BitOp::IF:
         case BitOp::IF_REF: {
-            int v = GetVariable(args[0]);
-            int val = (ins.op == BitOp::IF_REF) ? GetVariable(args[2]) : m_engine.SafeStoi(args[2]);
-            std::string op = args[1];
             bool pass = false;
-            if      (op == "==" || op == "=") pass = (v == val);
-            else if (op == "!=")              pass = (v != val);
-            else if (op == ">")               pass = (v > val);
-            else if (op == "<")               pass = (v < val);
-            else if (op == ">=")              pass = (v >= val);
-            else if (op == "<=")              pass = (v <= val);
+            std::string op = args[1];
             
-            state.EventTrace().push_back({std::to_string(m_pc-1), "IF", pass ? "TRUE" : "FALSE", v, val});
+            if (HasLocalStringVariable(args[0]) || m_engine.HasStringVariable(args[0])) {
+                std::string vStr = GetLocalStringVariable(args[0]);
+                std::string valStr = "";
+                
+                if (ins.op == BitOp::IF_REF) {
+                    valStr = GetLocalStringVariable(args[2]);
+                } else {
+                    valStr = args[2];
+                    if (!valStr.empty() && valStr[0] == '@') {
+                        valStr = GetLocalStringVariable(valStr.substr(1));
+                    }
+                }
+                
+                if      (op == "==" || op == "=") pass = (vStr == valStr);
+                else if (op == "!=")              pass = (vStr != valStr);
+                
+                state.EventTrace().push_back({std::to_string(m_pc-1), "IF_STR", pass ? "TRUE" : "FALSE", 0, 0});
+            } else {
+                int v = GetVariable(args[0]);
+                int val = (ins.op == BitOp::IF_REF) ? GetVariable(args[2]) : m_engine.SafeStoi(args[2]);
+                
+                if      (op == "==" || op == "=") pass = (v == val);
+                else if (op == "!=")              pass = (v != val);
+                else if (op == ">")               pass = (v > val);
+                else if (op == "<")               pass = (v < val);
+                else if (op == ">=")              pass = (v >= val);
+                else if (op == "<=")              pass = (v <= val);
+                
+                state.EventTrace().push_back({std::to_string(m_pc-1), "IF", pass ? "TRUE" : "FALSE", v, val});
+            }
+            
             if (pass) {
                 auto it = m_labelIndex.find(args[3]);
                 if (it != m_labelIndex.end()) {
@@ -299,7 +353,7 @@ void BitVM::ExecuteInstruction(const BitInstruction& ins) {
         case BitOp::UI_SET: {
             UICommand cmd;
             cmd.type = UICommand::Type::Set; cmd.name = args[0]; cmd.arg1 = args[1];
-            cmd.arg2 = (args.size() > 2) ? args[2] : "";
+            cmd.arg2 = (args.size() > 2) ? ResolveAssetArg(args[2]) : "";
             if (cmd.arg1 == "visible") {
                 if (state.UIStates().count(cmd.name)) state.UIStates()[cmd.name].visible = (cmd.arg2 == "true" || cmd.arg2 == "1");
             }
@@ -315,21 +369,29 @@ void BitVM::ExecuteInstruction(const BitInstruction& ins) {
             break;
         }
         case BitOp::CALL: {
-            std::string labelId = args[0];
+            std::string labelId = ResolveAssetArg(args[0]); // support {var} jump targets
             int targetPC = ResolveLabel(labelId);
             if (targetPC != -1) {
                 const BitInstruction* labelIns = &m_engine.GetProject().bytecode[targetPC];
                 m_callStack.push_back(m_pc);
                 m_localVariables.push_back({});
+                m_localStringVars.push_back({});
                 if (labelIns && labelIns->args.size() > 1) {
                     for (size_t i = 1; i < labelIns->args.size(); ++i) {
                         std::string paramName = labelIns->args[i];
-                        int val = 0;
                         if (args.size() > i) {
-                            try { val = std::stoi(args[i]); }
-                            catch (...) { val = GetVariable(args[i]); }
+                            const std::string& argVal = args[i];
+                            // If the arg is a quoted string or starts with a letter but isn't a number,
+                            // store as string local; otherwise as int
+                            if (!argVal.empty() && argVal[0] == '"') {
+                                m_localStringVars.back()[paramName] = argVal.substr(1, argVal.size()-2 > 0 ? argVal.size()-2 : 0);
+                            } else if (HasLocalStringVariable(argVal)) {
+                                m_localStringVars.back()[paramName] = GetLocalStringVariable(argVal);
+                            } else {
+                                try { m_localVariables.back()[paramName] = std::stoi(argVal); }
+                                catch (...) { m_localVariables.back()[paramName] = GetVariable(argVal); }
+                            }
                         }
-                        m_localVariables.back()[paramName] = val;
                     }
                 }
                 m_pc = targetPC;
@@ -338,12 +400,25 @@ void BitVM::ExecuteInstruction(const BitInstruction& ins) {
         }
         case BitOp::RETURN: {
             if (!m_callStack.empty()) {
-                m_pc = m_callStack.back(); m_callStack.pop_back(); m_localVariables.pop_back();
+                m_pc = m_callStack.back();
+                m_callStack.pop_back();
+                m_localVariables.pop_back();
+                if (!m_localStringVars.empty()) m_localStringVars.pop_back();
             }
             break;
         }
         case BitOp::SET_LOCAL: {
             if (!m_localVariables.empty()) m_localVariables.back()[args[0]] = m_engine.SafeStoi(args[1]);
+            break;
+        }
+        case BitOp::SET_LOCAL_REF: {
+            if (!m_localStringVars.empty() && m_localStringVars.back().count(args[1])) {
+                SetLocalStringVariable(args[0], m_localStringVars.back().at(args[1]));
+            } else if (m_engine.HasStringVariable(args[1])) {
+                SetLocalStringVariable(args[0], m_engine.GetStringVariable(args[1]));
+            } else {
+                if (!m_localVariables.empty()) m_localVariables.back()[args[0]] = GetVariable(args[1]);
+            }
             break;
         }
         case BitOp::WAIT_ACTION: {
@@ -371,7 +446,16 @@ void BitVM::ExecuteInstruction(const BitInstruction& ins) {
             m_engine.EmitEvent(args[0]);
             break;
         }
+        case BitOp::SET_STR: {
+            m_engine.SetStringVariable(args[0], args[1]);
+            break;
+        }
+        case BitOp::SET_STR_LOCAL: {
+            SetLocalStringVariable(args[0], args[1]);
+            break;
+        }
         case BitOp::HALT: m_engine.m_isActive = false; break;
         default: break;
+
     }
 }

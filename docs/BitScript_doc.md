@@ -1,5 +1,5 @@
 # 🧩 BitScript Specification & Documentation
-**Version 0.2**
+**Version 0.3**
 
 BitScript is a lightweight, high-performance narrative scripting language designed specifically for the **BitEngine VM**. It combines declarative entity management with a powerful expression-native logic system to enable complex branching storytelling with minimal syntax overhead.
 
@@ -29,7 +29,7 @@ GlobalStatement     = VariableDecl
 VariableDecl        = "var" Identifier [ "=" Expression ] [ "{" { RangeProp } "}" ] ";" ;
 RangeProp           = ("min" | "max") "=" Expression ";" ;
 
-Assignment          = Identifier ( "=" | "+=" | "-=" | "*=" | "/=" ) Expression ";" ;
+Assignment          = Identifier ( "=" | "+=" | "-=" | "*=" | "/=" | "++" | "--" ) Expression ";" ;
 
 
 
@@ -53,32 +53,35 @@ SceneStatement      = Dialogue
                     | ExpressionStatement
                     | PlayTimelineStatement
                     | EmitStatement
-                    | WaitEventStatement ;
+WaitEventStatement    = "wait" "event" String ";" ;
+SoundStatement        = ("bg" | "bgm" | "sfx") AssetId [ "[" { Modifier } "]" ] ";" ;
 
-Dialogue            = Identifier [ "." Identifier ] [ "[" { Modifier } "]" ] ":" String ";" ;
+Dialogue            = Identifier [ "." Identifier ] [ "[" { Modifier } "]" ] ":" String ";" 
+                    | Identifier "{" { SceneStatement } "}" ;
 NarrationStatement  = "narration" [ "[" { Modifier } "]" ] ":" String ";" ;
 JoinStatement       = ">" Identifier [ "[" { Modifier } "]" ] ";" ;
 LeaveStatement      = "leave" Identifier ";" ;
 StackStatement      = "call" Identifier [ "(" { Expression } ")" ] ";" | "return" ";" ;
 
-CinematicStatement  = "fade_screen" Expression "," Expression [ "wait" ] ";"
-                    | "fade" Identifier "," Expression "," Expression [ "wait" ] ";"
-                    | "move" Identifier "," Position "," Expression [ "wait" ] ";"
+CinematicStatement  = "fade_screen" Expression Expression [ "wait" ] ";"
+                    | "fade" Identifier Expression Expression [ "wait" ] ";"
+                    | "move" Identifier Position Expression [ "wait" ] ";"
                     | "shake" Expression [ "wait" ] ";"
                     | "delay" Expression ";"
-                    | "expression" Identifier "," Identifier ";"
-                    | "play_sfx" Identifier ";" ;
+                    | "expression" Identifier Identifier ";" ;
 
 UiStatement         = "ui" ("show" | "hide") ";"
-                    | "ui_load" String "," String "," Expression ";"
-                    | "ui_unload" String ";"
-                    | "ui_set" String "," String "," Expression ";" ;
+                    | "ui" "activate" Identifier ";"
+                    | "ui" "deactivate" Identifier ";"
+                    | "ui" "load" Identifier String Expression ";"
+                    | "ui" "unload" Identifier ";"
+                    | "ui" "set" Identifier String Expression ";" ;
 
-PlayTimelineStatement = "play" "timeline" ( Identifier | TimelineBlock ) [ "wait" ] ";" ;
+PlayTimelineStatement = "play" "timeline" Identifier [ "wait" ] ";" ;
 EmitStatement         = "emit" String ";" ;
 WaitEventStatement    = "wait" "event" String ";" ;
 
-Modifier            = Identifier "=" Expression ;
+Modifier            = Identifier "=" ( Expression | "(" Expression "?" Expression ":" Expression ")" ) ;
 
 ChoiceBlock         = "choice" "{" { ChoiceOption } "}" [ ";" ] ;
 ChoiceOption        = String [ "[" { Modifier } "]" ] "->" Identifier [ "if" Expression ] ";" ;
@@ -101,6 +104,7 @@ Position            = "left" | "right" | "center" | Number ;
 TimeValue           = Number [ "ms" | "s" ] ;
 Number              = Digit { Digit } [ "." Digit { Digit } ] [ "ms" | "s" ] ;
 String              = "\"" { AnyChar } "\"" ;
+AssetId             = Identifier | "{" Identifier "}" | String ;
 Boolean             = "true" | "false" ;
 Identifier          = Letter { Letter | Digit | "_" } ;
 ```
@@ -137,10 +141,14 @@ BitEngine uses a centralized `project.json` for all configurations, UI layout de
 ```
 
 ### 2. Variables & Constraints
-Variables are global state registers. They support optional min/max constraints.
+Variables are global state registers. They support optional min/max constraints, and also strings.
 ```bitscript
 var gold = 100 { min = 0; max = 9999; };
 var visited_castle = false;
+var current_bg = "sky_bg";
+
+// Local string support
+local temp_name = "Player";
 ```
 
 ### 3. Entities, Sprites & Aliases
@@ -216,21 +224,21 @@ UI layouts are registered in `project.json` under `ui_layouts`. You define the U
 ## 🎭 UI & Cinematic Commands
 
 ### 1. UI Lifecycle
-UI commands use unquoted identifiers for UI names.
+The `ui` namespace unifies all interface commands.
 
 | Command | Arguments | Description |
 | :--- | :--- | :--- |
-| **`ui_activate`** | `ui_id [, layer]` | Activates a registered UI. If `layer` is provided, it forces a load/remount. |
-| **`ui_deactivate`** | `ui_id` | Suspends a UI. It stops rendering, reacting to input, and updating data. |
-| **`ui_unload`** | `ui_id` | Completely removes a UI from memory. |
-| **`ui_set`** | `ui_id.elem_id, prop, val` | Modifies a property of a specific UI element. |
+| **`ui activate`** | `ui_id` | Activates a registered UI. |
+| **`ui deactivate`** | `ui_id` | Suspends a UI. It stops rendering, reacting to input, and updating data. |
+| **`ui unload`** | `ui_id` | Completely removes a UI from memory. |
+| **`ui set`** | `ui_id.elem_id prop val` | Modifies a property of a specific UI element. |
 
 **Example:**
 ```bitscript
-ui_activate hud;
-ui_set hud.label_gold, "content", "{gold}";
+ui activate hud;
+ui set hud.label_gold "content" "{gold}";
 wait 2s;
-ui_deactivate hud;
+ui deactivate hud;
 ```
 
 ---
@@ -247,8 +255,8 @@ event on_death {
 }
 
 timeline intro_pan {
-    0ms:   { bg = sky; fade_screen 0, 2s; }
-    1500ms: { move akira, center, 1s; }
+    0ms:   { bg sky; fade_screen 0 2s; }
+    1500ms: { move akira center 1s; }
     2500ms: { akira: "I've arrived."; }
 }
 

@@ -11,11 +11,10 @@ obj/
 *.app
 *.png
 *.bitc
-*.bitscript
+#*.bitscript
 
 # Save and logs
 save/
-assets/
 
 debug.log
 *.log

@@ -145,10 +145,10 @@ void BitScriptAnalyzer::CheckEntities(const BitProject& project, std::vector<Ana
             std::string op = ins.args[0];
             if ((op == "expression" || op == "hide" || op == "leave" || op == "move" || op == "fade" || op == "pos") && ins.metadata.contains("target")) {
                 std::string target = ins.metadata["target"];
-                if (project.entities.find(target) == project.entities.end()) {
+                if (target != "bg" && project.entities.find(target) == project.entities.end()) {
                     messages.push_back({AnalysisMessage::Level::ERROR, "EVENT '" + op + "' targets undefined character: '" + target + "'", ins.line});
                 }
-                usedEntities.insert(target);
+                if (target != "bg") usedEntities.insert(target);
             }
         }
     }
@@ -276,41 +276,42 @@ void BitScriptAnalyzer::CheckAssets(const BitProject& project, std::vector<Analy
 
     for (const auto& ins : project.bytecode) {
         if (ins.op == BitOp::BG) {
-            if (!ins.args.empty()) {
+            if (!ins.args.empty() && ins.args[0][0] != '@') {
                 usedBg.insert(ins.args[0]);
             }
         }
         if (ins.op == BitOp::BGM) {
-            if (!ins.args.empty()) {
+            if (!ins.args.empty() && ins.args[0][0] != '@') {
                 usedMusic.insert(ins.args[0]);
             }
         }
         if (ins.op == BitOp::EVENT && !ins.args.empty() && ins.args[0] == "play_sfx") {
-            if (ins.metadata.contains("id")) {
+            if (ins.metadata.contains("id") && ins.metadata["id"].get<std::string>()[0] != '@') {
                 usedSfx.insert(ins.metadata["id"].get<std::string>());
             }
         }
         if (ins.op == BitOp::EVENT && !ins.args.empty() && ins.args[0] == "fade") {
-            if (ins.metadata.contains("id")) {
+            if (ins.metadata.contains("id") && ins.metadata["id"].get<std::string>()[0] != '@') {
                 usedBg.insert(ins.metadata["id"].get<std::string>());
             }
         }
     }
 
     // Check referenced assets exist
+    auto missingLevel = project.configs.strict_assets ? AnalysisMessage::Level::ERROR : AnalysisMessage::Level::WARNING;
     for (const auto& bg : usedBg) {
         if (project.backgrounds.find(bg) == project.backgrounds.end()) {
-            messages.push_back({AnalysisMessage::Level::ERROR, "Reference to undefined background asset: '" + bg + "'", -1});
+            messages.push_back({missingLevel, "Reference to undefined background asset: '" + bg + "'", -1});
         }
     }
     for (const auto& music : usedMusic) {
         if (project.music.find(music) == project.music.end()) {
-            messages.push_back({AnalysisMessage::Level::ERROR, "Reference to undefined music asset: '" + music + "'", -1});
+            messages.push_back({missingLevel, "Reference to undefined music asset: '" + music + "'", -1});
         }
     }
     for (const auto& sfx : usedSfx) {
         if (project.sfx.find(sfx) == project.sfx.end()) {
-            messages.push_back({AnalysisMessage::Level::ERROR, "Reference to undefined SFX asset: '" + sfx + "'", -1});
+            messages.push_back({missingLevel, "Reference to undefined SFX asset: '" + sfx + "'", -1});
         }
     }
 
@@ -336,7 +337,7 @@ void BitScriptAnalyzer::CheckInstructions(const BitProject& project, std::vector
     for (const auto& ins : project.bytecode) {
         // Text/SAY with empty content
         if (ins.op == BitOp::TEXT || ins.op == BitOp::SAY) {
-            if (ins.args.size() >= 2 && ins.args[1].empty()) {
+            if (ins.args.size() >= 2 && ins.args[1].empty() && ins.metadata.empty()) {
                 messages.push_back({AnalysisMessage::Level::WARNING, "SAY/TEXT instruction with empty content", ins.line});
             }
         }
@@ -402,13 +403,16 @@ void BitScriptAnalyzer::CheckInstructions(const BitProject& project, std::vector
                     }
                 }
                 if (ins.metadata.contains("pre_delay")) {
-                    try {
-                        int pre_delay = ins.metadata["pre_delay"].is_number() ? ins.metadata["pre_delay"].get<int>() : std::stoi(ins.metadata["pre_delay"].get<std::string>());
-                        if (pre_delay < 0) {
-                            messages.push_back({AnalysisMessage::Level::ERROR, op + ": pre_delay must be >= 0, got " + std::to_string(pre_delay), ins.line});
+                    if (ins.metadata["pre_delay"].is_string()) {}
+                    else {
+                        try {
+                            int pre_delay = ins.metadata["pre_delay"].get<int>();
+                            if (pre_delay < 0) {
+                                messages.push_back({AnalysisMessage::Level::ERROR, op + ": pre_delay must be >= 0, got " + std::to_string(pre_delay), ins.line});
+                            }
+                        } catch (...) {
+                            messages.push_back({AnalysisMessage::Level::ERROR, op + ": pre_delay is not a valid number", ins.line});
                         }
-                    } catch (...) {
-                        messages.push_back({AnalysisMessage::Level::ERROR, op + ": pre_delay is not a valid number", ins.line});
                     }
                 }
             }
@@ -497,9 +501,11 @@ void BitScriptAnalyzer::CheckInstructions(const BitProject& project, std::vector
                     if (ins.metadata["duration"].is_string()) {}
                     else {
                         try {
-                            int duration = ins.metadata["duration"].get<int>();
-                            if (duration < 0) {
-                                messages.push_back({AnalysisMessage::Level::ERROR, "delay: duration must be >= 0, got " + std::to_string(duration), ins.line});
+                            if (ins.metadata["duration"].is_number()) {
+                                int duration = ins.metadata["duration"].get<int>();
+                                if (duration < 0) {
+                                    messages.push_back({AnalysisMessage::Level::ERROR, "delay: duration must be >= 0, got " + std::to_string(duration), ins.line});
+                                }
                             }
                         } catch (...) {
                             messages.push_back({AnalysisMessage::Level::ERROR, "delay: duration is not a valid number", ins.line});
@@ -515,7 +521,7 @@ void BitScriptAnalyzer::CheckInstructions(const BitProject& project, std::vector
                 messages.push_back({AnalysisMessage::Level::ERROR, "PLAY_TIMELINE requires timeline ID", ins.line});
             } else {
                 std::string timelineId = ins.args[0];
-                if (project.timelines.find(timelineId) == project.timelines.end()) {
+                if (!timelineId.empty() && timelineId[0] != '@' && project.timelines.find(timelineId) == project.timelines.end()) {
                     messages.push_back({AnalysisMessage::Level::ERROR, "Reference to undefined timeline: '" + timelineId + "'", ins.line});
                 }
             }
