@@ -212,7 +212,7 @@ UIStyleBlock StyleSheet::ParseBlock(const json& j) {
 bool StyleSheet::Load(const std::string& path) {
     std::ifstream f(path);
     if (!f) {
-        std::cerr << "[UILayout] Not found: " << path << "\n";
+        Log("StyleSheet Not found: " + path, "WARN");
         return false;
     }
     try {
@@ -220,11 +220,10 @@ bool StyleSheet::Load(const std::string& path) {
         for (auto& [name, block] : j.items()) {
             m_blocks[name] = ParseBlock(block);
         }
-        std::cout << "[UILayout] Loaded " << m_blocks.size()
-                  << " style block(s) from " << path << "\n";
+        Log("Loaded " + std::to_string(m_blocks.size()) + " style block(s) from " + path);
         return true;
     } catch (const std::exception& e) {
-        std::cerr << "[UILayout] Parse error: " << e.what() << "\n";
+        Log("StyleSheet Parse error: " + std::string(e.what()), "ERROR");
         return false;
     }
 }
@@ -332,7 +331,7 @@ bool UILayout::SetContent(const std::string& id, const std::string& content) {
 
 bool UILayout::Load(const std::string& layoutPath) {
     std::ifstream f(layoutPath);
-    if (!f) { std::cerr << "[UILayout] Not found: " << layoutPath << "\n"; return false; }
+    if (!f) { Log("Layout Not found: " + layoutPath, "WARN"); return false; }
 
     try {
         json j; f >> j;
@@ -377,11 +376,10 @@ bool UILayout::Load(const std::string& layoutPath) {
         };
         for (auto& root : m_roots) preloadFonts(root);
 
-        std::cout << "[UILayout] Loaded " << m_roots.size()
-                  << " root element(s) from " << layoutPath << "\n";
+        Log("Loaded " + std::to_string(m_roots.size()) + " root element(s) from " + layoutPath);
         return true;
     } catch (const std::exception& e) {
-        std::cerr << "[UILayout] Parse error: " << e.what() << "\n";
+        Log("Layout Parse error: " + std::string(e.what()), "ERROR");
         return false;
     }
 }
@@ -685,12 +683,13 @@ bool UIManager::Load(const std::string& name, const std::string& path, int layer
     entry.layer = layer;
     entry.active = true;
     entry.visible = true;
+    entry.layout.SetLogFunc(m_logFunc);
     if (!entry.layout.Load(path)) {
-        std::cerr << "[UILayout] Failed to load: " << path << "\n";
+        Log("Failed to load layout: " + path, "ERROR");
         return false;
     }
     m_layers.push_back(std::move(entry));
-    std::cout << "[UILayout] Loaded UI \"" << name << "\" (layer " << layer << ") from " << path << "\n";
+    Log("Loaded UI \"" + name + "\" (layer " + std::to_string(layer) + ") from " + path);
     return true;
 }
 
@@ -698,7 +697,7 @@ void UIManager::Unload(const std::string& name) {
     m_layers.erase(std::remove_if(m_layers.begin(), m_layers.end(),
         [&](LayerEntry& e) { if (e.name == name) { e.layout.Shutdown(); return true; } return false; }),
         m_layers.end());
-    std::cout << "[UILayout] Unloaded UI \"" << name << "\"\n";
+    Log("Unloaded UI \"" + name + "\"");
 }
 
 bool UIManager::IsLoaded(const std::string& name) const {

@@ -9,6 +9,9 @@
 // Construction / Destruction
 // ─────────────────────────────────────────────────────────────────────────────
 BitRenderer::BitRenderer(BitRuntime& engine) : m_engine(engine) {
+    m_uiManager.SetLogFunc([&](const std::string& msg, const std::string& lvl) {
+        m_engine.Log(msg, lvl);
+    });
     InitAudioDevice();
     CreateFallbackTexture();
     CreateVignetteTexture();
@@ -102,7 +105,23 @@ void BitRenderer::Draw() {
         m_toastTimer -= GetFrameTime();
     }
 
-    if (m_engine.IsDebugOverlayVisible()) DrawDebugOverlay();
+    if (m_engine.IsDebugOverlayVisible()) {
+        auto& debugger = m_engine.GetDebugger();
+        debugger.GetFpsHistory()[debugger.GetFpsHistoryIdx()] = GetFrameTime() * 1000.0f;
+        debugger.GetFpsHistoryIdx() = (debugger.GetFpsHistoryIdx() + 1) % 100;
+
+        DebugDrawContext ctx;
+        ctx.engine = &m_engine;
+        ctx.uiManager = &m_uiManager;
+        ctx.textureCache = &m_textureCache;
+        ctx.sfxCache = &m_sfxCache;
+        ctx.musicCache = &m_musicCache;
+        ctx.fpsHistory = debugger.GetFpsHistory();
+        ctx.fpsHistoryIdx = debugger.GetFpsHistoryIdx();
+        ctx.debugTab = &debugger.GetDebugTab();
+        ctx.getFont = [&](const std::string& p){ return GetFont(p); };
+        debugger.DrawOverlay(ctx);
+    }
 
     UIElement* cur = m_uiManager.FindByRole("mouse_cursor");
     DrawCustomCursor(cur);
@@ -253,6 +272,16 @@ void BitRenderer::HandleInput() {
     if (IsKeyPressed(KEY_H)) { m_showHistory = !m_showHistory; if (m_showHistory) m_historyScroll = 0; }
     if (IsKeyPressed(KEY_F3)) m_engine.ToggleDebugOverlay();
 
+    if (m_engine.IsDebugOverlayVisible()) {
+        auto& tab = m_engine.GetDebugger().GetDebugTab();
+        if (IsKeyPressed(KEY_TAB))   tab = (tab + 1) % 5;
+        if (IsKeyPressed(KEY_ONE))   tab = 0;
+        if (IsKeyPressed(KEY_TWO))   tab = 1;
+        if (IsKeyPressed(KEY_THREE)) tab = 2;
+        if (IsKeyPressed(KEY_FOUR))  tab = 3;
+        if (IsKeyPressed(KEY_FIVE))  tab = 4;
+    }
+
     if (m_showHistory) {
         m_historyScroll -= GetMouseWheelMove() * 40.0f;
         if (m_historyScroll < 0) m_historyScroll = 0;
@@ -268,6 +297,14 @@ void BitRenderer::HandleInput() {
     if (IsKeyPressed(KEY_F9)) { if (m_engine.LoadGame(1)) { m_toastMsg = "RELOADING..."; m_toastTimer = 2.0f; } }
 
     if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+        if (m_engine.IsDebugOverlayVisible()) {
+            int sw = GetScreenWidth(), sh = GetScreenHeight();
+            int overlayW = std::min(1000, sw - 40);
+            int overlayH = std::min(700, sh - 80);
+            Rectangle r = {(float)(sw - overlayW) / 2, (float)(sh - overlayH) / 2, (float)overlayW, (float)overlayH};
+            if (CheckCollisionPointRec(GetMousePosition(), r)) return; // Consume click for debug menu
+        }
+
         if (!m_engine.IsChoiceVisible()) {
             m_engine.Next();
         }
@@ -320,16 +357,16 @@ void BitRenderer::HandleAudio() {
 // ─────────────────────────────────────────────────────────────────────────────
 void BitRenderer::PreloadAssets() {
     auto& proj = m_engine.GetProject();
-    std::cout << "[BitRenderer] Preloading assets into memory...\n";
+    m_engine.Log("Preloading assets into memory...");
     for (auto& [id, path] : proj.backgrounds) GetTexture(path);
     for (auto& [id, path] : proj.music) {
         if (path.empty() || m_musicCache.count(path)) continue;
         if (!FileExists(path.c_str())) {
             if (m_engine.GetConfigs().strict_assets) {
-                std::cout << "\n[ERROR] Strict Mode: Missing BGM asset: " << path << std::endl;
+                m_engine.Log("Strict Mode: Missing BGM asset: " + path, "ERROR");
                 exit(1);
             }
-            std::cout << "[WARN] Missing BGM asset: " << path << std::endl;
+            m_engine.Log("Missing BGM asset: " + path, "WARN");
             continue;
         }
         m_musicCache[path] = LoadMusicStream(path.c_str());
@@ -338,10 +375,10 @@ void BitRenderer::PreloadAssets() {
         if (path.empty() || m_sfxCache.count(path)) continue;
         if (!FileExists(path.c_str())) {
             if (m_engine.GetConfigs().strict_assets) {
-                std::cout << "\n[ERROR] Strict Mode: Missing SFX asset: " << path << std::endl;
+                m_engine.Log("Strict Mode: Missing SFX asset: " + path, "ERROR");
                 exit(1);
             }
-            std::cout << "[WARN] Missing SFX asset: " << path << std::endl;
+            m_engine.Log("Missing SFX asset: " + path, "WARN");
             continue;
         }
         m_sfxCache[path] = LoadSound(path.c_str());
@@ -365,10 +402,10 @@ Texture2D BitRenderer::GetTexture(const std::string& path) {
     } else { 
         m_textureCache[path] = {}; 
         if (m_engine.GetConfigs().strict_assets) {
-            std::cout << "\n[ERROR] Strict Mode: Missing texture asset: " << path << std::endl;
+            m_engine.Log("Strict Mode: Missing texture asset: " + path, "ERROR");
             exit(1);
         } else {
-            std::cout << "[WARN] Missing texture asset: " << path << std::endl;
+            m_engine.Log("Missing texture asset: " + path, "WARN");
         }
     }
     return m_fallbackTexture;
@@ -382,10 +419,10 @@ void BitRenderer::PlaySFX(const std::string& path) {
     if (it != m_sfxCache.end() && it->second.frameCount > 0) {
         PlaySound(it->second);
     } else if (m_engine.GetConfigs().strict_assets) {
-        std::cout << "\n[ERROR] Strict Mode: Missing SFX asset: " << path << std::endl;
+        m_engine.Log("Strict Mode: Missing SFX asset: " + path, "ERROR");
         exit(1);
     } else {
-        std::cout << "[WARN] Missing SFX asset: " << path << std::endl;
+        m_engine.Log("Missing SFX asset: " + path, "WARN");
     }
 }
 

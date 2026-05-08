@@ -40,7 +40,8 @@ std::string BitVM::ResolveAssetArg(const std::string& arg) const {
         if (m_engine.HasStringVariable(varName))
             return m_engine.GetStringVariable(varName);
         // Fall back to int variable as string
-        std::cout << "ResolveAssetArg failed for " << varName << "\n"; return std::to_string(m_engine.GetVariable(varName));
+        m_engine.Log("ResolveAssetArg failed for " + varName, "WARN"); 
+        return std::to_string(m_engine.GetVariable(varName));
     }
     return arg;
 }

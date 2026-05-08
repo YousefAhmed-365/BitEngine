@@ -501,7 +501,7 @@ void BitRuntime::SaveGame(int slot) {
         
         std::string summary = m_currentSpeakerId.empty() ? "Narrative" : m_currentSpeakerId;
         j["meta"] = { 
-            {"time", GetTimestamp()}, 
+            {"time", m_debugger.GetTimestamp()}, 
             {"pc", m_vm->GetPC()}, 
             {"text", "Scene: " + summary + " (PC:" + std::to_string(m_vm->GetPC()) + ")"} 
         };
@@ -898,18 +898,7 @@ void BitRuntime::RecordError(const std::string& context, const std::string& msg)
 }
 
 void BitRuntime::Log(const std::string& msg, const std::string& level) const {
-    std::string mode = m_project.configs.debug_mode;
-    bool isError = (level == "ERROR");
-    if (mode == "none" && !isError) return;
-    std::string tag = "[BitEngine:" + level + "] ";
-    if (isError || mode == "debug_overlay" || mode == "debug_all") std::cout << tag << msg << std::endl;
-    if (isError || mode == "debug_file" || mode == "debug_all") {
-        std::ofstream logFile("debug.log", std::ios_base::app);
-        if (logFile) {
-            auto t = std::time(nullptr);
-            logFile << std::put_time(std::localtime(&t), "%Y-%m-%d %H:%M:%S") << " | " << tag << msg << "\n";
-        }
-    }
+    const_cast<BitDebugger&>(m_debugger).Log(const_cast<BitRuntime*>(this), msg, level);
 }
 
 ValidationResult BitRuntime::ValidateProject(const BitProject& p) {
@@ -938,10 +927,7 @@ const Entity* BitRuntime::GetCurrentEntity() const {
 
 std::string BitRuntime::XORBuffer(const std::string& d) const { std::string o = d; for (size_t i = 0; i < d.size(); ++i) o[i] ^= KEY[i % KEY.size()]; return o; }
 std::string BitRuntime::GetSlotPath(int s) const { return "save/" + m_project.configs.save_prefix + std::to_string(s) + ".bin"; }
-std::string BitRuntime::GetTimestamp() const {
-    std::time_t t = std::time(nullptr); std::tm tm = *std::localtime(&t);
-    std::stringstream ss; ss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S"); return ss.str();
-}
+
 
 float BitRuntime::ParsePosition(const std::string& pos) const {
     if (pos == "left") return 0.2f;

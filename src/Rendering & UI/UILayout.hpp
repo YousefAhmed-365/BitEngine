@@ -8,6 +8,9 @@
 #include <vector>
 #include <optional>
 #include <unordered_map>
+#include <functional>
+
+typedef std::function<void(const std::string&, const std::string&)> BitLogFunc;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // StyleTexture  (re-declared here so UILayout.hpp is self-contained)
@@ -101,7 +104,11 @@ public:
     UIStyleBlock Get(const std::string& name) const;
     static UIStyleBlock ParseBlock(const nlohmann::json& j);
 
+    void SetLogFunc(BitLogFunc func) { m_logFunc = func; }
+    void Log(const std::string& msg, const std::string& lvl = "INFO") { if (m_logFunc) m_logFunc(msg, lvl); }
+
 private:
+    BitLogFunc m_logFunc;
     std::unordered_map<std::string, UIStyleBlock> m_blocks;
     static UITexture    ParseTexture(const nlohmann::json& j);
     static Color        ParseColor(const nlohmann::json& j, Color def = {255,255,255,255});
@@ -198,7 +205,11 @@ public:
     bool SetVisible(const std::string& id, bool visible);
     bool SetContent(const std::string& id, const std::string& content);
 
+    void SetLogFunc(BitLogFunc func) { m_logFunc = func; m_styleSheet.SetLogFunc(func); }
+    void Log(const std::string& msg, const std::string& lvl = "INFO") { if (m_logFunc) m_logFunc(msg, lvl); }
+
 private:
+    BitLogFunc m_logFunc;
     std::vector<UIElement> m_roots;
     StyleSheet             m_styleSheet;
     std::unordered_map<std::string, Font> m_fontCache;
@@ -224,6 +235,9 @@ private:
 // ─────────────────────────────────────────────────────────────────────────────
 class UIManager {
 public:
+    void SetLogFunc(BitLogFunc func) { m_logFunc = func; }
+    void Log(const std::string& msg, const std::string& lvl = "INFO") { if (m_logFunc) m_logFunc(msg, lvl); }
+
     // Load/unload named layouts
     bool Load(const std::string& name, const std::string& path, int layer);
     void Unload(const std::string& name);
@@ -275,6 +289,7 @@ private:
     // Helper: split "layout_name.element_id" → {"layout_name", "element_id"}
     static std::pair<std::string,std::string> SplitScopedId(const std::string& scopedId);
     LayerEntry* FindLayer(const std::string& name);
+    BitLogFunc m_logFunc;
 };
 
 #endif // UI_LAYOUT_HPP

@@ -42,7 +42,6 @@ protected:
 
     // ── Specialised draw helpers (history, debug, cursor) ─────────────────
     void DrawHistory();
-    void DrawDebugOverlay();
     void DrawCustomCursor(UIElement* mouseCursorElem);
     void DrawChoicesPanel();  // Direct choice rendering (bypasses UI system)
     void HandleChoiceInput(); // Direct choice input (bypasses UI system)

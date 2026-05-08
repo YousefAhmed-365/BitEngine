@@ -36,6 +36,7 @@ set(RUNTIME_STATE_SOURCES
     "src/Runtime & State/BitRichText.cpp"
     "src/Runtime & State/BitScriptAnalyzer.cpp"
     "src/Runtime & State/BitScriptInterpreter.cpp"
+    "src/Runtime & State/BitDebugger.cpp"
 )
 
 # ============================================================================

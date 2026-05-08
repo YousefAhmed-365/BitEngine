@@ -6,6 +6,7 @@
 #include "BitRichText.hpp"
 #include "BitVM.hpp"
 #include "BitState.hpp"
+#include "BitDebugger.hpp"
 #include <string>
 #include <unordered_map>
 #include <map>
@@ -74,6 +75,8 @@ struct SaveMetadata {
     std::string entity_name;
     std::string summary;
 };
+
+// LogEntry moved to BitDebugger.hpp
 
 struct DialogConfigs {
     std::string start_node = "scene_start", save_prefix = "save_slot_", mode = "typewriter";
@@ -198,6 +201,7 @@ public:
     BitProject& GetProject() { return m_project; }
     std::string GetDebugMode() const { return m_project.configs.debug_mode; }
     void Log(const std::string& msg, const std::string& level = "INFO") const;
+    BitDebugger& GetDebugger() { return const_cast<BitDebugger&>(m_debugger); }
     bool IsDebugOverlayVisible() const { return m_debugOverlayVisible; }
     void ToggleDebugOverlay() { m_debugOverlayVisible = !m_debugOverlayVisible; }
     void SetDebugOverlayVisible(bool visible) { m_debugOverlayVisible = visible; }
@@ -249,6 +253,10 @@ public:
     void ClearEventTrace() { m_state.EventTrace().clear(); }
     bool HasErrors() const { return !m_errors.empty(); }
     const std::vector<std::string>& GetErrors() const { return m_errors; }
+    
+    // Part 5 Debug additions
+    const std::vector<LogEntry>& GetConsoleLogs() const { return m_debugger.GetLogs(); }
+    void ClearConsoleLogs() { const_cast<BitDebugger&>(m_debugger).ClearLogs(); }
 
     // UI Command queue
     std::vector<UICommand> DrainUICommands();
@@ -301,6 +309,9 @@ private:
     std::string m_projectBasePath;
     std::unordered_map<std::string, std::filesystem::file_time_type> m_fileWatchTimestamps;
     float m_hotReloadTimer = 0.0f;
+    
+    BitDebugger m_debugger;
+
     void CheckHotReload();
 
     void UpdateSysVars();
