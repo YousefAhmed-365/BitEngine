@@ -112,7 +112,9 @@ void BitParser::ParseScene() {
         ParseStatement();
     }
     expect(TokenType::Symbol, "}");
-    emit(BitOp::RETURN);
+    if(!m_currentOutput->empty() && m_currentOutput->back().op != BitOp::RETURN) {
+        emit(BitOp::RETURN);
+    }
     match(TokenType::Symbol, ";");
 }
 

@@ -239,15 +239,8 @@ void BitScriptAnalyzer::CheckVariables(const BitProject& project, std::vector<An
 }
 
 void BitScriptAnalyzer::CheckControlFlow(const BitProject& project, std::vector<AnalysisMessage>& messages) {
-    bool foundHalt = false;
-    int lastLabelLine = -1;
-
     for (size_t i = 0; i < project.bytecode.size(); ++i) {
         const auto& ins = project.bytecode[i];
-        
-        if (ins.op == BitOp::LABEL) {
-            lastLabelLine = (int)i;
-        }
 
         // Detect obvious infinite loops (GOTO self)
         if (ins.op == BitOp::GOTO && !ins.args.empty()) {
@@ -260,9 +253,6 @@ void BitScriptAnalyzer::CheckControlFlow(const BitProject& project, std::vector<
             }
         }
 
-        if (ins.op == BitOp::HALT) {
-            foundHalt = true;
-        }
     }
 
     // Check if bytecode ends properly

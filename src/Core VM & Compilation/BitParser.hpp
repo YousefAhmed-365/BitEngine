@@ -61,18 +61,18 @@ private:
     void ParseScene();
     std::string ParseTimeline();
     void ParseStatement();
-    void ParseAssignment(const std::string& var, std::vector<BitInstruction>& output, bool isLocal = false);
-    void ParseDialogueBlock(const std::string& entityId, std::vector<BitInstruction>& output);
+    void ParseAssignment(const std::string& var, bool isLocal = false);
+    void ParseDialogueBlock(const std::string& entityId);
     
     // Expression Parsing
-    Operand ParseExpression(std::vector<BitInstruction>& output);
-    Operand ParseTernaryExpr(std::vector<BitInstruction>& output);
-    Operand ParseAddExpr(std::vector<BitInstruction>& output);
-    Operand ParseMulExpr(std::vector<BitInstruction>& output);
+    Operand ParseExpression();
+    Operand ParseTernaryExpr();
+    Operand ParseAddExpr();
+    Operand ParseMulExpr();
     Operand ParsePrimary();
     
     // Condition Parsing
-    void ParseIfStatement(std::vector<BitInstruction>& output);
+    void ParseIfStatement();
     
     int ParseTime(const std::string& s);
     Token previous();
