@@ -7,10 +7,9 @@
 #include <string>
 
 /**
- * BitScriptInterpreter: Legacy compiler interface
+ * BitScriptInterpreter: High-level compiler interface
  * 
  * Combines lexing, parsing, and compilation into a single interface.
- * This is primarily a convenience wrapper now that these are separated.
  */
 class BitScriptInterpreter {
 public:

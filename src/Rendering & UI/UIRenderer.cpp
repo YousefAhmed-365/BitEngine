@@ -2,7 +2,7 @@
 #include "BitRuntime.hpp"
 
 // ─────────────────────────────────────────────────────────────────────────────
-// UI Rendering & Input (Legacy / Alternate Implementation)
+// UI Rendering & Input
 // ─────────────────────────────────────────────────────────────────────────────
 // Alternative UI rendering pipeline. BitRenderer is the active renderer.
 // ─────────────────────────────────────────────────────────────────────────────

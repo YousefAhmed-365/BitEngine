@@ -1,6 +1,7 @@
 #include "BitRuntime.hpp"
 #include "BitScriptInterpreter.hpp"
 #include "BitScriptAnalyzer.hpp"
+#include "BitTask.hpp"
 #include "json.hpp"
 #include <fstream>
 #include <iostream>
@@ -706,52 +707,10 @@ void BitRuntime::Update(float dt) {
         else { ++it; }
     }
 
-    if (m_state.ScreenFadeDuration() <= 0.0f) {
-        m_state.ScreenFadeAlpha() = m_state.ScreenFadeTarget();
-    } else if (m_state.ScreenFadeTimer() < m_state.ScreenFadeDuration()) {
-        m_state.ScreenFadeTimer() += dt;
-        float t = std::min(1.0f, m_state.ScreenFadeTimer() / m_state.ScreenFadeDuration());
-        m_state.ScreenFadeAlpha() = m_state.ScreenFadeStart() + (m_state.ScreenFadeTarget() - m_state.ScreenFadeStart()) * t;
-        if (m_state.ScreenFadeTimer() >= m_state.ScreenFadeDuration()) {
-            m_state.ScreenFadeAlpha() = m_state.ScreenFadeTarget();
-            m_state.ScreenFadeDuration() = 0.0f;
-            m_state.ScreenFadeTimer() = 0.0f;
-        }
-    }
+    // ── Scheduler drives all async operations (move, fade, shake, etc.) ──────
+    m_scheduler.Update(dt);
 
-    if (m_state.BgFadeAlpha() < 1.0f) {
-        m_state.BgFadeTimer() += dt;
-        m_state.BgFadeAlpha() = std::min(1.0f, m_state.BgFadeTimer() / m_state.BgFadeDuration());
-    }
 
-    for (auto& [id, st] : m_state.ActiveEntities()) {
-        if (st.moveTimer < st.moveDuration) {
-            st.moveTimer += dt;
-            float t = std::min(1.0f, st.moveTimer / st.moveDuration);
-            t = 1.0f - powf(1.0f - t, 3.0f); 
-            st.currentNormX = st.startNormX + (st.targetNormX - st.startNormX) * t;
-            if (st.moveTimer >= st.moveDuration) st.currentNormX = st.targetNormX;
-        }
-        if (st.fadeTimer < st.fadeDuration) {
-            st.fadeTimer += dt;
-            float t = std::min(1.0f, st.fadeTimer / st.fadeDuration);
-            st.alpha = st.startAlpha + (st.targetAlpha - st.startAlpha) * t;
-            if (st.fadeTimer >= st.fadeDuration) st.alpha = st.targetAlpha;
-        }
-    }
-
-    if (m_engineDelayTimer > 0.0f) {
-        m_engineDelayTimer -= dt;
-        if (m_engineDelayTimer <= 0.0f) {
-            m_engineDelayTimer = 0.0f;
-            if (m_revealedCount < 0.0f) m_revealedCount = 0.0f;
-            if (m_vm->IsWaiting() && m_vm->IsDelayed() && !m_project.bytecode.empty()) {
-                m_vm->ResetWaiting();
-                m_vm->RunVM();
-            }
-        }
-        return;
-    }
 
     if (IsTextRevealing()) {
         if (m_waitTimer > 0.0f) {
@@ -773,25 +732,16 @@ void BitRuntime::Update(float dt) {
     
     if (m_state.ShakeIntensity() > 0) m_state.ShakeIntensity() = std::max(0.0f, m_state.ShakeIntensity() - dt * 20.0f);
 
+
     if (m_vm->IsWaiting() && !m_vm->GetWaitActionType().empty()) {
         bool done = false;
         std::string type = m_vm->GetWaitActionType();
-        if (type == "sfx") done = m_pendingSFX.empty(); 
-        else if (type == "move") {
-            done = true;
-            for (auto& [id, s] : m_state.ActiveEntities()) if (s.moveTimer < s.moveDuration) done = false;
-        }
-        else if (type == "fade") {
-            done = true;
-            for (auto& [id, s] : m_state.ActiveEntities()) if (s.fadeTimer < s.fadeDuration) done = false;
-            if (m_state.BgFadeTimer() < m_state.BgFadeDuration()) done = false;
-            if (m_state.ScreenFadeTimer() < m_state.ScreenFadeDuration()) done = false;
-        }
-        else if (type == "all") done = !IsVisualAnimating();
-        else if (type == "timeline") {
-            done = true;
-            for (const auto& atl : m_state.ActiveTimelines()) if (atl.isBlocking) done = false;
-        }
+        if      (type == "sfx")      done = m_pendingSFX.empty();
+        else if (type == "move")     done = !m_scheduler.HasActiveTasks(TAG_MOVE);
+        else if (type == "fade")     done = !m_scheduler.HasActiveTasks(TAG_FADE);
+        else if (type == "all")      done = !m_scheduler.HasActiveTasks(TAG_MOVE | TAG_FADE | TAG_SHAKE | TAG_UI);
+        else if (type == "timeline") done = !m_scheduler.HasActiveTasks(TAG_TIMELINE);
+        else if (type == "delay")    done = !m_scheduler.HasActiveTasks(TAG_DELAY);
 
         if (done) {
             m_vm->ResetWaiting();
@@ -940,7 +890,19 @@ float BitRuntime::ParsePosition(const std::string& pos) const {
 void BitRuntime::ProcessEvents(const std::vector<Event>& events) {
     for (const auto& e : events) {
         auto& p = e.params;
-        if (e.op == "shake")    { TriggerShake(ResolveParamFloat(p, "intensity", 5.0f)); continue; }
+        if (e.op == "shake") {
+            float intensity = ResolveParamFloat(p, "intensity", 5.0f);
+            float& shakeRef = m_state.ShakeIntensity();
+            shakeRef = intensity;
+            // Decay over ~0.5s via scheduler
+            m_scheduler.CancelByOwner("__shake");
+            auto task = std::make_shared<LerpTask>(0.5f, intensity, 0.0f,
+                [&shakeRef](float val) { shakeRef = val; });
+            task->AddTag(TAG_SHAKE);
+            task->SetOwner("__shake");
+            m_scheduler.Schedule(task);
+            continue;
+        }
         if (e.op == "play_sfx") { m_pendingSFX.push_back(p.value("id", "")); continue; }
         if (e.op == "clear")    { m_state.ActiveEntities().clear(); continue; }
         if (e.op == "expression") {
@@ -962,38 +924,82 @@ void BitRuntime::ProcessEvents(const std::vector<Event>& events) {
             continue;
         }
         if (e.op == "jump")  { m_pendingJumpId = p.value("target", ""); continue; }
-        if (e.op == "delay") { m_engineDelayTimer = ResolveParamInt(p, "duration", 0) / 1000.0f; continue; }
+        if (e.op == "delay") { 
+            float dur = ResolveParamInt(p, "duration", 0) / 1000.0f;
+            auto task = std::make_shared<DelayTask>(dur);
+            task->SetOwner("__engine_delay");
+            m_scheduler.Schedule(task);
+            m_vm->SetWaiting("delay");
+            continue; 
+        }
         if (e.op == "move") {
             std::string target = p.value("target", "");
+            if (!m_state.ActiveEntities().count(target)) continue;
             auto& s = m_state.ActiveEntities()[target];
             float x = ParseXParam(p);
-            s.pos = std::to_string(x); s.targetNormX = x; s.startNormX = s.currentNormX;
-            s.moveDuration = ResolveParamInt(p, "duration", 0) / 1000.0f; s.moveTimer = 0.0f;
-            s.visible = true; continue;
+            float dur = ResolveParamInt(p, "duration", 0) / 1000.0f;
+            s.pos = std::to_string(x);
+            s.visible = true;
+            float startX = s.currentNormX;
+            // Cancel any in-progress move on this entity first
+            m_scheduler.CancelByOwner(target + "_move");
+            auto task = std::make_shared<LerpTask>(dur, startX, x,
+                [&s](float val) { s.currentNormX = val; }, BitEase::CubicOut);
+            task->AddTag(TAG_MOVE);
+            task->SetOwner(target + "_move");
+            m_scheduler.Schedule(task);
+            continue;
         }
         if (e.op == "fade") {
             std::string target = p.value("target", "");
             int duration = ResolveParamInt(p, "duration", 0);
+            float dur = std::max(0.01f, duration / 1000.0f);
             if (target == "bg") {
                 std::string bgId = p.value("id", "");
                 if (!bgId.empty()) {
-                    m_state.PrevBg() = m_state.GetActiveBg(); m_state.ActiveBg() = bgId;
-                    m_state.BgFadeAlpha() = 0.0f; m_state.BgFadeTimer() = 0.0f; m_state.BgFadeDuration() = std::max(0.01f, duration / 1000.0f);
+                    m_state.PrevBg() = m_state.GetActiveBg();
+                    m_state.ActiveBg() = bgId;
+                    float& alpha = m_state.BgFadeAlpha();
+                    alpha = 0.0f;
+                    m_scheduler.CancelByOwner("__bg_fade");
+                    auto task = std::make_shared<LerpTask>(dur, 0.0f, 1.0f,
+                        [&alpha](float val) { alpha = val; });
+                    task->AddTag(TAG_FADE);
+                    task->SetOwner("__bg_fade");
+                    m_scheduler.Schedule(task);
                 }
             } else {
                 auto& s = m_state.ActiveEntities()[target];
-                s.targetAlpha = ResolveParamFloat(p, "alpha", 1.0f); s.startAlpha = s.alpha;
-                s.fadeDuration = std::max(0.01f, duration / 1000.0f); s.fadeTimer = 0.0f;
+                float startA = s.alpha;
+                float endA   = ResolveParamFloat(p, "alpha", 1.0f);
                 s.visible = true;
+                m_scheduler.CancelByOwner(target + "_fade");
+                auto task = std::make_shared<LerpTask>(dur, startA, endA,
+                    [&s](float val) { s.alpha = val; });
+                task->AddTag(TAG_FADE);
+                task->SetOwner(target + "_fade");
+                m_scheduler.Schedule(task);
             }
             continue;
         }
         if (e.op == "fade_screen") {
-            float alpha = ResolveParamFloat(p, "alpha", 0.0f);
-            alpha = std::max(0.0f, std::min(1.0f, alpha));
-            m_state.ScreenFadeTarget() = alpha; m_state.ScreenFadeStart() = m_state.ScreenFadeAlpha();
-            int dur = ResolveParamInt(p, "duration", 0);
-            m_state.ScreenFadeDuration() = std::max(0.0f, dur / 1000.0f); m_state.ScreenFadeTimer() = 0.0f;
+            float targetAlpha = ResolveParamFloat(p, "alpha", 0.0f);
+            targetAlpha = std::max(0.0f, std::min(1.0f, targetAlpha));
+            float dur = std::max(0.0f, ResolveParamInt(p, "duration", 0) / 1000.0f);
+            float startA = m_state.ScreenFadeAlpha();
+            float& screenAlpha = m_state.ScreenFadeAlpha();
+            m_scheduler.CancelByOwner("__screen_fade");
+            if (dur <= 0.0f) {
+                screenAlpha = targetAlpha;
+            } else {
+                auto task = std::make_shared<LerpTask>(dur, startA, targetAlpha,
+                    [&screenAlpha](float val) { screenAlpha = val; });
+                task->AddTag(TAG_FADE);
+                task->SetOwner("__screen_fade");
+                m_scheduler.Schedule(task);
+            }
+            // Keep target in state for debugger visibility
+            m_state.ScreenFadeTarget() = targetAlpha;
             continue;
         }
         
@@ -1077,9 +1083,7 @@ std::string BitRuntime::GetCurrentLabel() const {
 }
 
 bool BitRuntime::IsVisualAnimating() const {
-    for (const auto& [id, state] : m_state.GetActiveEntities()) if (state.moveTimer < state.moveDuration || state.fadeTimer < state.fadeDuration) return true;
-    if (m_state.BgFadeAlpha() < 1.0f) return true;
-    return false;
+    return m_scheduler.HasActiveTasks(TAG_MOVE | TAG_FADE | TAG_SHAKE);
 }
 
 void BitRuntime::CheckHotReload() {

@@ -120,6 +120,7 @@ void BitRenderer::Draw() {
         ctx.fpsHistoryIdx = debugger.GetFpsHistoryIdx();
         ctx.debugTab = &debugger.GetDebugTab();
         ctx.getFont = [&](const std::string& p){ return GetFont(p); };
+        ctx.scheduler = &m_engine.GetScheduler();
         debugger.DrawOverlay(ctx);
     }
 
@@ -274,12 +275,13 @@ void BitRenderer::HandleInput() {
 
     if (m_engine.IsDebugOverlayVisible()) {
         auto& tab = m_engine.GetDebugger().GetDebugTab();
-        if (IsKeyPressed(KEY_TAB))   tab = (tab + 1) % 5;
+        if (IsKeyPressed(KEY_TAB))   tab = (tab + 1) % 6;
         if (IsKeyPressed(KEY_ONE))   tab = 0;
         if (IsKeyPressed(KEY_TWO))   tab = 1;
         if (IsKeyPressed(KEY_THREE)) tab = 2;
         if (IsKeyPressed(KEY_FOUR))  tab = 3;
         if (IsKeyPressed(KEY_FIVE))  tab = 4;
+        if (IsKeyPressed(KEY_SIX))   tab = 5;
     }
 
     if (m_showHistory) {

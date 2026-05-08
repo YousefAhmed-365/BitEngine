@@ -7,6 +7,8 @@
 #include <functional>
 #include "raylib.h"
 #include "BitOp.hpp"
+#include "BitTask.hpp"
+#include "BitScheduler.hpp"
 
 struct LogEntry {
     std::string message;
@@ -28,6 +30,7 @@ struct DebugDrawContext {
     int fpsHistoryIdx;
     int* debugTab;
     std::function<Font(const std::string&)> getFont;
+    BitScheduler* scheduler;  // live task graph for SCHED tab
 };
 
 class BitDebugger {

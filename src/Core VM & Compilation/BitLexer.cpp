@@ -106,7 +106,7 @@ bool BitLexer::IsKeyword(const std::string& s) {
         "bg", "bgm", "sfx", "ui", "halt", "return", "call", "local", "wait", "shake",
         "delay", "expression", "hide", "pos", "clear", "random", "fade", "move",
         "fade_screen", "narration", "alias", "timeline", "play", "leave",
-        "event", "emit"
+        "event", "emit", "parallel", "await", "play_sequence"
     };
     return std::find(keywords.begin(), keywords.end(), s) != keywords.end();
 }

@@ -171,13 +171,11 @@ void BitParser::ParseStatement() {
     }
     else if (match(TokenType::Keyword, "shake")) {
         Operand intensity = ParseExpression();
-        bool wait = match(TokenType::Keyword, "wait");
         expect(TokenType::Symbol, ";");
         nlohmann::json j; j["op"] = "shake"; 
         if (intensity.isRef) j["intensity"] = "@" + intensity.val;
         else try { j["intensity"] = std::stof(intensity.val); } catch(...) { j["intensity"] = 5.0f; }
         emit(BitOp::EVENT, {"shake"}, j);
-        if (wait) emit(BitOp::WAIT_ACTION, {"all"});
     }
     else if (match(TokenType::Keyword, "delay")) {
         Operand dur = ParseExpression();
@@ -249,14 +247,12 @@ void BitParser::ParseStatement() {
         }
 
         Operand dur = ParseCinematicArg();
-        bool wait = match(TokenType::Keyword, "wait");
         expect(TokenType::Symbol, ";");
 
         if (dur.isRef) j["duration"] = "@" + dur.val;
         else j["duration"] = ParseTime(dur.val);
 
         emit(BitOp::EVENT, {"fade"}, j);
-        if (wait) emit(BitOp::WAIT_ACTION, {"fade"});
     }
     else if (match(TokenType::Keyword, "move")) {
         std::string target = ParseAssetId();
@@ -269,7 +265,6 @@ void BitParser::ParseStatement() {
             x = ParseCinematicArg();
         }
         Operand dur = ParseCinematicArg();
-        bool wait = match(TokenType::Keyword, "wait");
         expect(TokenType::Symbol, ";");
 
         nlohmann::json j; j["op"] = "move"; j["target"] = target;
@@ -278,12 +273,10 @@ void BitParser::ParseStatement() {
         else j["duration"] = ParseTime(dur.val);
 
         emit(BitOp::EVENT, {"move"}, j);
-        if (wait) emit(BitOp::WAIT_ACTION, {"move"});
     }
     else if (match(TokenType::Keyword, "fade_screen")) {
         Operand alpha = ParseCinematicArg();
         Operand dur   = ParseCinematicArg();
-        bool wait = match(TokenType::Keyword, "wait");
         expect(TokenType::Symbol, ";");
 
         nlohmann::json j; j["op"] = "fade_screen";
@@ -293,7 +286,6 @@ void BitParser::ParseStatement() {
         else j["duration"] = ParseTime(dur.val);
 
         emit(BitOp::EVENT, {"fade_screen"}, j);
-        if (wait) emit(BitOp::WAIT_ACTION, {"fade"});
     }
     else if (match(TokenType::Keyword, "bg")) {
         // bg id [fade = 1s]; or bg {var};
@@ -344,7 +336,9 @@ void BitParser::ParseStatement() {
             expect(TokenType::Symbol, ";");
             emit(BitOp::WAIT_EVENT, {target});
         } else {
-            consume();
+            std::string tag = consume().value;
+            expect(TokenType::Symbol, ";");
+            emit(BitOp::WAIT_ACTION, {tag});
         }
     }
     else if (match(TokenType::Keyword, "jump")) {
@@ -378,10 +372,37 @@ void BitParser::ParseStatement() {
         } else {
             tid = consume().value;
         }
-        std::string wait = "false";
-        if (match(TokenType::Keyword, "wait")) wait = "true";
         expect(TokenType::Symbol, ";");
-        emit(BitOp::PLAY_TIMELINE, {tid, wait});
+        emit(BitOp::PLAY_TIMELINE, {tid, "false"});
+    }
+    else if (match(TokenType::Keyword, "parallel")) {
+        // parallel { cmd; cmd; } — emits all enclosed commands then waits for all
+        expect(TokenType::Symbol, "{");
+        while (peek().type != TokenType::EndOfFile && peek().value != "}") {
+            ParseStatement();
+        }
+        expect(TokenType::Symbol, "}");
+        match(TokenType::Symbol, ";");
+        // Wait for everything spawned inside the block to finish
+        emit(BitOp::WAIT_ACTION, {"all"});
+    }
+    else if (match(TokenType::Keyword, "await")) {
+        // await <cinematic_cmd> ... ; — like the command followed by an implicit wait
+        // We emit the command by parsing it as a normal statement, then add the wait.
+        // Determine what command follows to pick the right wait tag.
+        std::string cmd = peek().value;
+        ParseStatement();
+        if      (cmd == "move")        emit(BitOp::WAIT_ACTION, {"move"});
+        else if (cmd == "fade" || cmd == "fade_screen") emit(BitOp::WAIT_ACTION, {"fade"});
+        else if (cmd == "shake")       emit(BitOp::WAIT_ACTION, {"all"});
+        else if (cmd == "delay")       emit(BitOp::WAIT_ACTION, {"delay"});
+        else                           emit(BitOp::WAIT_ACTION, {"all"});
+    }
+    else if (match(TokenType::Keyword, "play_sequence")) {
+        // play_sequence <timeline_id>; — fires timeline non-blocking
+        std::string tid = consume().value;
+        expect(TokenType::Symbol, ";");
+        emit(BitOp::PLAY_TIMELINE, {tid, "false"});
     }
     else if (match(TokenType::Keyword, "if")) {
         ParseIfStatement();
@@ -412,7 +433,7 @@ void BitParser::ParseAssignment(const std::string& var, bool isLocal) {
         emit(bop, {var, right.val});
         return;
     }
-    // var op= var (legacy: var = var + val)
+    // var = var op val
     if (peek().type == TokenType::Identifier && peek().value == var &&
         (peekNext().value == "+" || peekNext().value == "-" || peekNext().value == "*" || peekNext().value == "/")) {
         consume();
@@ -508,6 +529,11 @@ void BitParser::ParseDialogueBlock(const std::string& entityId) {
         // .cmd or .alias inside entity block
         if (peek().value == ".") {
             consume(); // .
+            bool isAwaiting = false;
+            if (peek().value == "await") {
+                consume();
+                isAwaiting = true;
+            }
             std::string cmd = consume().value;
 
             // cinematic commands scoped to this entity
@@ -520,20 +546,18 @@ void BitParser::ParseDialogueBlock(const std::string& entityId) {
                     x = ParseCinematicArg();
                 }
                 Operand dur = ParseCinematicArg();
-                bool wait = match(TokenType::Keyword, "wait");
                 expect(TokenType::Symbol, ";");
                 nlohmann::json j; j["op"] = "move"; j["target"] = entityId;
                 j["x"] = x.val;
                 if (dur.isRef) j["duration"] = "@" + dur.val;
                 else j["duration"] = ParseTime(dur.val);
                 emit(BitOp::EVENT, {"move"}, j);
-                if (wait) emit(BitOp::WAIT_ACTION, {"move"});
+                if (isAwaiting) emit(BitOp::WAIT_ACTION, {"move"});
                 continue;
             }
             if (cmd == "fade") {
                 Operand alpha = ParseCinematicArg();
                 Operand dur   = ParseCinematicArg();
-                bool wait = match(TokenType::Keyword, "wait");
                 expect(TokenType::Symbol, ";");
                 nlohmann::json j; j["op"] = "fade"; j["target"] = entityId;
                 if (alpha.isRef) j["alpha"] = "@" + alpha.val;
@@ -541,7 +565,7 @@ void BitParser::ParseDialogueBlock(const std::string& entityId) {
                 if (dur.isRef) j["duration"] = "@" + dur.val;
                 else j["duration"] = ParseTime(dur.val);
                 emit(BitOp::EVENT, {"fade"}, j);
-                if (wait) emit(BitOp::WAIT_ACTION, {"fade"});
+                if (isAwaiting) emit(BitOp::WAIT_ACTION, {"fade"});
                 continue;
             }
 

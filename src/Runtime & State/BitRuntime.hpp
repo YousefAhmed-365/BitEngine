@@ -7,6 +7,7 @@
 #include "BitVM.hpp"
 #include "BitState.hpp"
 #include "BitDebugger.hpp"
+#include "BitScheduler.hpp"
 #include <string>
 #include <unordered_map>
 #include <map>
@@ -205,6 +206,7 @@ public:
     bool IsDebugOverlayVisible() const { return m_debugOverlayVisible; }
     void ToggleDebugOverlay() { m_debugOverlayVisible = !m_debugOverlayVisible; }
     void SetDebugOverlayVisible(bool visible) { m_debugOverlayVisible = visible; }
+    BitScheduler& GetScheduler() { return m_scheduler; }
     std::string GetCurrentLabel() const;
 
     // Global Asset Retrieval
@@ -238,7 +240,7 @@ public:
     bool IsChoiceVisible() const { return !m_visibleOptions.empty(); }
 
     // Delay State
-    bool IsEventDelaying() const { return m_engineDelayTimer > 0.0f; }
+    bool IsEventDelaying() const { return m_scheduler.HasActiveTasks(TAG_DELAY); }
     bool IsVisualAnimating() const;
 
     // Narrative Effects State
@@ -268,7 +270,7 @@ public:
     // v0.2 Debug Getters
     const std::vector<int>& GetCallStack() const { return m_vm->GetCallStack(); }
     const std::vector<std::unordered_map<std::string, int>>& GetLocalScopes() const { return m_vm->GetLocalScopes(); }
-    std::string GetWaitActionType() const { return m_vm->IsWaiting() ? "waiting" : "running"; }
+    std::string GetWaitActionType() const { return m_vm->GetWaitActionType(); }
 
     // Accessors for VM/State (Internal use)
     BitState& GetState() { return m_state; }
@@ -290,7 +292,6 @@ private:
     std::vector<RichChar> m_cachedParsedContent;
     size_t m_cachedTotalChars = 0;
 
-    float m_engineDelayTimer = 0.0f;
     std::string m_pendingJumpId = "";
     std::vector<std::string> m_pendingSFX;
     std::string m_waitingForEventId = "";
@@ -311,6 +312,7 @@ private:
     float m_hotReloadTimer = 0.0f;
     
     BitDebugger m_debugger;
+    BitScheduler m_scheduler;
 
     void CheckHotReload();
 

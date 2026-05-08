@@ -1,0 +1,66 @@
+# Scheduler & Parallel Syntax Test Script
+
+timeline test_sequence {
+    0ms: {
+        fade akira 1.0 500ms;
+        move akira 0.3 500ms;
+    }
+    600ms: {
+        fade kael 1.0 500ms;
+        move kael 0.7 500ms;
+    }
+    1200ms: {
+        shake 10.0;
+    }
+}
+
+scene init {
+    ui activate dialog_ui;
+    jump test_parallel;
+}
+
+scene test_parallel {
+    narration: "Testing Parallel Block... [font=dream]All actions should start together and block until done.[/font]";
+    
+    akira [sprite = "idle", pos = "left", alpha = 0.0];
+    kael [sprite = "idle", pos = "right", alpha = 0.0];
+
+    parallel {
+        fade akira 1.0 2s;
+        fade kael 1.0 2s;
+        move akira 0.4 1s;
+        move kael 0.6 1.5s;
+        fade_screen 0.5 2s;
+    }
+
+    narration: "Parallel block finished. Now testing await keyword.";
+
+    await fade_screen 0.0 1s;
+    
+    narration: "Testing sequential await calls...";
+    
+    await move akira 0.1 500ms;
+    await move kael 0.9 500ms;
+    await move akira 0.3 300ms;
+    await move kael 0.7 300ms;
+
+    narration: "Testing play_sequence (non-blocking timeline).";
+    
+    play_sequence test_sequence;
+    
+    narration: "The timeline is running in the background while I talk!";
+    narration: "Wait for it to finish manually using 'wait all'...";
+    
+    wait all;
+    
+    narration: "Everything should be still now. Testing mix of parallel and await.";
+    
+    parallel {
+        await move akira 0.5 1s;
+        narration: "This narration should appear AFTER akira moves because of internal await!";
+        move kael 0.5 1s;
+    }
+
+    narration: "Test complete. Returning to start.";
+    jump test_parallel;
+}

@@ -109,7 +109,12 @@ void BitVM::ExecuteInstruction(const BitInstruction& ins) {
                 if (ins.metadata.contains("pre_delay")) {
                     auto& pd = ins.metadata["pre_delay"];
                     float ms = pd.is_number() ? pd.get<float>() : (float)m_engine.SafeStoi(pd.get<std::string>());
-                    m_engine.m_engineDelayTimer = ms / 1000.0f;
+                    float dur = ms / 1000.0f;
+                    auto task = std::make_shared<DelayTask>(dur);
+                    task->SetOwner("__say_pre_delay");
+                    m_engine.GetScheduler().Schedule(task);
+                    m_isWaiting = true;
+                    m_waitingForActionType = "delay";
                 }
             }
 

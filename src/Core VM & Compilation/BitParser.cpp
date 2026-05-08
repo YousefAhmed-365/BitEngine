@@ -48,21 +48,7 @@ void BitParser::emit(BitOp op, std::vector<std::string> args, nlohmann::json met
 
 void BitParser::Parse() {
     while (peek().type != TokenType::EndOfFile) {
-        if (match(TokenType::Keyword, "config") || match(TokenType::Keyword, "assets") || match(TokenType::Keyword, "entities")) {
-            std::string err = "Parse error line " + std::to_string(previous().line) + 
-                              ": Legacy configuration blocks ('config', 'assets', 'entities') are no longer supported. Please use project.json and the entities/ folder.";
-            p.parseErrors.push_back(err);
-            // Try to skip block
-            if (match(TokenType::Symbol, "{")) {
-                int depth = 1;
-                while (peek().type != TokenType::EndOfFile && depth > 0) {
-                    if (peek().value == "{") depth++;
-                    else if (peek().value == "}") depth--;
-                    consume();
-                }
-            }
-        }
-        else if (match(TokenType::Keyword, "var")) ParseVariable();
+        if (match(TokenType::Keyword, "var")) ParseVariable();
         else if (match(TokenType::Keyword, "scene")) ParseScene();
         else if (match(TokenType::Keyword, "timeline")) ParseTimeline();
         else if (match(TokenType::Keyword, "event")) ParseEvent();

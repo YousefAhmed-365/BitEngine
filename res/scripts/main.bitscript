@@ -19,12 +19,12 @@ scene init {
 scene start {
     ui hide;
     bgm neon_noir;
-    play timeline intro_sequence wait;
+    await play timeline intro_sequence;
 
     call sync_uplink(1);
 
     akira [sprite = "serious", pos = "left", alpha = 0.0];
-    fade akira 1.0 1s wait;
+    await fade akira 1.0 10s;
     akira.angry: "Kael! Stay back! Something is [font=dream]wrong[/font] with the uplink.";
 
     kael [sprite = "idle", pos = "right", alpha = 0.0];
@@ -32,7 +32,7 @@ scene start {
     kael: "I can feel it too... it's like a [color=#ff00ff]glitch[/color] in the air.";
 
     move akira 0.5 500ms;
-    move kael 0.9 400ms wait;
+    await move kael 0.9 400ms;
 
     akira.calm: "Wait, I'm detecting a signature nearby. Let's move in.";
 
@@ -47,8 +47,8 @@ scene market {
     akira [sprite = "idle", pos = "left", alpha = 0.0];
 
     akira {
-        .fade 1.0 500ms wait; // Entity block cinematic expansion
-        .move center 500ms wait;
+        .await fade 1.0 500ms; // Entity block cinematic expansion
+        .await move center 500ms;
         "The market is unusually quiet today. [font=dream]Eerily quiet.[/font]";
         .serious: "What's our next move?";
     }
@@ -109,14 +109,14 @@ scene sync_uplink(v) {
 
 scene change_district {
     fade akira 0.0 1s;
-    fade kael 0.0 1s wait;
+    await fade kael 0.0 1s;
 
     leave akira;
     leave kael;
 
     ui hide;
-    fade_screen 1.0 1s wait;
-    fade_screen 0.0 1s wait;
+    await fade_screen 1.0 1s;
+    await fade_screen 0.0 1s;
     ui show;
 
     narration: "Moving to the next district...";

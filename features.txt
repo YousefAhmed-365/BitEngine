@@ -25,7 +25,9 @@ A. BITSCRIPT LANGUAGE FEATURES
       - `fade_screen <alpha> <duration> [wait];` (Manual full-screen opacity control).
       - `fade <entity_id> <alpha> <duration> [wait];` (Smooth per-entity opacity interpolation).
       - `ui <show/hide/activate/deactivate/set> ...;` (Unified global visibility and layout control).
-      - `wait <move/fade/all/sfx/timeline>;` (Explicitly pause VM until visual/audio actions finish).
+      - `await <cmd>;` (Modern prefix for blocking on specific cinematic actions).
+      - `parallel { ... };` (Group multiple commands to execute simultaneously and block until all finish).
+      - `wait <move/fade/delay/all/timeline>;` (Standalone command to pause VM until specific task tags finish).
     - Narrative Stack: Sub-routine support with parameter passing.
       - `call <scene_id>(args);` - Jump to scene, push return address, and inject arguments as locals.
       - `return;` - Pop from stack, clear locals, and return to caller.
@@ -52,6 +54,7 @@ B. NATIVE VIRTUAL MACHINE (VM)
     - Error Handling: Runtime validation for missing labels, variables, or entities.
     - Input Decoupling: UI interaction is now completely decoupled from narrative input lockouts. 
       Buttons and UI elements remain responsive even when the narrative is "waiting" or revealing text.
+    - Deterministic Scheduling: Transitioned from polling-based animation to a task-driven BitScheduler.
 
 --------------------------------------------------------------------------------
 2. RICH TEXT RENDERING SYSTEM
@@ -118,6 +121,13 @@ B. CINEMATIC COMMANDS
    - `fade`: Linear opacity interpolation for characters (0.0 to 1.0) and backgrounds.
    - `fade_screen`: Full-screen cinematic color overlays with precise linear alpha interpolation.
    - `shake`: Procedural camera/UI jitter with intensity control.
+   - `delay`: Scheduler-based pause (now visible in the task debugger).
+
+D. BITSCHEDULER ASYNC ARCHITECTURE
+   - Task-Based Execution: All cinematic operations (MOVE, FADE, SHAKE, DELAY) are encapsulated as discrete tasks.
+   - Multi-Tag System: Tasks can carry multiple tags for fine-grained synchronization (e.g., `wait move;` only waits for movement tasks).
+   - Sub-Pixel Accuracy: High-fidelity progress tracking for every active operation.
+   - Background Timelines: `play_sequence` allows timelines to run in the background while dialogue continues, until an explicit `wait all;` is called.
 
 C. DIRECT CINEMATIC CONTROL
    - Pure explicit cinematic flow powered by manual `fade_screen` replacing all automated/rigid transition mechanics.
@@ -150,12 +160,13 @@ B. HOT-RELOADING
     - Instant live-updates to UI layouts (`ui/`) and entity properties (`entities/`) when their JSON source files are modified during gameplay, enabling seamless rapid iteration.
 
 C. UNIFIED DEBUG OVERLAY (F3)
-    Modernized 5-tab diagnostic dashboard providing deep visibility into engine internals.
-    - DASH (Dashboard): Real-time performance monitor with 100-frame FPS history graph, engine health indicators, and high-level cinematic state (BGM, Backgrounds).
-    - EXEC (Execution): Bytecode inspector with real-time PC tracking, call stack visualization, and a chronological event trace (variable changes, branch decisions).
+    Premium, sharp-edged diagnostic dashboard providing deep visibility into engine internals.
+    - DASH (Dashboard): Real-time performance monitor with 100-frame FPS history graph, engine health indicators, and high-level cinematic state.
+    - EXEC (Execution): Bytecode inspector with real-time PC tracking, call stack visualization, and a chronological event trace.
     - STATE (State): Real-time monitor for all global variables and active scene entities (including sub-pixel position, alpha, and expression state).
-    - ASSETS (Assets & UI): Live cache audit for textures, fonts, and audio streams. Visualizes UI layer hierarchy, visibility flags, and layout resolve status.
-    - LOGS (Logs): Dedicated engine console log with high-fidelity diagnostic capture, including asset loading status, script warnings, and UI layout errors.
+    - ASSETS (Assets & UI): Live cache audit for textures, fonts, and audio streams. Visualizes UI layer hierarchy and layout status.
+    - LOGS (Logs): Dedicated engine console log with high-fidelity diagnostic capture and error categorization.
+    - SCHED (Scheduler): Real-time task graph visualizer showing all active background operations, per-task progress bars, and current VM execution status (WAITING/RUNNING).
 
 D. BITDEBUGGER MODULE
     - Modular Architecture: Debug state and drawing logic fully encapsulated in the `BitDebugger` class, decoupled from the core rendering pipeline.

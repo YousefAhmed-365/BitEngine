@@ -34,6 +34,7 @@ public:
     bool IsWaiting() const { return m_isWaiting; }
     bool IsDelayed() const { return m_isDelayed; }
     void ResetWaiting() { m_isWaiting = false; m_isDelayed = false; m_waitingForActionType = ""; }
+    void SetWaiting(const std::string& type) { m_isWaiting = true; m_waitingForActionType = type; }
     
     // Variable Access
     int GetVariable(const std::string& name) const;
