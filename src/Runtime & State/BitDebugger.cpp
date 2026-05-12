@@ -150,15 +150,52 @@ void BitDebugger::DrawOverlay(const DebugDrawContext& ctx) {
             std::string opStr = "OP_UNK";
             Color opCol = WHITE;
             switch(ins.op) {
-                case BitOp::SAY: opStr = "SAY"; opCol = SKYBLUE; break;
-                case BitOp::TEXT: opStr = "TEXT"; opCol = RAYWHITE; break;
-                case BitOp::CHOICE: opStr = "CHOICE"; opCol = GOLD; break;
-                case BitOp::IF: opStr = "IF"; opCol = ORANGE; break;
-                case BitOp::GOTO: opStr = "GOTO"; opCol = VIOLET; break;
-                case BitOp::SET: opStr = "SET"; opCol = LIME; break;
-                case BitOp::ADD: opStr = "ADD"; opCol = LIME; break;
-                case BitOp::CALL: opStr = "CALL"; opCol = PINK; break;
-                case BitOp::RETURN: opStr = "RET"; opCol = PINK; break;
+                case BitOp::SAY:           opStr = "SAY";      opCol = SKYBLUE; break;
+                case BitOp::TEXT:          opStr = "TEXT";     opCol = RAYWHITE; break;
+                case BitOp::CHOICE:        opStr = "CHOICE";   opCol = GOLD; break;
+                
+                case BitOp::IF:            opStr = "IF";       opCol = ORANGE; break;
+                case BitOp::IF_REF:        opStr = "IF_REF";   opCol = ORANGE; break;
+                case BitOp::GOTO:          opStr = "GOTO";     opCol = VIOLET; break;
+                case BitOp::LABEL:         opStr = "LABEL";    opCol = DARKPURPLE; break;
+                case BitOp::CALL:          opStr = "CALL";     opCol = PINK; break;
+                case BitOp::RETURN:        opStr = "RET";      opCol = PINK; break;
+                
+                case BitOp::SET:           opStr = "SET";      opCol = LIME; break;
+                case BitOp::SET_REF:       opStr = "SET_REF";  opCol = LIME; break;
+                case BitOp::ADD:           opStr = "ADD";      opCol = LIME; break;
+                case BitOp::ADD_REF:       opStr = "ADD_REF";  opCol = LIME; break;
+                case BitOp::SUB:           opStr = "SUB";      opCol = LIME; break;
+                case BitOp::SUB_REF:       opStr = "SUB_REF";  opCol = LIME; break;
+                case BitOp::MUL:           opStr = "MUL";      opCol = LIME; break;
+                case BitOp::MUL_REF:       opStr = "MUL_REF";  opCol = LIME; break;
+                case BitOp::DIV:           opStr = "DIV";      opCol = LIME; break;
+                case BitOp::DIV_REF:       opStr = "DIV_REF";  opCol = LIME; break;
+                case BitOp::SET_LOCAL:     opStr = "SET_LOC";  opCol = GREEN; break;
+                case BitOp::SET_LOCAL_REF: opStr = "LOC_REF";  opCol = GREEN; break;
+                case BitOp::SET_STR:       opStr = "SET_STR";  opCol = DARKGREEN; break;
+                case BitOp::SET_STR_LOCAL: opStr = "STR_LOC";  opCol = DARKGREEN; break;
+                
+                case BitOp::BG:            opStr = "BG";       opCol = BLUE; break;
+                case BitOp::BGM:           opStr = "BGM";      opCol = DARKBLUE; break;
+                case BitOp::SFX:           opStr = "SFX";      opCol = PURPLE; break;
+                case BitOp::TRANSITION:    opStr = "TRANS";    opCol = MAGENTA; break;
+                
+                case BitOp::UI_VISIBLE:    opStr = "UI_VIS";   opCol = YELLOW; break;
+                case BitOp::UI_LOAD:       opStr = "UI_LOAD";  opCol = YELLOW; break;
+                case BitOp::UI_UNLOAD:     opStr = "UI_UNLD";  opCol = YELLOW; break;
+                case BitOp::UI_ACTIVATE:   opStr = "UI_ACT";   opCol = GOLD; break;
+                case BitOp::UI_DEACTIVATE: opStr = "UI_DACT";  opCol = GOLD; break;
+                case BitOp::UI_SET:        opStr = "UI_SET";   opCol = GOLD; break;
+                
+                case BitOp::EVENT:         opStr = "EVENT";    opCol = ORANGE; break;
+                case BitOp::EMIT:          opStr = "EMIT";     opCol = RED; break;
+                case BitOp::WAIT_EVENT:    // fallthrough
+                case BitOp::WAIT_INPUT:    opStr = "WAIT";     opCol = PINK; break;
+                case BitOp::WAIT_ACTION:   opStr = "SYNC";     opCol = PINK; break;
+                case BitOp::PLAY_TIMELINE: opStr = "TLINE";    opCol = MAROON; break;
+                
+                case BitOp::HALT:          opStr = "HALT";     opCol = RED; break;
                 default: break;
             }
             DrawText(opStr.c_str(), (int)bcRec.x + 50, bcy, 10, opCol);

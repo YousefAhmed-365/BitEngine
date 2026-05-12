@@ -26,7 +26,7 @@
     },
     "runtime": {
         "scripts": [
-            "scripts/scheduler_test.bitscript"
+            "scripts/main.bitscript"
         ],
         "start_scene": "init",
         "debug_mode": "none",

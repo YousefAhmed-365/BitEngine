@@ -24,7 +24,7 @@ scene start {
     call sync_uplink(1);
 
     akira [sprite = "serious", pos = "left", alpha = 0.0];
-    await fade akira 1.0 10s;
+    await fade akira 1.0 1s;
     akira.angry: "Kael! Stay back! Something is [font=dream]wrong[/font] with the uplink.";
 
     kael [sprite = "idle", pos = "right", alpha = 0.0];
